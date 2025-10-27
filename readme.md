@@ -1,82 +1,209 @@
-# MeshCentral
+<div align="center">
+  <picture>
+    <!-- Dark theme -->
+    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/flamingo-stack/openframe-oss-tenant/blob/d82f21ba18735dac29eb0f3be5d3edf661bb0060/docs/assets/logo-openframe-full-dark-bg.png">
+    <!-- Light theme -->
+    <source media="(prefers-color-scheme: light)" srcset="https://github.com/flamingo-stack/openframe-oss-tenant/blob/d82f21ba18735dac29eb0f3be5d3edf661bb0060/docs/assets/logo-openframe-full-light-bg.png">
+    <!-- Default / fallback -->
+    <img alt="OpenFrame Logo" src="docs/assets/logo-openframe-full-light-bg.png" width="400">
+  </picture>
 
-## Table of Contents
+  <h1>MeshCentral</h1>
 
-[About](#about)
-[Social Media](#social-media)
-[Documentation](#documentation)
-[Video Tutorials](#video-tutorials)
-[Community Meetings](#community-meetings)
-[Feedback](#feedback)
-[Unofficial Chatrooms](#unofficial-chatrooms)
-[Archive PDFs](#archive-pdfs)
-[License](#license)
+  <p><b>Web-based remote monitoring & management that integrates with OpenFrame — remote desktop, terminal access, file transfer, and device control across Windows, macOS, and Linux.</b></p>
 
-## About
-MeshCentral is a full computer management web site. With MeshCentral, you can run your own web server to remotely manage and control computers on a local network or anywhere on the internet. Once you get the server started, create device group and download and install an agent on each computer you want to manage. A minute later, the new computer will show up on the web site and you can take control of it. MeshCentral includes full web-based remote desktop, terminal and file management capability.
+  <p>
+    <a href="LICENSE.md">
+      <img alt="License"
+           src="https://img.shields.io/badge/LICENSE-FLAMINGO%20AI%20Unified%20v1.0-%23FFC109?style=for-the-badge&labelColor=white">
+    </a>
+    <a href="https://www.flamingo.run/knowledge-base">
+      <img alt="Docs"
+           src="https://img.shields.io/badge/DOCS-flamingo.run-%23FFC109?style=for-the-badge&labelColor=white">
+    </a>
+    <a href="https://www.openmsp.ai/">
+      <img alt="Community"
+           src="https://img.shields.io/badge/COMMUNITY-openmsp.ai-%23FFC109?style=for-the-badge&labelColor=white">
+    </a>
+  </p>
+</div>
 
-For more information, [visit MeshCentral.com](https://meshcentral.com).
+---
 
-## Social Media
-[YouTube](https://www.youtube.com/channel/UCJWz607A8EVlkilzcrb-GKg/videos)
-[Reddit](https://www.reddit.com/r/MeshCentral/)
-[BlogSpot](https://meshcentral2.blogspot.com/)
-[LinkedIn](https://www.linkedin.com/groups/13067101/)
+## Quick Links
+- [Highlights](#highlights)
+- [Quick Start](#quick-start)
+  - [Prerequisites](#prerequisites)
+  - [OpenFrame Integration](#openframe-integration)
+  - [Architecture](#architecture)
+- [Security](#security)
+- [Contributing](#contributing)
+- [License](#license)
 
-## Documentation
-[New Searchable Documentation](https://ylianst.github.io/MeshCentral/) is available here and contains information every administrator should know including usage, the server configuration file, databases, TLS offloading, Let's Encrypt, IP Filtering, Email setup, embedding, server port aliasing, reverse proxy setup, multi factor authentication, branding & terms of use, HashiCorp Vault support, and SSO.
+---
 
-The [Design and Architecture Guide](https://meshcentral.com/docs/MeshCentral2DesignArchitecture.pdf) is a short document that includes information on the design overview, dependencies, source code descriptions of each file, certificates, TLS security, the agent to server handshake, browser to agent relay and WebRTC and the messenger service.
+## Highlights
 
-## Video Tutorials
-You can watch many tutorial videos on the [MeshCentral YouTube Channel](https://www.youtube.com/channel/UCJWz607A8EVlkilzcrb-GKg/videos). Two videos to get started involve installation and basic usages.
+- Remote desktop, terminal, and file management via web interface
+- Cross-platform agent support (Windows, macOS, Linux)
+- Intel AMT support for out-of-band management
+- WebRTC-based peer-to-peer connectivity
+- Multi-user collaboration and session sharing
+- Device grouping and access control policies
+- Extensible with plugins and automation scripts
+- Integrations: OpenFrame Gateway, Stream (Kafka), Analytics (Pinot), Auth (OIDC/JWT)
+- API-first (REST/WebSocket), web console (operator UI)
 
-Installing MeshCentral on Windows, Linux and macOS.  
-[![MeshCentral - Installation](https://img.youtube.com/vi/GsQbWZmRRAU/mqdefault.jpg)](https://www.youtube.com/watch?v=GsQbWZmRRAU)
+---
 
-Basic Usages including installing the agent and remote desktop, terminal and file access.  
-[![MeshCentral - Basics](https://img.youtube.com/vi/D9Q7M7PdTg0/mqdefault.jpg)](https://www.youtube.com/watch?v=D9Q7M7PdTg0)
+## Quick Start
 
-MeshCentral support for two-factor authentication.  
-[![MeshCentral - Two Factor Authentication](https://img.youtube.com/vi/luLZKcma9l0/mqdefault.jpg)](https://www.youtube.com/watch?v=luLZKcma9l0)
+### Prerequisites
 
-How to setup MeshCentral with the NGINX reverse proxy.  
-[![MeshCentral - NGINX Reverse Proxy](https://img.youtube.com/vi/YSmiLyKSX2I/mqdefault.jpg)](https://www.youtube.com/watch?v=YSmiLyKSX2I)
+**For OpenFrame Integration:**
+- Kubernetes cluster with kubectl
+- Telepresence (for local access to services)
 
-Installing and using the MeshCentral Android agent.  
-[![MeshCentral - Android](https://img.youtube.com/vi/wi1HYdW00Bk/mqdefault.jpg)](https://www.youtube.com/watch?v=wi1HYdW00Bk)
+---
 
-Using MeshCentral Router to port map TCP connections.  
-[![MeshCentral - Basics](https://img.youtube.com/vi/BubeVRmbCRM/mqdefault.jpg)](https://www.youtube.com/watch?v=BubeVRmbCRM)
+### OpenFrame Integration
 
-## Community Meetings
-Join our monthly community meetings to stay updated with the latest MeshCentral developments, ask questions, and connect with other users and developers.
+MeshCentral is integrated into OpenFrame for remote device access and management.
 
-- [Watch past meeting recordings](https://videos.evoludata.com/w/p/tUnLpw6z1LCASuATa7wnCo)
-- [Learn more about our monthly meetings](https://github.com/Ylianst/MeshCentral/wiki/Community-Monthly-Meetings)
+---
 
-## Feedback
-If you encounter a problem or have a suggestion to improve the product, you may file an [issue report](https://github.com/Ylianst/MeshCentral/issues/)
+### Architecture
 
-If you are filing a problem report, you should include:
-* The version of the software you are using
-* The operating system and version
-* The observed output
-* The expected output
-* Any troubleshooting you took to resolve the issue yourself
-* Any other similar reports
+MeshCentral runs as a service in OpenFrame and connects to endpoint agents via Gateway. Session events flow into Stream and Analytics for monitoring and audit.
 
-If you are having issues with the following other products, you should file a report on their respective issue pages
-[MeshAgent](https://github.com/Ylianst/MeshAgent/issues)
-[MeshRouter](https://github.com/Ylianst/MeshCentralRouter/issues)
+```mermaid
+flowchart LR
 
-## Unofficial chatrooms
-- Discord Server: https://discord.gg/8wHC6ASWAc
-- Telegram Channel: https://t.me/meshcentral
+    A[Agent] <--commands/sessions--> G[OpenFrame Gateway]
 
-## Archive PDFs
-[User's Guide](https://meshcentral.com/docs/MeshCentral2UserGuide.pdf)
-[Installation Guide](https://meshcentral.com/docs/MeshCentral2InstallGuide.pdf)
+    subgraph OpenFrame
+      G --> API[(MeshCentral Service API)]
+      API --> DB[(DB: devices, users, sessions)]
+      DB --> S[Stream]
+      S --> K[(Kafka)]
+      K --> C[(Cassandra)]
+      K --> P[(Pinot Analytics)]
+    end
+
+    style A fill:#FFC109,stroke:#1A1A1A,color:#FAFAFA
+    style G fill:#666666,stroke:#1A1A1A,color:#FAFAFA
+    style API fill:#212121,stroke:#1A1A1A,color:#FAFAFA
+```
+
+#### Deployment
+
+MeshCentral is deployed automatically as part of OpenFrame via ArgoCD app-of-apps pattern:
+
+```yaml
+# manifests/apps/values.yaml
+apps:
+  meshcentral:
+    enabled: true
+    project: integrated-tools
+    namespace: integrated-tools
+    syncWave: "3"  # Deployed after microservices
+```
+
+**Access MeshCentral UI:**
+```bash
+# Connect to integrated-tools namespace
+telepresence connect --namespace integrated-tools
+
+# MeshCentral UI will be available at:
+# https://meshcentral.integrated-tools.svc.cluster.local:8383
+```
+
+**For standalone MeshCentral deployment** (not recommended - registration job will fail):
+```bash
+helm install meshcentral ./manifests/integrated-tools/meshcentral
+```
+
+#### Integration Features
+
+**Auto-initialization:**
+- Creates default admin user
+- Sets up device groups and policies
+- Generates API keys for integration
+- Persists credentials at `/opt/meshcentral/data/credentials.json`
+- Registers as integrated tool in OpenFrame
+
+**Configuration** is managed via Helm chart at `manifests/integrated-tools/meshcentral/`.
+
+---
+
+#### Troubleshooting
+
+**Check deployment status:**
+```bash
+kubectl get pods -n integrated-tools -l app=meshcentral
+kubectl logs -f meshcentral-0 -n integrated-tools
+```
+
+**Access MeshCentral services via Telepresence:**
+```bash
+# Connect to cluster
+telepresence connect --namespace integrated-tools
+
+# Access MeshCentral UI directly
+open https://meshcentral.integrated-tools.svc.cluster.local:8383
+
+# Access MongoDB for debugging
+mongo meshcentral-mongodb.integrated-tools.svc.cluster.local/meshcentral
+```
+
+**Get API credentials manually:**
+```bash
+kubectl exec -it meshcentral-0 -n integrated-tools -- \
+  cat /opt/meshcentral/data/credentials.json
+```
+
+For complete documentation:
+- [MeshCentral Official Docs](https://ylianst.github.io/MeshCentral/)
+- [MeshCentral User Guide](https://meshcentral.com/docs/MeshCentral2UserGuide.pdf)
+
+## Security
+
+- TLS 1.2 enforced for all communication
+- JWT authentication via OpenFrame Gateway
+- Role-based access control (RBAC) for users and devices
+- Database encryption for secrets
+- Support for enrollment secrets or pre-shared keys
+
+Found a vulnerability? Email security@flamingo.run instead of opening a public issue.
+
+## Contributing
+
+We welcome PRs! Please follow these guidelines:
+- Use branching strategy: `feature/...`, `bugfix/...`
+- Add descriptions to the **CHANGELOG**
+- Follow consistent Go code style (`go fmt`, linters)
+- Keep documentation updated in `docs/`
+
+---
 
 ## License
-This software is licensed under [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0).
+
+This project is licensed under the **Flamingo Unified License v1.0** ([LICENSE.md](LICENSE.md)).
+
+---
+
+<div align="center">
+  <table border="0" cellspacing="0" cellpadding="0">
+    <tr>
+      <td align="center">
+        Built with 💛 by the <a href="https://www.flamingo.run/about"><b>Flamingo</b></a> team
+      </td>
+      <td align="center">
+        <a href="https://www.flamingo.run">Website</a> •
+        <a href="https://www.flamingo.run/knowledge-base">Knowledge Base</a> •
+        <a href="https://www.linkedin.com/showcase/openframemsp/about/">LinkedIn</a> •
+        <a href="https://www.openmsp.ai/">Community</a>
+      </td>
+    </tr>
+  </table>
+</div>
