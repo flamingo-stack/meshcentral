@@ -80,7 +80,7 @@ RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
         nginx \
         spawn-fcgi \
         tzdata && \
-    rm -rf /var/cache/* /tmp/* /usr/share/man/ /usr/share/doc/ /var/log/* /var/spool/*
+    rm -rf /tmp/* /usr/share/man/ /usr/share/doc/ /var/log/* /var/spool/*
 
 # Optional: Pre-install libraries
 RUN --mount=type=cache,target=/root/.npm,sharing=locked \
