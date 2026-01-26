@@ -1,22 +1,49 @@
 services:
   meshcentral:
-    image: ghcr.io/ylianst/meshcentral:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        INCLUDE_MONGODB_TOOLS: "yes"
     environment:
-      - DYNAMIC_CONFIG=false # Show the option but disable it by default, for safety.
-      - HOSTNAME=myserver.domain.com # Set the hostname in the config.json
-      - ALLOW_NEW_ACCOUNTS=false # Disable creation of new accounts (except for the first user) in the config.json
-      - USE_MONGODB=true # Enable the Mongo connector in the config.json
-      - MONGO_URL=mongodb://username:password@mongodb:27017/meshcentral # Example MONGO_URL
+      # MeshCentral Configuration
+      - MESH_DIR=/opt/mesh
+      - MESH_USER=admin
+      - MESH_PASS=changeme
+      - MESH_DEVICE_GROUP=Default
+      - MESH_PORT=443
+      - MESH_EXTERNAL_PORT=443
+      - MESH_PROTOCOL=wss
+      - MESH_NGINX_HOST=localhost
+      - MESH_NGINX_NAT_HOST=localhost
+      - MESH_EXTERNAL_HOST=localhost
+      # MongoDB Configuration
+      - MONGO_HOST=mongodb
+      - MONGO_PORT=27017
+      - MONGO_INITDB_ROOT_USERNAME=meshcentral
+      - MONGO_INITDB_ROOT_PASSWORD=changeme
+      - MONGO_INITDB_DATABASE=meshcentral
+      # OpenFrame Mode (optional)
+      - OPENFRAME_MODE=false
+      - OPENFRAME_GATEWAY_URL=
     volumes:
-      - meshcentral-data:/opt/meshcentral/meshcentral-data
-      - meshcentral-files:/opt/meshcentral/meshcentral-files
-      - meshcentral-web:/opt/meshcentral/meshcentral-web
-      - meshcentral-backups:/opt/meshcentral/meshcentral-backups
+      - meshcentral-data:/opt/mesh
     ports:
       - "80:80"
       - "443:443"
+    depends_on:
+      - mongodb
+
+  mongodb:
+    image: mongo:7
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=meshcentral
+      - MONGO_INITDB_ROOT_PASSWORD=changeme
+      - MONGO_INITDB_DATABASE=meshcentral
+    volumes:
+      - mongodb-data:/data/db
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+
 volumes:
   meshcentral-data:
-  meshcentral-files:
-  meshcentral-web:
-  meshcentral-backups:
+  mongodb-data:
