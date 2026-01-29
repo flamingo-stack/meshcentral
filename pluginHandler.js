@@ -115,8 +115,15 @@ module.exports.pluginHandler = function (parent) {
             meshserver.send({ action: 'addplugin', url: Q('pluginurlinput').value});
         };
         obj.addPluginDlg = function() {
-            setDialogMode(2, "Plugin Download URL", 3, obj.addPluginEx, '<p><b>WARNING:</b> Downloading plugins may compromise server security. Only download from trusted sources.</p><input type=text id=pluginurlinput style=width:100% placeholder="https://" />'); 
-            focusTextBox('pluginurlinput');
+            if (typeof showModal === 'function') {
+                setDialogMode(2, "Plugin Download URL", 3, obj.addPluginEx, '<p><b>WARNING:</b> Downloading plugins may compromise server security. Only download from trusted sources.</p><input type=text id=pluginurlinput style=width:100% placeholder="https://" />');
+                showModal('xxAddAgentModal', 'idx_dlgOkButton', obj.addPluginEx);
+                focusTextBox('pluginurlinput');
+            } else {
+                // Fallback to setDialogMode for default.handlebars
+                setDialogMode(2, "Plugin Download URL", 3, obj.addPluginEx, '<p><b>WARNING:</b> Downloading plugins may compromise server security. Only download from trusted sources.</p><input type=text id=pluginurlinput style=width:100% placeholder="https://" />'); 
+                focusTextBox('pluginurlinput');
+            }
         };
         obj.refreshPluginHandler = function() {
             let st = document.createElement('script');
@@ -200,10 +207,12 @@ module.exports.pluginHandler = function (parent) {
     obj.deviceViewPanel = function () {
         var panel = {};
         for (var p in obj.plugins) {
-            if (typeof obj.plugins[p][hookName] == 'function') {
+            if (typeof obj.plugins[p].on_device_header === "function" && typeof obj.plugins[p].on_device_page === "function") {
                 try {
-                    panel[p].header = obj.plugins[p].on_device_header();
-                    panel[p].content = obj.plugins[p].on_device_page();
+                    panel[p] = {
+                        header: obj.plugins[p].on_device_header(),
+                        content: obj.plugins[p].on_device_page()
+                    };
                 } catch (e) {
                     console.log("Error occurred while getting plugin views " + p + ':' + ' (' + e + ')');
                 }
@@ -286,6 +295,36 @@ module.exports.pluginHandler = function (parent) {
         return true;
     }
 
+    obj.versionGreater = function(a, b) {
+        a = obj.versionToNumber(String(a).replace(/^v/, ''));
+        b = obj.versionToNumber(String(b).replace(/^v/, ''));
+        const partsA = a.split('.').map(Number);
+        const partsB = b.split('.').map(Number);
+        
+        for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+            const numA = partsA[i] || 0;
+            const numB = partsB[i] || 0;
+            if (numA > numB) return true;
+            if (numA < numB) return false;
+        }
+        return false;
+    };
+
+    obj.versionLower = function(a, b) {
+        a = obj.versionToNumber(String(a).replace(/^v/, ''));
+        b = obj.versionToNumber(String(b).replace(/^v/, ''));
+        const partsA = a.split('.').map(Number);
+        const partsB = b.split('.').map(Number);
+        
+        for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+            const numA = partsA[i] || 0;
+            const numB = partsB[i] || 0;
+            if (numA < numB) return true;
+            if (numA > numB) return false;
+        }
+        return false;
+    };
+
     obj.getPluginLatest = function () {
         return new Promise(function (resolve, reject) {
             parent.db.getPlugins(function (err, plugins) {
@@ -305,12 +344,11 @@ module.exports.pluginHandler = function (parent) {
                                 if (conf.configUrl == newconf.configUrl) curconf = conf;
                             });
                             if (curconf == null) reject("Some plugin configs could not be parsed");
-                            var s = require('semver');
                             latestRet.push({
                                 'id': curconf._id,
                                 'installedVersion': curconf.version,
                                 'version': newconf.version,
-                                'hasUpdate': s.gt(newconf.version, curconf.version),
+                                'hasUpdate': obj.versionGreater(newconf.version, curconf.version),
                                 'meshCentralCompat': obj.versionCompare(parent.currentVer, newconf.meshCentralCompat),
                                 'changelogUrl': curconf.changelogUrl,
                                 'status': curconf.status
@@ -355,10 +393,34 @@ module.exports.pluginHandler = function (parent) {
         parent.db.getPlugin(id, function (err, docs) {
             // the "id" would probably suffice, but is probably an sanitary issue, generate a random instead
             var randId = Math.random().toString(32).replace('0.', '');
-            var fileName = obj.parent.path.join(require('os').tmpdir(), 'Plugin_' + randId + '.zip');
+            var tmpDir = require('os').tmpdir();
+            var fileName = obj.parent.path.join(tmpDir, 'Plugin_' + randId + '.zip');
+            try {
+                obj.fs.accessSync(tmpDir, obj.fs.constants.W_OK);
+            } catch (e) {
+                var pluginTmpPath = obj.parent.path.join(obj.pluginPath, '_tmp');
+                if (!obj.fs.existsSync(pluginTmpPath)) {
+                    obj.fs.mkdirSync(pluginTmpPath, { recursive: true });
+                }
+                fileName = obj.parent.path.join(pluginTmpPath, 'Plugin_' + randId + '.zip');
+            }
             var plugin = docs[0];
             if (plugin.repository.type == 'git') {
-                const file = obj.fs.createWriteStream(fileName);
+                var file;
+                try {
+                    file = obj.fs.createWriteStream(fileName);
+                } catch (e) {
+                    if (fileName.indexOf(tmpDir) >= 0) {
+                        var pluginTmpPath = obj.parent.path.join(obj.pluginPath, '_tmp');
+                        if (!obj.fs.existsSync(pluginTmpPath)) {
+                            obj.fs.mkdirSync(pluginTmpPath, { recursive: true });
+                        }
+                        fileName = obj.parent.path.join(pluginTmpPath, 'Plugin_' + randId + '.zip');
+                        file = obj.fs.createWriteStream(fileName);
+                    } else {
+                        throw e;
+                    }
+                }
                 var dl_url = plugin.downloadUrl;
                 if (version_only != null && version_only != false) dl_url = version_only.url;
                 if (force_url != null) dl_url = force_url;
@@ -382,7 +444,7 @@ module.exports.pluginHandler = function (parent) {
                 var request = http.get(opts, function (response) {
                     // handle redirections with grace
                     if (response.headers.location) {
-                        file.close(function () { obj.fs.unlink(file.path, function(err) { void err; }); });
+                        file.close(() => obj.fs.unlink(fileName, () => {}));
                         return obj.installPlugin(id, version_only, response.headers.location, func);
                     }
                     response.pipe(file);
@@ -484,9 +546,8 @@ module.exports.pluginHandler = function (parent) {
                             try {
                                 var vers = JSON.parse(versStr);
                                 var vList = [];
-                                var s = require('semver');
                                 vers.forEach((v) => {
-                                    if (s.lt(v.name, plugin.version)) vList.push(v);
+                                    if (obj.versionLower(v.name, plugin.version)) vList.push(v);
                                 });
                                 if (vers.length == 0) reject("No previous versions available.");
                                 resolve({ 'id': plugin._id, 'name': plugin.name, versionList: vList });
@@ -516,7 +577,13 @@ module.exports.pluginHandler = function (parent) {
         parent.db.getPlugin(id, function (err, docs) {
             var plugin = docs[0];
             let pluginPath = obj.parent.path.join(obj.pluginPath, plugin.shortName);
-            obj.fs.rmdirSync(pluginPath, { recursive: true });
+            if (obj.fs.existsSync(pluginPath)) {
+                try {
+                    obj.fs.rmSync(pluginPath, { recursive: true, force: true });
+                } catch (e) {
+                    console.log("Error removing plugin directory:", e);
+                }
+            }
             parent.db.deletePlugin(id, func);
             delete obj.plugins[plugin.shortName];
         });

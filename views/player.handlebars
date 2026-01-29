@@ -9,6 +9,7 @@
     <meta name="robots" content="noindex,nofollow">
     <link type="text/css" href="styles/style.css" media="screen" rel="stylesheet" title="CSS" />
     <link type="text/css" href="styles/xterm.css" media="screen" rel="stylesheet" title="CSS" />
+    {{{customCSSTags}}}
     <link rel="apple-touch-icon" href="/favicon-303x303.png" />
     <script type="text/javascript" src="scripts/common-0.0.1{{min}}.js"></script>
     <script type="text/javascript" src="scripts/agent-desktop-0.0.2{{min}}.js"></script>
@@ -22,6 +23,7 @@
     <script type="text/javascript" src="scripts/xterm-addon-fit-min.js"></script>
     <script keeplink=1 type="text/javascript" src="scripts/webm-writer.js"></script>
     <script keeplink=1 type="text/javascript" src="scripts/filesaver.min.js"></script>
+    {{{customJSTags}}}
 </head>
 <body style="overflow:hidden;background-color:black">
     <div id=p11 class="noselect" style="overflow:hidden">
@@ -401,6 +403,9 @@
                 var p = recFileMetadata.protocol;
                 if (p == 1) { p = "MeshCentral Terminal"; }
                 else if (p == 2) { p = "MeshCentral Desktop"; }
+                else if (p == 6) { p = "Admin PowerShell"; }
+                else if (p == 8) { p = "User Shell"; }
+                else if (p == 9) { p = "User PowerShell"; }
                 else if (p == 100) { p = "Intel&reg; AMT WSMAN"; }
                 else if (p == 101) { p = "Intel&reg; AMT Redirection"; }
                 else if ((p == 102) || (p == 200 && recFileMetadata.bpp != null)) { p = "Intel&reg; AMT KVM"; }
@@ -427,7 +432,7 @@
             QV('TermParent', false);
             QV('XTermParent', false);
             QV('ConvertAsWebM', false);
-            if (recFileMetadata.protocol == 1) {
+            if ((recFileMetadata.protocol == 1) || (recFileMetadata.protocol == 6) || (recFileMetadata.protocol == 8) || (recFileMetadata.protocol == 9)) {
                 // MeshCentral remote terminal
                 recFileProtocol = 1;
                 x += '<br /><br /><span style=color:gray>' + "Press [space] to play/pause." + '</span>';

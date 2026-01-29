@@ -1,0 +1,49 @@
+services:
+  meshcentral:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        MESH_DIR: /opt/mesh
+    environment:
+      # MeshCentral Configuration
+      - MESH_DIR=/opt/mesh
+      - MESH_USER=admin
+      - MESH_PASS=changeme
+      - MESH_DEVICE_GROUP=Default
+      - MESH_PORT=443
+      - MESH_EXTERNAL_PORT=443
+      - MESH_PROTOCOL=wss
+      - MESH_NGINX_HOST=localhost
+      - MESH_NGINX_NAT_HOST=localhost
+      - MESH_EXTERNAL_HOST=localhost
+      # MongoDB Configuration
+      - MONGO_HOST=mongodb
+      - MONGO_PORT=27017
+      - MONGO_INITDB_ROOT_USERNAME=meshcentral
+      - MONGO_INITDB_ROOT_PASSWORD=changeme
+      - MONGO_INITDB_DATABASE=meshcentral
+      # OpenFrame Mode (optional)
+      - OPENFRAME_MODE=false
+      - OPENFRAME_GATEWAY_URL=
+    volumes:
+      - meshcentral-data:/opt/mesh
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - mongodb
+
+  mongodb:
+    image: mongo:7
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=meshcentral
+      - MONGO_INITDB_ROOT_PASSWORD=changeme
+      - MONGO_INITDB_DATABASE=meshcentral
+    volumes:
+      - mongodb-data:/data/db
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+
+volumes:
+  meshcentral-data:
+  mongodb-data:

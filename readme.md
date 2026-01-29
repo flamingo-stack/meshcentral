@@ -38,20 +38,20 @@
   - [Architecture](#architecture)
 - [Security](#security)
 - [Contributing](#contributing)
-- [License](#license)  
+- [License](#license)
 
 ---
 
 ## Highlights
 
-- Remote desktop, terminal, and file management via web interface  
-- Cross-platform agent support (Windows, macOS, Linux)  
-- Intel AMT support for out-of-band management  
-- WebRTC-based peer-to-peer connectivity  
-- Multi-user collaboration and session sharing  
-- Device grouping and access control policies  
-- Extensible with plugins and automation scripts  
-- Integrations: OpenFrame Gateway, Stream (Kafka), Analytics (Pinot), Auth (OIDC/JWT)  
+- Remote desktop, terminal, and file management via web interface
+- Cross-platform agent support (Windows, macOS, Linux)
+- Intel AMT support for out-of-band management
+- WebRTC-based peer-to-peer connectivity
+- Multi-user collaboration and session sharing
+- Device grouping and access control policies
+- Extensible with plugins and automation scripts
+- Integrations: OpenFrame Gateway, Stream (Kafka), Analytics (Pinot), Auth (OIDC/JWT)
 - API-first (REST/WebSocket), web console (operator UI)
 
 ---
@@ -78,9 +78,9 @@ MeshCentral runs as a service in OpenFrame and connects to endpoint agents via G
 
 ```mermaid
 flowchart LR
-    
+
     A[Agent] <--commands/sessions--> G[OpenFrame Gateway]
-    
+
     subgraph OpenFrame
       G --> API[(MeshCentral Service API)]
       API --> DB[(DB: devices, users, sessions)]
@@ -102,7 +102,7 @@ MeshCentral is deployed automatically as part of OpenFrame via ArgoCD app-of-app
 ```yaml
 # manifests/apps/values.yaml
 apps:
-  meshcentral: 
+  meshcentral:
     enabled: true
     project: integrated-tools
     namespace: integrated-tools
@@ -126,7 +126,7 @@ helm install meshcentral ./manifests/integrated-tools/meshcentral
 #### Integration Features
 
 **Auto-initialization:**
-- Creates default admin user  
+- Creates default admin user
 - Sets up device groups and policies
 - Generates API keys for integration
 - Persists credentials at `/opt/meshcentral/data/credentials.json`
@@ -178,11 +178,11 @@ Found a vulnerability? Email security@flamingo.run instead of opening a public i
 
 ## Contributing
 
-We welcome PRs! Please follow these guidelines:  
-- Use branching strategy: `feature/...`, `bugfix/...`  
-- Add descriptions to the **CHANGELOG**  
-- Follow consistent Go code style (`go fmt`, linters)  
-- Keep documentation updated in `docs/`  
+We welcome PRs! Please follow these guidelines:
+- Use branching strategy: `feature/...`, `bugfix/...`
+- Add descriptions to the **CHANGELOG**
+- Follow consistent Go code style (`go fmt`, linters)
+- Keep documentation updated in `docs/`
 
 ---
 
@@ -199,9 +199,9 @@ This project is licensed under the **Flamingo Unified License v1.0** ([LICENSE.m
         Built with 💛 by the <a href="https://www.flamingo.run/about"><b>Flamingo</b></a> team
       </td>
       <td align="center">
-        <a href="https://www.flamingo.run">Website</a> • 
-        <a href="https://www.flamingo.run/knowledge-base">Knowledge Base</a> • 
-        <a href="https://www.linkedin.com/showcase/openframemsp/about/">LinkedIn</a> • 
+        <a href="https://www.flamingo.run">Website</a> •
+        <a href="https://www.flamingo.run/knowledge-base">Knowledge Base</a> •
+        <a href="https://www.linkedin.com/showcase/openframemsp/about/">LinkedIn</a> •
         <a href="https://www.openmsp.ai/">Community</a>
       </td>
     </tr>
