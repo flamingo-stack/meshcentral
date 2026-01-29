@@ -4,7 +4,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       args:
-        INCLUDE_MONGODB_TOOLS: "yes"
+        MESH_DIR: /opt/mesh
     environment:
       # MeshCentral Configuration
       - MESH_DIR=/opt/mesh

@@ -1,27 +1,118 @@
 name: Test
 
+# =============================================================================
+# WORKFLOW CONFIGURATION
+# =============================================================================
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+
 on:
   pull_request:
-    branches:
-      - master
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [master]
+    paths:
+      - 'docker/**'
+      - '.github/**'
+
+concurrency:
+  group: pr-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: "ghcr.io"
+  ORGANISATION: ${{ github.repository_owner }}
+  IMAGE_NAME: meshcentral
+
+# =============================================================================
+# JOBS
+# =============================================================================
 
 jobs:
   build:
-    runs-on: ubuntu-latest
     name: Build Docker Image
+    runs-on: ubuntu-latest
+    if: "!github.event.pull_request.draft"
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
+      - name: Generate metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.ORGANISATION }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=test-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.vendor=${{ env.ORGANISATION }}
+            org.opencontainers.image.description=MeshCentral remote management server
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Build and push test image
+        id: docker_build
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./docker/Dockerfile
-          push: false
+          platforms: linux/amd64,linux/arm64
+          push: true
+          provenance: false
+          sbom: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            INCLUDE_MONGODB_TOOLS=yes
-          tags: meshcentral:test
+            MESH_DIR=/opt/mesh
+
+  cleanup:
+    name: Cleanup Test Image
+    needs: [build]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Delete the test tag
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        continue-on-error: true
+        with:
+          package: ${{ env.IMAGE_NAME }}
+          delete-ghost-images: true
+          delete-tags: test-${{ github.sha }}
+
+  all-checks:
+    name: All Checks
+    needs: [build, cleanup]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: exit 1
+      - run: echo "All checks passed"

@@ -8,17 +8,20 @@ setup_mesh_user() {
     return 0
   fi
 
-  local cmd="node ${MESH_DIR}/meshcentral/meshcentral.js \
-    --configfile ${MESH_DIR}/meshcentral-data/config.json \
-    --createaccount ${MESH_USER} \
+  local cmd="node ${MESH_DIR}/node_modules/meshcentral \
+    --user ${MESH_USER} \
     --pass ${MESH_PASS} \
+    --configfile ${MESH_DIR}/config.json \
+    --createaccount ${MESH_USER} \
     --email ${MESH_USER}"
 
   eval "$cmd"
   sleep 2
 
-  cmd="node ${MESH_DIR}/meshcentral/meshcentral.js \
-    --configfile ${MESH_DIR}/meshcentral-data/config.json \
+  cmd="node ${MESH_DIR}/node_modules/meshcentral \
+    --user ${MESH_USER} \
+    --pass ${MESH_PASS} \
+    --configfile ${MESH_DIR}/config.json \
     --adminaccount ${MESH_USER}"
 
   eval "$cmd"
@@ -33,7 +36,7 @@ setup_mesh_device_group() {
   local delay=5
 
   while [ $attempt -le $max_attempts ]; do
-    local cmd="node ${MESH_DIR}/meshcentral/meshctrl.js \
+    local cmd="node ${MESH_DIR}/node_modules/meshcentral/meshctrl.js \
       --url ${MESH_PROTOCOL}://${MESH_NGINX_HOST}:${MESH_EXTERNAL_PORT} \
       --loginuser ${MESH_USER} \
       --loginpass ${MESH_PASS} \
@@ -46,7 +49,7 @@ setup_mesh_device_group() {
       DEVICE_GROUP_ID=$(eval "$cmd" 2>&1 | grep "${MESH_DEVICE_GROUP}" | head -n 1 | awk -F',' '{print $1}' | tr -d '"')
     else
       echo "[meshcentral] Creating device group: ${MESH_DEVICE_GROUP}"
-      cmd="node ${MESH_DIR}/meshcentral/meshctrl.js \
+      cmd="node ${MESH_DIR}/node_modules/meshcentral/meshctrl.js \
         --url ${MESH_PROTOCOL}://${MESH_NGINX_HOST}:${MESH_EXTERNAL_PORT} \
         --loginuser ${MESH_USER} \
         --loginpass ${MESH_PASS} \
@@ -56,7 +59,7 @@ setup_mesh_device_group() {
       eval "$cmd"
       sleep 2
 
-      cmd="node ${MESH_DIR}/meshcentral/meshctrl.js \
+      cmd="node ${MESH_DIR}/node_modules/meshcentral/meshctrl.js \
         --url ${MESH_PROTOCOL}://${MESH_NGINX_HOST}:${MESH_EXTERNAL_PORT} \
         --loginuser ${MESH_USER} \
         --loginpass ${MESH_PASS} \
@@ -114,7 +117,7 @@ ServerID=${server_id}
 MeshServer=${mesh_server_url}
 EOL
 
-  chown node:node "${MESH_DIR}/meshagent.msh" 2>/dev/null || true
+  chown node:node "${MESH_DIR}/meshagent.msh"
   chmod 644 "${MESH_DIR}/meshagent.msh"
 
   mkdir -p "${MESH_DIR}/nginx-api/openframe_public"
@@ -131,5 +134,5 @@ generate_mesh_auth_args() {
 
   echo "${MESH_USER_ENCODED}" >"${MESH_DIR}/mesh_user_encoded"
   echo "${MESH_PASS_ENCODED}" >"${MESH_DIR}/mesh_pass_encoded"
-  echo "[meshcentral] Mesh Auth Args generated"
+  echo "[meshcentral] Mesh Auth Args: $(cat ${MESH_DIR}/mesh_user_encoded) $(cat ${MESH_DIR}/mesh_pass_encoded)"
 }

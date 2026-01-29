@@ -34,7 +34,7 @@ if [ -z "$COMMAND" ]; then
 fi
 
 # Build the base command
-CMD="node ${MESH_DIR}/meshcentral/meshctrl.js"
+CMD="node ${MESH_DIR}/node_modules/meshcentral/meshctrl.js"
 CMD="$CMD --url ${MESH_PROTOCOL}://${MESH_NGINX_HOST}:${MESH_EXTERNAL_PORT}"
 CMD="$CMD --loginuser ${MESH_USER} --loginpass ${MESH_PASS}"
 CMD="$CMD ${COMMAND}"  # Capitalize first letter of command

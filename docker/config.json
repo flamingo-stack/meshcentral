@@ -1,9 +1,10 @@
 {
+  "$schema": "https://raw.githubusercontent.com/Ylianst/MeshCentral/master/meshcentral-config-schema.json",
   "settings": {
     "plugins": {
       "enabled": false
     },
-    "mongodb": "mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}/${MONGO_INITDB_DATABASE}?replicaSet=rs0&authSource=admin",
+    "mongodb": "mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@meshcentral-mongodb.integrated-tools.svc.cluster.local:27017/${MONGO_INITDB_DATABASE}?replicaSet=rs0&authSource=admin",
     "dbExpire": {
       "events": 157680000
     },

@@ -2,7 +2,7 @@
 
 start_meshcentral() {
   echo "[meshcentral] Starting MeshCentral"
-  node ${MESH_DIR}/meshcentral/meshcentral.js --configfile ${MESH_DIR}/meshcentral-data/config.json
+  node ${MESH_DIR}/node_modules/meshcentral --configfile ${MESH_DIR}/config.json
 }
 
 stop_meshcentral() {
@@ -20,7 +20,7 @@ wait_for_meshcentral_to_start() {
   while [ $attempt -le $max_attempts ]; do
     echo "[meshcentral] Attempt $attempt of $max_attempts: Checking MeshCentral WebSocket readiness..."
 
-    local cmd="node ${MESH_DIR}/meshcentral/meshctrl.js \
+    local cmd="node ${MESH_DIR}/node_modules/meshcentral/meshctrl.js \
       --url ${MESH_PROTOCOL}://${MESH_NGINX_HOST}:${MESH_EXTERNAL_PORT} \
       --loginuser ${MESH_USER} \
       --loginpass ${MESH_PASS} \
