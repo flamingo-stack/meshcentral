@@ -14,7 +14,7 @@ permissions:
 
 on:
   push:
-    branches: [master, feature/rebased]
+    branches: [master]
   workflow_dispatch:
     inputs:
       version:
