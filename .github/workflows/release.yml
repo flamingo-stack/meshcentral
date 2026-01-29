@@ -15,13 +15,11 @@ permissions:
 on:
   push:
     branches: [master, feature/rebased]
-    paths:
-      - 'docker/**'
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to Release (e.g., v1.2.3)"
-        required: false
+        description: "Version tag to release (e.g., v1.2.3)"
+        required: true
         type: string
 
 env:
@@ -64,10 +62,8 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.ORGANISATION }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=ref,event=tag
-            type=ref,event=branch
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'push' }}
+            type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' }}
           labels: |
             org.opencontainers.image.vendor=${{ env.ORGANISATION }}
             org.opencontainers.image.description=MeshCentral remote management server
@@ -103,7 +99,7 @@ jobs:
     name: Create Release
     needs: [build]
     runs-on: ubuntu-latest
-    if: inputs.version != ''
+    if: github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -114,7 +110,6 @@ jobs:
           cat > RELEASE_HEADER.md <<EOF
           ## Docker Image
           - \`${{ env.REGISTRY }}/${{ env.ORGANISATION }}/${{ env.IMAGE_NAME }}:${VERSION}\`
-          - \`${{ env.REGISTRY }}/${{ env.ORGANISATION }}/${{ env.IMAGE_NAME }}:latest\`
 
           ## Usage
           \`\`\`bash
@@ -129,10 +124,6 @@ jobs:
           tag_name: ${{ inputs.version }}
           name: "🖥️ ${{ inputs.version }}"
           draft: false
-          prerelease: ${{ github.event_name == 'push' }}
+          prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
           body_path: RELEASE_HEADER.md
-
-      - name: Force update latest tag
-        if: github.event_name == 'push'
-        run: git tag -f latest && git push -f origin latest
