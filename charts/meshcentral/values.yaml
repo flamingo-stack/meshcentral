@@ -12,8 +12,8 @@ credentials:
 # -- Non-sensitive environment variables (stored in ConfigMap)
 env:
   MESH_PROTOCOL: "ws"
-  MESH_NGINX_HOST: ""
-  MESH_EXTERNAL_PORT: "8383"
+  MESH_NGINX_HOST: "localhost"
+  MESH_EXTERNAL_PORT: "4430"
   MESH_DEVICE_GROUP: "OpenFrame"
   MESH_NGINX_NAT_HOST: ""
   OPENFRAME_MODE: "true"
