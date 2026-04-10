@@ -10,20 +10,31 @@ cp ${MESH_TEMP_DIR}/plugins/openframe/* ${MESH_DIR}/meshcentral-data/plugins/ope
 echo "[entrypoint] Copying config.json from mounted secret"
 cp /tmp/config/config.json ${MESH_DIR}/meshcentral-data/config.json
 
-# MeshCentral now auto-syncs cert/config files with the database on startup
-# via --autosyncconfigfiles (see config.json settings.autoSyncConfigFiles: true).
-# On first run it generates certs locally and pushes them to the DB.
-# On subsequent runs it pulls them back from the DB, preserving server identity
-# across pod restarts with emptyDir storage. config.json is never touched by
-# the sync — the mounted secret is authoritative.
+# Synchronize cert/config files with the database.
+#   - On subsequent restarts: pulls existing certs from MongoDB into datapath.
+#   - On the first-ever pod start: no certs in DB, GetMeshServerCertificate
+#     generates them locally, then they are pushed to MongoDB for future restarts.
+# Exits as soon as the sync cycle completes — does NOT start the server.
+# This replaces the old start-kill-restart bash bootstrap. config.json is never
+# touched by the sync; the mounted secret is authoritative.
+echo "[entrypoint] Synchronizing cert/config files with database..."
+node ${MESH_INSTALL_DIR}/meshcentral/meshcentral.js \
+  --datapath ${MESH_DIR}/meshcentral-data \
+  --configfile ${MESH_DIR}/meshcentral-data/config.json \
+  --configkey "${MESH_CONFIG_KEY}" \
+  --syncconfigfiles
 
 # Run the OpenFrame migration (creates admin user, device group, MSH files).
-# Idempotent: guarded by existence checks.
+# Requires agentserver-cert-public.crt to exist — guaranteed by --syncconfigfiles above.
+# Idempotent: guarded by existence checks in migrate.js.
 echo "[entrypoint] Running OpenFrame migration..."
 node ${MESH_DIR}/meshcentral-data/plugins/openframe/migrate.js \
   --datapath ${MESH_DIR}/meshcentral-data \
   --configfile ${MESH_DIR}/meshcentral-data/config.json
 
+# Start MeshCentral in foreground. The main process will also auto-sync on
+# startup (via settings.autoSyncConfigFiles in config.json), which is a fast
+# no-op since --syncconfigfiles above already pushed the current cert set.
 echo "[entrypoint] Starting MeshCentral..."
 exec node ${MESH_INSTALL_DIR}/meshcentral/meshcentral.js \
   --datapath ${MESH_DIR}/meshcentral-data \
