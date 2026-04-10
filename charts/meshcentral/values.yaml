@@ -24,6 +24,10 @@ env:
 # Ref: https://github.com/Ylianst/MeshCentral/blob/master/meshcentral-config-schema.json
 config:
   settings:
+    # Auto-sync cert/config files between datapath and the database on startup.
+    # Required for stateless (emptyDir) deployments so server identity survives
+    # pod restarts. Needs credentials.meshConfigKey set (becomes --configkey).
+    autoSyncConfigFiles: true
     plugins:
       enabled: true
       list:

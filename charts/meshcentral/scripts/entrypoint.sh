@@ -10,61 +10,22 @@ cp ${MESH_TEMP_DIR}/plugins/openframe/* ${MESH_DIR}/meshcentral-data/plugins/ope
 echo "[entrypoint] Copying config.json from mounted secret"
 cp /tmp/config/config.json ${MESH_DIR}/meshcentral-data/config.json
 
-# Pull existing certs from MongoDB (if any) to preserve server identity across restarts
-# On first run: no certs in DB, prints "File not found." — harmless
-# On subsequent runs: restores certs so MeshCentral keeps the same identity
-echo "[entrypoint] Pulling config files from MongoDB..."
-node ${MESH_INSTALL_DIR}/meshcentral/meshcentral.js \
-  --dbpullconfigfiles ${MESH_DIR}/meshcentral-data \
-  --configkey "${MESH_CONFIG_KEY}" \
-  --datapath ${MESH_DIR}/meshcentral-data \
-  --configfile ${MESH_DIR}/meshcentral-data/config.json || echo "[entrypoint] dbpullconfigfiles failed (first run?), continuing..."
+# MeshCentral now auto-syncs cert/config files with the database on startup
+# via --autosyncconfigfiles (see config.json settings.autoSyncConfigFiles: true).
+# On first run it generates certs locally and pushes them to the DB.
+# On subsequent runs it pulls them back from the DB, preserving server identity
+# across pod restarts with emptyDir storage. config.json is never touched by
+# the sync — the mounted secret is authoritative.
 
-# Restore config.json (dbpullconfigfiles may have overwritten it with stale version)
-cp /tmp/config/config.json ${MESH_DIR}/meshcentral-data/config.json
-
-# First-run cert bootstrap: if no agent cert exists on disk, briefly start MeshCentral
-# to let it generate certs, then stop and push them to MongoDB for future restarts.
-# This branch only runs ONCE in the pod's entire lifetime (first ever deploy).
-if [ ! -f "${MESH_DIR}/meshcentral-data/agentserver-cert-public.crt" ]; then
-  echo "[entrypoint] First run: starting MeshCentral briefly to generate certificates..."
-  node ${MESH_INSTALL_DIR}/meshcentral/meshcentral.js \
-    --datapath ${MESH_DIR}/meshcentral-data \
-    --configfile ${MESH_DIR}/meshcentral-data/config.json &
-  MC_PID=$!
-
-  # Wait up to 60s for cert generation
-  for i in $(seq 1 60); do
-    if [ -f "${MESH_DIR}/meshcentral-data/agentserver-cert-public.crt" ]; then
-      echo "[entrypoint] Certificates generated"
-      break
-    fi
-    if [ "$i" -eq 60 ]; then
-      echo "[entrypoint] ERROR: Certificate generation timed out after 60s" >&2
-      exit 1
-    fi
-    sleep 1
-  done
-
-  kill $MC_PID 2>/dev/null || true
-  wait $MC_PID 2>/dev/null || true
-
-  echo "[entrypoint] Pushing generated certificates to MongoDB..."
-  node ${MESH_INSTALL_DIR}/meshcentral/meshcentral.js \
-    --dbpushconfigfiles \
-    --configkey "${MESH_CONFIG_KEY}" \
-    --datapath ${MESH_DIR}/meshcentral-data \
-    --configfile ${MESH_DIR}/meshcentral-data/config.json || echo "[entrypoint] dbpushconfigfiles failed, continuing..."
-fi
-
-# Run the OpenFrame migration (creates admin user, device group, MSH files)
+# Run the OpenFrame migration (creates admin user, device group, MSH files).
+# Idempotent: guarded by existence checks.
 echo "[entrypoint] Running OpenFrame migration..."
 node ${MESH_DIR}/meshcentral-data/plugins/openframe/migrate.js \
   --datapath ${MESH_DIR}/meshcentral-data \
   --configfile ${MESH_DIR}/meshcentral-data/config.json
 
-# Start MeshCentral in foreground (single real start)
 echo "[entrypoint] Starting MeshCentral..."
 exec node ${MESH_INSTALL_DIR}/meshcentral/meshcentral.js \
   --datapath ${MESH_DIR}/meshcentral-data \
-  --configfile ${MESH_DIR}/meshcentral-data/config.json
+  --configfile ${MESH_DIR}/meshcentral-data/config.json \
+  --configkey "${MESH_CONFIG_KEY}"
