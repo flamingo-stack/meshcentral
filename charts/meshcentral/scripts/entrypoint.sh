@@ -18,7 +18,11 @@ cp /tmp/config/config.json ${MESH_DIR}/meshcentral-data/config.json
 # This replaces the old start-kill-restart bash bootstrap. config.json is never
 # touched by the sync; the mounted secret is authoritative.
 echo "[entrypoint] Synchronizing cert/config files with database..."
+# --launch bypasses MeshCentral's parent/child auto-restart monitor (meshcentral.js:592).
+# Without it, a non-zero exit from --syncconfigfiles would trigger an infinite
+# 5-second restart loop in the parent instead of surfacing the failure to bash.
 node ${MESH_INSTALL_DIR}/meshcentral/meshcentral.js \
+  --launch 1 \
   --datapath ${MESH_DIR}/meshcentral-data \
   --configfile ${MESH_DIR}/meshcentral-data/config.json \
   --configkey "${MESH_CONFIG_KEY}" \
