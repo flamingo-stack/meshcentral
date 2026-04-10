@@ -48,9 +48,8 @@ ln -sfn "${MESH_TEMP_DIR}/plugins/openframe" "${DATAPATH}/plugins/openframe"
 #
 # `timeout` bounds a Mongo stall — initContainers have no liveness probe and
 # no implicit deadline, so an unresponsive sync would hang the pod forever.
-# --kill-after forces SIGKILL if Node ignores SIGTERM mid-callback.
 echo "[entrypoint] Synchronizing cert/config files with database..."
-timeout --kill-after=10 "${SYNC_TIMEOUT:-600}" \
+timeout "${SYNC_TIMEOUT:-600}" \
   node "${MESH_INSTALL_DIR}/meshcentral/meshcentral.js" \
     --launch 1 \
     --datapath "${DATAPATH}" \
@@ -65,7 +64,7 @@ echo "[entrypoint] ✓ cert/config sync complete"
 # Invoked from the read-only image layer (MESH_TEMP_DIR) so bootstrap logic
 # cannot be tampered with via the data volume.
 echo "[entrypoint] Running OpenFrame migration..."
-timeout --kill-after=10 "${MIGRATE_TIMEOUT:-300}" \
+timeout "${MIGRATE_TIMEOUT:-300}" \
   node "${MESH_TEMP_DIR}/plugins/openframe/migrate.js" \
     --datapath "${DATAPATH}" \
     --configfile "${CONFIG_FILE}"
