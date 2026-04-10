@@ -1,67 +1,68 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "meshcentral.fullname" . }}
-  labels:
-    {{- include "meshcentral.labels" . | nindent 4 }}
+  name: meshcentral
   {{- with .Values.deploymentAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
-  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   replicas: 1
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
+
   strategy:
     type: Recreate
+
   selector:
     matchLabels:
       {{- include "meshcentral.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
-        checksum/scripts: {{ include (print $.Template.BasePath "/configmap-scripts.yaml") . | sha256sum }}
+        checksum/secrets: {{ include (print $.Template.BasePath "/secrets.yaml") . | sha256sum }}
         checksum/env: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
-        checksum/credentials: {{ include (print $.Template.BasePath "/secret-credentials.yaml") . | sha256sum }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
         {{- include "meshcentral.selectorLabels" . | nindent 8 }}
+
     spec:
       securityContext:
-        runAsUser: {{ .Values.securityContext.runAsUser }}
+        fsGroup: 1000
 
       initContainers:
         - name: wait-mongodb
           image: "{{ .Values.initImage.registry }}/{{ .Values.initImage.repository }}:{{ .Values.initImage.tag }}"
-          command: ["/bin/bash", "-c"]
-          args:
-            - |
-              for i in $(seq 1 60); do
-                mongosh '{{ .Values.config.settings.mongodb }}' --eval 'rs.status()' --quiet 2>/dev/null && exit 0
-                sleep 5
-              done
-              echo "MongoDB not ready after 5 minutes" >&2
-              exit 1
+          command: ["timeout", "300", "sh", "-c", "until mongosh '{{ .Values.config.settings.mongodb }}' --quiet --eval 'rs.status()' >/dev/null 2>&1; do sleep 5; done"]
 
         - name: meshcentral-init
           image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["/scripts/entrypoint.sh"]
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -e
+              : "${MESH_DIR:?}" "${MESH_TEMP_DIR:?}" "${MESH_INSTALL_DIR:?}" "${MESH_CONFIG_KEY:?}"
+              DATA="${MESH_DIR}/meshcentral-data"; CFG=/tmp/config/config.json
+
+              # pluginHandler.js hardcodes {datapath}/plugins; symlink from read-only image layer.
+              mkdir -p "${DATA}/plugins" && ln -sfn "${MESH_TEMP_DIR}/plugins/openframe" "${DATA}/plugins/openframe"
+
+              # --launch 1 bypasses parent/child auto-restart so sync errors surface; </dev/zero
+              # keeps stdin open (mainStart exits on stdin 'end' at meshcentral.js:4545 in k8s).
+              timeout "${SYNC_TIMEOUT:-600}" node "${MESH_INSTALL_DIR}/meshcentral/meshcentral.js" --launch 1 --datapath "${DATA}" --configfile "${CFG}" --configkey "${MESH_CONFIG_KEY}" --syncconfigfiles </dev/zero
+              timeout "${MIGRATE_TIMEOUT:-300}" node "${MESH_TEMP_DIR}/plugins/openframe/migrate.js" --datapath "${DATA}" --configfile "${CFG}"
           envFrom:
             - configMapRef:
-                name: {{ include "meshcentral.fullname" . }}-env
+                name: meshcentral
             - secretRef:
-                name: {{ include "meshcentral.fullname" . }}-credentials
+                name: meshcentral-credentials
           volumeMounts:
             - name: data
               mountPath: /opt/mesh
             - name: config
               mountPath: /tmp/config
-              readOnly: true
-            - name: scripts
-              mountPath: /scripts
               readOnly: true
 
       containers:
@@ -78,22 +79,42 @@ spec:
             - "--configkey"
             - "$(MESH_CONFIG_KEY)"
           ports:
-            - name: http
-              containerPort: {{ .Values.config.settings.port | default 4430 }}
-              protocol: TCP
+            - containerPort: {{ .Values.config.settings.port | default 4430 }}
+              name: http
+
           envFrom:
             - configMapRef:
-                name: {{ include "meshcentral.fullname" . }}-env
+                name: meshcentral
             - secretRef:
-                name: {{ include "meshcentral.fullname" . }}-credentials
-          startupProbe:
-            {{- toYaml .Values.startupProbe | nindent 12 }}
-          livenessProbe:
-            {{- toYaml .Values.livenessProbe | nindent 12 }}
-          readinessProbe:
-            {{- toYaml .Values.readinessProbe | nindent 12 }}
+                name: meshcentral-credentials
+
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+
+          startupProbe:
+            httpGet:
+              path: /health.ashx
+              port: http
+            initialDelaySeconds: {{ .Values.startupProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.startupProbe.periodSeconds }}
+            timeoutSeconds: 5
+            failureThreshold: {{ .Values.startupProbe.failureThreshold }}
+          livenessProbe:
+            httpGet:
+              path: /health.ashx
+              port: http
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /health.ashx
+              port: http
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: 3
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+
           volumeMounts:
             - name: data
               mountPath: /opt/mesh
@@ -103,10 +124,6 @@ spec:
       volumes:
         - name: config
           secret:
-            secretName: {{ include "meshcentral.fullname" . }}-config
-        - name: scripts
-          configMap:
-            name: {{ include "meshcentral.fullname" . }}-scripts
-            defaultMode: 0755
+            secretName: meshcentral-config
         - name: data
           emptyDir: {}

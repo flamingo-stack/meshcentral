@@ -1,29 +1,18 @@
 image:
   registry: ghcr.io/flamingo-stack/meshcentral
   repository: meshcentral
-  tag: ""  # defaults to appVersion
+  tag: "latest"
   pullPolicy: Always
+initImage:
+  registry: ghcr.io/flamingo-stack/registry
+  repository: mongo
+  tag: "8.0.9"
 
 # -- Sensitive credentials (stored in Secret)
 credentials:
   meshUser: ""
   meshPass: ""
   meshConfigKey: ""
-
-# -- Non-sensitive environment variables (stored in ConfigMap)
-env:
-  MESH_PROTOCOL: "ws"
-  MESH_NGINX_HOST: "localhost"
-  MESH_EXTERNAL_PORT: "8383"
-  MESH_DEVICE_GROUP: "OpenFrame"
-  MESH_NGINX_NAT_HOST: ""
-  OPENFRAME_MODE: "true"
-  OPENFRAME_GATEWAY_URL: ""
-  # Hard ceilings for the init container's --syncconfigfiles and migrate.js steps.
-  # Generous by design: the goal is to turn silent hangs into loud crashes, not
-  # to bound the happy path. Raise if your Mongo has slow cold starts.
-  SYNC_TIMEOUT: "600"
-  MIGRATE_TIMEOUT: "300"
 
 # -- MeshCentral config.json contents
 # Ref: https://github.com/Ylianst/MeshCentral/blob/master/meshcentral-config-schema.json
@@ -40,21 +29,17 @@ config:
     mongodb: ""  # Set via --set or values override
     dbExpire:
       events: 157680000
-    certUrl: []
     port: 8383
     aliasPort: 443
-    alias: []
-    agentAliasUrl: ""
-    agentAliasDns: []
     tlsOffload: true
     redirPort: 0
     AgentPong: 300
-    SelfUpdate: false
     AllowFraming: true
     AllowLoginToken: true
-    WebRTC: false
+    # Required behind TLS-terminating ingress: agents pin the MC TLS cert hash
+    # and see the ingress cert instead, so the hash check would block every
+    # connection. Not a security downgrade in this topology.
     IgnoreAgentHashCheck: true
-    production: false
     meshAgentBinaries:
       darwin-x64:
         compile: true
@@ -68,53 +53,14 @@ config:
       title2: MeshCentral
       minify: true
       NewAccounts: false
-      localSessionRecording: true
       allowedOrigin: true
     openframe_public:
       share: /opt/mesh/public
-
-initImage:
-  registry: ghcr.io/flamingo-stack/registry
-  repository: mongo
-  tag: "8.0.9"
 
 deploymentAnnotations: {}
 podAnnotations: {}
 
 revisionHistoryLimit: 10
-
-service:
-  type: ClusterIP
-  port: 443
-
-securityContext:
-  runAsUser: 0
-
-startupProbe:
-  httpGet:
-    path: /health.ashx
-    port: http
-  initialDelaySeconds: 30
-  periodSeconds: 10
-  timeoutSeconds: 5
-  failureThreshold: 30
-
-livenessProbe:
-  httpGet:
-    path: /health.ashx
-    port: http
-  initialDelaySeconds: 30
-  periodSeconds: 15
-  failureThreshold: 6
-
-readinessProbe:
-  httpGet:
-    path: /health.ashx
-    port: http
-  initialDelaySeconds: 5
-  periodSeconds: 5
-  timeoutSeconds: 3
-  failureThreshold: 3
 
 resources:
   requests:
@@ -123,3 +69,16 @@ resources:
   limits:
     memory: "512Mi"
     cpu: "300m"
+
+startupProbe:
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  failureThreshold: 30
+livenessProbe:
+  initialDelaySeconds: 30
+  periodSeconds: 15
+  failureThreshold: 6
+readinessProbe:
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  failureThreshold: 3
