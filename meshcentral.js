@@ -156,7 +156,7 @@ function CreateMeshCentralServer(config, args) {
             'logintoken', 'logintokenkey', 'logintokengen', 'mailtokengen', 'admin',
             'unadmin', 'sessionkey', 'sessiontime', 'minify', 'minifycore',
             'dblistconfigfiles', 'dbshowconfigfile', 'dbpushconfigfiles', 'oldencrypt',
-            'dbpullconfigfiles', 'dbdeleteconfigfiles', 'vaultpushconfigfiles',
+            'dbpullconfigfiles', 'dbdeleteconfigfiles', 'autosyncconfigfiles', 'syncconfigfiles', 'vaultpushconfigfiles',
             'vaultpullconfigfiles', 'vaultdeleteconfigfiles', 'configkey',
             'loadconfigfromdb', 'npmpath', 'serverid', 'recordencryptionrecode', 'vault',
             'token', 'unsealkey', 'name', 'log', 'dbstats', 'translate', 'createaccount',
@@ -1143,6 +1143,72 @@ function CreateMeshCentralServer(config, args) {
                         return;
                     }
 
+                    // Push cert/config files from a folder into the database.
+                    // Used by the --dbpushconfigfiles CLI branch and by the auto-sync path in StartEx2.
+                    // options: { configKey (required), oldEncrypt (default false), includeConfigJson (default false) }
+                    // callback(err, pushedCount)
+                    obj.pushConfigFilesToDB = function (folder, options, callback) {
+                        if (!options || typeof options.configKey != 'string') { return callback(new Error('configKey required')); }
+                        if ((folder == null) || (folder === true) || (folder == '*')) { folder = obj.datapath; }
+                        obj.fs.readdir(folder, function (err, files) {
+                            if (err != null) { return callback(new Error('Unable to read from folder ' + folder)); }
+                            obj.db.RemoveAllOfType('cfile', function () {
+                                obj.fs.readdir(folder, function (err, files) {
+                                    if (err != null) { return callback(new Error('Unable to read from folder ' + folder)); }
+                                    var lockCount = 1;
+                                    var pushed = 0;
+                                    var finished = false;
+                                    var done = function () {
+                                        if ((--lockCount) == 0 && !finished) { finished = true; callback(null, pushed); }
+                                    };
+                                    for (var i in files) {
+                                        const file = files[i];
+                                        var eligible = file.endsWith('.key') || file.endsWith('.crt') || (file == 'terms.txt') || file.endsWith('.jpg') || file.endsWith('.png');
+                                        if (options.includeConfigJson && (file == 'config.json')) { eligible = true; }
+                                        if (!eligible) continue;
+                                        const fullPath = obj.path.join(folder, file);
+                                        var binary;
+                                        try { binary = Buffer.from(obj.fs.readFileSync(fullPath, { encoding: 'binary' }), 'binary'); }
+                                        catch (ex) { return callback(new Error('Unable to read ' + fullPath)); }
+                                        console.log('Pushing ' + file + ', ' + binary.length + ' bytes.');
+                                        lockCount++;
+                                        pushed++;
+                                        const encrypted = options.oldEncrypt
+                                            ? obj.db.oldEncryptData(options.configKey, binary)
+                                            : obj.db.encryptData(options.configKey, binary);
+                                        obj.db.setConfigFile(file, encrypted, done);
+                                    }
+                                    done();
+                                });
+                            });
+                        });
+                    };
+
+                    // Pull cert/config files from the database into a folder.
+                    // Used by the --dbpullconfigfiles CLI branch and by the auto-sync path in StartEx2.
+                    // options: { configKey (required), includeConfigJson (default false) }
+                    // callback(err, pulledCount) — pulledCount === 0 means no rows (first run), not an error.
+                    obj.pullConfigFilesFromDB = function (folder, options, callback) {
+                        if (!options || typeof options.configKey != 'string') { return callback(new Error('configKey required')); }
+                        obj.db.GetAllType('cfile', function (err, docs) {
+                            if (err != null) { return callback(new Error('Unable to read from database.')); }
+                            if (docs.length == 0) { return callback(null, 0); }
+                            var pulled = 0;
+                            for (var i in docs) {
+                                const file = docs[i]._id.split('/')[1];
+                                if (!options.includeConfigJson && (file == 'config.json')) continue;
+                                const binary = obj.db.decryptData(options.configKey, docs[i].data);
+                                if (binary == null) { return callback(new Error('Invalid config key.')); }
+                                const fullFileName = obj.path.join(folder, file);
+                                try { obj.fs.writeFileSync(fullFileName, binary); }
+                                catch (ex) { return callback(new Error('Unable to write to ' + fullFileName)); }
+                                console.log('Pulling ' + file + ', ' + binary.length + ' bytes.');
+                                pulled++;
+                            }
+                            callback(null, pulled);
+                        });
+                    };
+
                     // Show a list of all configuration files in the database
                     if (obj.args.dblistconfigfiles) {
                         obj.db.GetAllType('cfile', function (err, docs) {
@@ -1187,7 +1253,7 @@ function CreateMeshCentralServer(config, args) {
                         console.log("Deleting all configuration files from the database..."); obj.db.RemoveAllOfType('cfile', function () { console.log('Done.'); process.exit(); });
                     }
 
-                    // Push all relevent files from meshcentral-data into the database
+                    // Push all relevant files from meshcentral-data into the database
                     if (obj.args.dbpushconfigfiles) {
                         if (typeof obj.args.configkey != 'string') { console.log("Error, --configkey is required."); process.exit(); return; }
                         if ((obj.args.dbpushconfigfiles !== true) && (typeof obj.args.dbpushconfigfiles != 'string')) {
@@ -1201,24 +1267,9 @@ function CreateMeshCentralServer(config, args) {
                                 var configFound = false;
                                 for (var i in files) { if (files[i] == 'config.json') { configFound = true; } }
                                 if (configFound == false) { console.log('ERROR: No config.json in folder ' + obj.args.dbpushconfigfiles); process.exit(); return; }
-                                obj.db.RemoveAllOfType('cfile', function () {
-                                    obj.fs.readdir(obj.args.dbpushconfigfiles, function (err, files) {
-                                        var lockCount = 1
-                                        for (var i in files) {
-                                            const file = files[i];
-                                            if ((file == 'config.json') || file.endsWith('.key') || file.endsWith('.crt') || (file == 'terms.txt') || file.endsWith('.jpg') || file.endsWith('.png')) {
-                                                const path = obj.path.join(obj.args.dbpushconfigfiles, files[i]), binary = Buffer.from(obj.fs.readFileSync(path, { encoding: 'binary' }), 'binary');
-                                                console.log('Pushing ' + file + ', ' + binary.length + ' bytes.');
-                                                lockCount++;
-                                                if (obj.args.oldencrypt) {
-                                                    obj.db.setConfigFile(file, obj.db.oldEncryptData(obj.args.configkey, binary), function () { if ((--lockCount) == 0) { console.log('Done.'); process.exit(); } });
-                                                } else {
-                                                    obj.db.setConfigFile(file, obj.db.encryptData(obj.args.configkey, binary), function () { if ((--lockCount) == 0) { console.log('Done.'); process.exit(); } });
-                                                }
-                                            }
-                                        }
-                                        if (--lockCount == 0) { process.exit(); }
-                                    });
+                                obj.pushConfigFilesToDB(obj.args.dbpushconfigfiles, { configKey: obj.args.configkey, oldEncrypt: !!obj.args.oldencrypt, includeConfigJson: true }, function (err) {
+                                    if (err != null) { console.log('ERROR: ' + err.message); process.exit(); return; }
+                                    console.log('Done.'); process.exit();
                                 });
                             });
                         }
@@ -1232,25 +1283,9 @@ function CreateMeshCentralServer(config, args) {
                             console.log("Usage: --dbpulldatafiles (path)");
                             process.exit();
                         } else {
-                            obj.db.GetAllType('cfile', function (err, docs) {
-                                if (err == null) {
-                                    if (docs.length == 0) {
-                                        console.log("File not found.");
-                                    } else {
-                                        for (var i in docs) {
-                                            const file = docs[i]._id.split('/')[1], binary = obj.db.decryptData(obj.args.configkey, docs[i].data);
-                                            if (binary == null) {
-                                                console.log("Invalid config key.");
-                                            } else {
-                                                const fullFileName = obj.path.join(obj.args.dbpullconfigfiles, file);
-                                                try { obj.fs.writeFileSync(fullFileName, binary); } catch (ex) { console.log('Unable to write to ' + fullFileName); process.exit(); return; }
-                                                console.log('Pulling ' + file + ', ' + binary.length + ' bytes.');
-                                            }
-                                        }
-                                    }
-                                } else {
-                                    console.log("Unable to read from database.");
-                                }
+                            obj.pullConfigFilesFromDB(obj.args.dbpullconfigfiles, { configKey: obj.args.configkey, includeConfigJson: true }, function (err, pulled) {
+                                if (err != null) { console.log(err.message); process.exit(); return; }
+                                if (pulled === 0) { console.log("File not found."); }
                                 process.exit();
                             });
                         }
@@ -1752,9 +1787,61 @@ function CreateMeshCentralServer(config, args) {
 
     // Done starting the redirection server, go on to load the server certificates
     obj.StartEx2 = function () {
-        // Load server certificates
-        obj.certificateOperations.GetMeshServerCertificate(obj.args, obj.config, function (certs) {
-            // Get the current node version
+        // Auto-sync cert/config files with the database around the cert load step.
+        // Enabled when --autosyncconfigfiles (or settings.autoSyncConfigFiles) is set AND --configkey is provided.
+        // Pull must run BEFORE GetMeshServerCertificate so restored files are on disk when it reads them.
+        // Push runs AFTER, so any newly-generated certs on first boot land in the DB for future restarts.
+        // config.json is never touched — the mounted source is authoritative.
+        // --syncconfigfiles is a one-shot mode: run the full sync cycle (pull → generate → push) and exit.
+        // Used by the Helm entrypoint to guarantee cert files exist on disk before running migrate.js
+        // on the first-ever pod start, without the old start-kill-restart bash dance.
+        const syncOnlyMode = (obj.args.syncconfigfiles === true) || (obj.args.syncconfigfiles === 'true')
+                          || (obj.args.syncConfigFiles === true) || (obj.args.syncConfigFiles === 'true');
+        const autoSyncArg = obj.args.autosyncconfigfiles || obj.args.autoSyncConfigFiles;
+        const syncEnabled = (syncOnlyMode || (autoSyncArg === true) || (autoSyncArg === 'true'))
+                         && (typeof obj.args.configkey == 'string');
+
+        if (syncOnlyMode && typeof obj.args.configkey != 'string') {
+            console.log('ERROR: --syncconfigfiles requires --configkey.');
+            process.exit(1);
+            return;
+        }
+
+        const afterPull = function () {
+            obj.certificateOperations.GetMeshServerCertificate(obj.args, obj.config, function (certs) {
+                const afterPush = function () {
+                    if (syncOnlyMode) {
+                        console.log('[syncconfigfiles] Done. Cert/config files synchronized with database.');
+                        process.exit(0);
+                        return;
+                    }
+                    obj.StartEx2Continue(certs);
+                };
+                if (!syncEnabled) { afterPush(); return; }
+                obj.pushConfigFilesToDB(obj.datapath, { configKey: obj.args.configkey, oldEncrypt: !!obj.args.oldencrypt }, function (err) {
+                    if (err != null) {
+                        if (syncOnlyMode) { console.log('ERROR: Config file sync (push) failed: ' + err.message); process.exit(1); return; }
+                        addServerWarning('Config file sync (push) failed: ' + err.message, 30, null, true);
+                    }
+                    afterPush();
+                });
+            });
+        };
+
+        if (!syncEnabled) { afterPull(); return; }
+        obj.pullConfigFilesFromDB(obj.datapath, { configKey: obj.args.configkey }, function (err) {
+            if (err != null) {
+                if (syncOnlyMode) { console.log('ERROR: Config file sync (pull) failed: ' + err.message); process.exit(1); return; }
+                addServerWarning('Config file sync (pull) failed: ' + err.message, 31, null, true);
+            }
+            afterPull();
+        });
+    };
+
+    // Continue with Let's Encrypt handling once certificates are loaded (and optionally DB-synced).
+    obj.StartEx2Continue = function (certs) {
+        // Get the current node version
+        {
             if ((obj.config.letsencrypt == null) || (obj.redirserver == null)) {
                 obj.StartEx3(certs); // Just use the configured certificates
             } else if ((obj.config.letsencrypt != null) && (obj.config.letsencrypt.nochecks == true)) {
@@ -1797,7 +1884,7 @@ function CreateMeshCentralServer(config, args) {
                     obj.StartEx3(certs); // Let's Encrypt did not load, just use the configured certificates
                 }
             }
-        });
+        }
     };
 
     // Start the server with the given certificates, but check if we have web certificates to load

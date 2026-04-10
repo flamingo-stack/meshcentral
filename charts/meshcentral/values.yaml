@@ -19,11 +19,20 @@ env:
   MESH_NGINX_NAT_HOST: ""
   OPENFRAME_MODE: "true"
   OPENFRAME_GATEWAY_URL: ""
+  # Hard ceilings for the init container's --syncconfigfiles and migrate.js steps.
+  # Generous by design: the goal is to turn silent hangs into loud crashes, not
+  # to bound the happy path. Raise if your Mongo has slow cold starts.
+  SYNC_TIMEOUT: "600"
+  MIGRATE_TIMEOUT: "300"
 
 # -- MeshCentral config.json contents
 # Ref: https://github.com/Ylianst/MeshCentral/blob/master/meshcentral-config-schema.json
 config:
   settings:
+    # Auto-sync cert/config files between datapath and the database on startup.
+    # Required for stateless (emptyDir) deployments so server identity survives
+    # pod restarts. Needs credentials.meshConfigKey set (becomes --configkey).
+    autoSyncConfigFiles: true
     plugins:
       enabled: true
       list:

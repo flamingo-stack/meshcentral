@@ -11,6 +11,8 @@ metadata:
 spec:
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "meshcentral.selectorLabels" . | nindent 6 }}
@@ -43,11 +45,38 @@ spec:
               echo "MongoDB not ready after 5 minutes" >&2
               exit 1
 
+        - name: meshcentral-init
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/scripts/entrypoint.sh"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "meshcentral.fullname" . }}-env
+            - secretRef:
+                name: {{ include "meshcentral.fullname" . }}-credentials
+          volumeMounts:
+            - name: data
+              mountPath: /opt/mesh
+            - name: config
+              mountPath: /tmp/config
+              readOnly: true
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+
       containers:
         - name: meshcentral
           image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["/scripts/entrypoint.sh"]
+          command: ["node"]
+          args:
+            - "/opt/meshcentral/meshcentral/meshcentral.js"
+            - "--datapath"
+            - "/opt/mesh/meshcentral-data"
+            - "--configfile"
+            - "/tmp/config/config.json"
+            - "--configkey"
+            - "$(MESH_CONFIG_KEY)"
           ports:
             - name: http
               containerPort: {{ .Values.config.settings.port | default 4430 }}
@@ -70,9 +99,6 @@ spec:
               mountPath: /opt/mesh
             - name: config
               mountPath: /tmp/config
-              readOnly: true
-            - name: scripts
-              mountPath: /scripts
               readOnly: true
       volumes:
         - name: config

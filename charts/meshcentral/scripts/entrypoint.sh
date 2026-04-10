@@ -1,70 +1,74 @@
 #!/usr/bin/env bash
+# Runs as a Kubernetes initContainer. Prepares the shared emptyDir at
+# $MESH_DIR so the main MeshCentral container can boot the server directly.
+# Does NOT start the server — that's the main container's job.
+#
+# What this script does NOT do and why:
+#   - No config.json copy. The Secret is mounted read-only at /tmp/config on
+#     both init and main containers, and --configfile points there directly.
+#     MeshCentral never writes config.json at runtime (verified against
+#     meshcentral.js and --syncconfigfiles), so a read-only mount is safe.
+#   - No plugin cp. Plugins are symlinked from the read-only image layer into
+#     the emptyDir. require() in pluginHandler.js follows symlinks; running
+#     from the image layer gives the same tamper-resistance migrate.js has.
+#   - No mkdir logs/ or public/. meshcentral opens log files with a+ and
+#     migrate.js creates public/ with fs.mkdirSync(recursive:true).
 set -euo pipefail
+umask 077
+trap 'echo "[entrypoint] FAILED at line $LINENO" >&2' ERR
 
-echo "[entrypoint] Creating directories"
-mkdir -p ${MESH_DIR}/meshcentral-data
-mkdir -p ${MESH_DIR}/logs
-mkdir -p ${MESH_DIR}/public
-mkdir -p ${MESH_DIR}/meshcentral-data/plugins/openframe
+: "${MESH_DIR:?MESH_DIR must be set}"
+: "${MESH_TEMP_DIR:?MESH_TEMP_DIR must be set}"
+: "${MESH_INSTALL_DIR:?MESH_INSTALL_DIR must be set}"
+: "${MESH_CONFIG_KEY:?MESH_CONFIG_KEY must be set}"
 
-echo "[entrypoint] Installing OpenFrame plugin and migration script"
-cp ${MESH_TEMP_DIR}/plugins/openframe/openframe.js ${MESH_DIR}/meshcentral-data/plugins/openframe/
-cp ${MESH_TEMP_DIR}/plugins/openframe/migrate.js ${MESH_DIR}/meshcentral-data/plugins/openframe/
+DATAPATH="${MESH_DIR}/meshcentral-data"
+CONFIG_FILE=/tmp/config/config.json
 
-echo "[entrypoint] Copying config.json from mounted secret"
-cp /tmp/config/config.json ${MESH_DIR}/meshcentral-data/config.json
+[[ -f "$CONFIG_FILE" ]] || {
+  echo "[entrypoint] $CONFIG_FILE missing — check Secret mount" >&2
+  exit 1
+}
 
-# Pull existing certs from MongoDB (if any) to preserve server identity across restarts
-# On first run: no certs in DB, prints "File not found." — harmless
-# On subsequent runs: restores certs so MeshCentral keeps the same identity
-echo "[entrypoint] Pulling config files from MongoDB..."
-node ${MESH_INSTALL_DIR}/meshcentral/meshcentral.js \
-  --dbpullconfigfiles ${MESH_DIR}/meshcentral-data \
-  --configkey "${MESH_CONFIG_KEY}" \
-  --datapath ${MESH_DIR}/meshcentral-data \
-  --configfile ${MESH_DIR}/meshcentral-data/config.json || echo "[entrypoint] dbpullconfigfiles failed (first run?), continuing..."
+# Plugin path is hardcoded to {datapath}/plugins in pluginHandler.js, so the
+# symlink target has to live inside the emptyDir.
+mkdir -p "${DATAPATH}/plugins"
+ln -sfn "${MESH_TEMP_DIR}/plugins/openframe" "${DATAPATH}/plugins/openframe"
 
-# Restore config.json (dbpullconfigfiles may have overwritten it with stale version)
-cp /tmp/config/config.json ${MESH_DIR}/meshcentral-data/config.json
-
-# First-run cert bootstrap: if no agent cert exists on disk, briefly start MeshCentral
-# to let it generate certs, then stop and push them to MongoDB for future restarts.
-# This branch only runs ONCE in the pod's entire lifetime (first ever deploy).
-if [ ! -f "${MESH_DIR}/meshcentral-data/agentserver-cert-public.crt" ]; then
-  echo "[entrypoint] First run: starting MeshCentral briefly to generate certificates..."
-  node ${MESH_INSTALL_DIR}/meshcentral/meshcentral.js \
-    --datapath ${MESH_DIR}/meshcentral-data \
-    --configfile ${MESH_DIR}/meshcentral-data/config.json &
-  MC_PID=$!
-
-  # Wait up to 60s for cert generation
-  for i in $(seq 1 60); do
-    if [ -f "${MESH_DIR}/meshcentral-data/agentserver-cert-public.crt" ]; then
-      echo "[entrypoint] Certificates generated"
-      break
-    fi
-    sleep 1
-  done
-
-  kill $MC_PID 2>/dev/null || true
-  wait $MC_PID 2>/dev/null || true
-
-  echo "[entrypoint] Pushing generated certificates to MongoDB..."
-  node ${MESH_INSTALL_DIR}/meshcentral/meshcentral.js \
-    --dbpushconfigfiles \
+# Synchronize cert/config files with the database.
+#   - On subsequent pod starts: pulls existing certs from MongoDB into datapath.
+#   - On the first-ever pod start: no certs in DB, GetMeshServerCertificate
+#     generates them locally, then they are pushed to MongoDB for future pods.
+# config.json is never touched by the sync; the mounted secret is authoritative.
+#
+# --launch 1 bypasses MeshCentral's parent/child auto-restart monitor
+# (meshcentral.js:592). Without it, a non-zero exit from --syncconfigfiles would
+# trigger an infinite 5-second restart loop in the parent instead of surfacing
+# the failure to bash.
+#
+# `timeout` bounds a Mongo stall — initContainers have no liveness probe and
+# no implicit deadline, so an unresponsive sync would hang the pod forever.
+# --kill-after forces SIGKILL if Node ignores SIGTERM mid-callback.
+echo "[entrypoint] Synchronizing cert/config files with database..."
+timeout --kill-after=10 "${SYNC_TIMEOUT:-600}" \
+  node "${MESH_INSTALL_DIR}/meshcentral/meshcentral.js" \
+    --launch 1 \
+    --datapath "${DATAPATH}" \
+    --configfile "${CONFIG_FILE}" \
     --configkey "${MESH_CONFIG_KEY}" \
-    --datapath ${MESH_DIR}/meshcentral-data \
-    --configfile ${MESH_DIR}/meshcentral-data/config.json || echo "[entrypoint] dbpushconfigfiles failed, continuing..."
-fi
+    --syncconfigfiles
+echo "[entrypoint] ✓ cert/config sync complete"
 
-# Run the OpenFrame migration (creates admin user, device group, MSH files)
+# Run the OpenFrame migration (creates admin user, device group, MSH files).
+# Requires agentserver-cert-public.crt to exist — guaranteed by --syncconfigfiles above.
+# Idempotent: guarded by existence checks in migrate.js.
+# Invoked from the read-only image layer (MESH_TEMP_DIR) so bootstrap logic
+# cannot be tampered with via the data volume.
 echo "[entrypoint] Running OpenFrame migration..."
-node ${MESH_DIR}/meshcentral-data/plugins/openframe/migrate.js \
-  --datapath ${MESH_DIR}/meshcentral-data \
-  --configfile ${MESH_DIR}/meshcentral-data/config.json
+timeout --kill-after=10 "${MIGRATE_TIMEOUT:-300}" \
+  node "${MESH_TEMP_DIR}/plugins/openframe/migrate.js" \
+    --datapath "${DATAPATH}" \
+    --configfile "${CONFIG_FILE}"
+echo "[entrypoint] ✓ migration complete"
 
-# Start MeshCentral in foreground (single real start)
-echo "[entrypoint] Starting MeshCentral..."
-exec node ${MESH_INSTALL_DIR}/meshcentral/meshcentral.js \
-  --datapath ${MESH_DIR}/meshcentral-data \
-  --configfile ${MESH_DIR}/meshcentral-data/config.json
+echo "[entrypoint] Bootstrap complete — main container will start MeshCentral"
