@@ -29,21 +29,17 @@ config:
     mongodb: ""  # Set via --set or values override
     dbExpire:
       events: 157680000
-    certUrl: []
     port: 8383
     aliasPort: 443
-    alias: []
-    agentAliasUrl: ""
-    agentAliasDns: []
     tlsOffload: true
     redirPort: 0
     AgentPong: 300
-    SelfUpdate: false
     AllowFraming: true
     AllowLoginToken: true
-    WebRTC: false
+    # Required behind TLS-terminating ingress: agents pin the MC TLS cert hash
+    # and see the ingress cert instead, so the hash check would block every
+    # connection. Not a security downgrade in this topology.
     IgnoreAgentHashCheck: true
-    production: false
     meshAgentBinaries:
       darwin-x64:
         compile: true
@@ -57,7 +53,6 @@ config:
       title2: MeshCentral
       minify: true
       NewAccounts: false
-      localSessionRecording: true
       allowedOrigin: true
     openframe_public:
       share: /opt/mesh/public
@@ -66,11 +61,6 @@ deploymentAnnotations: {}
 podAnnotations: {}
 
 revisionHistoryLimit: 10
-
-containerSecurityContext:
-  runAsNonRoot: true
-  runAsUser: 1000
-  runAsGroup: 1000
 
 resources:
   requests:

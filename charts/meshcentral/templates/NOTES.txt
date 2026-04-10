@@ -1,5 +1,5 @@
 MeshCentral deployed!
 
-  Port-forward: kubectl port-forward svc/{{ .Release.Name }} 8443:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+  Port-forward: kubectl port-forward svc/meshcentral 8443:{{ .Values.config.settings.port | default 4430 }} -n {{ .Release.Namespace }}
 
 First account created becomes site admin.

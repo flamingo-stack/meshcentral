@@ -34,7 +34,8 @@ RUN mkdir -p ${MESH_TEMP_DIR} ${MESH_DIR} ${MESH_INSTALL_DIR} \
 # Copy built MeshCentral source + deps (including mongodb driver) from dep-compiler
 COPY --from=dep-compiler /opt/meshcentral/meshcentral ${MESH_INSTALL_DIR}/meshcentral/
 
-# OpenFrame plugins (entrypoint.sh copies from here into the datapath volume at runtime)
+# OpenFrame plugins — chart's init container symlinks from here into the
+# datapath emptyDir at pod start (read-only, runs from this image layer).
 COPY plugins/ ${MESH_TEMP_DIR}/plugins/openframe/
 
 RUN chown -R node:node ${MESH_DIR} ${MESH_TEMP_DIR} ${MESH_INSTALL_DIR}

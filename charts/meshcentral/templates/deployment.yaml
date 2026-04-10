@@ -28,52 +28,31 @@ spec:
         {{- include "meshcentral.selectorLabels" . | nindent 8 }}
 
     spec:
+      securityContext:
+        fsGroup: 1000
+
       initContainers:
         - name: wait-mongodb
           image: "{{ .Values.initImage.registry }}/{{ .Values.initImage.repository }}:{{ .Values.initImage.tag }}"
-          securityContext:
-            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           command: ["timeout", "300", "sh", "-c", "until mongosh '{{ .Values.config.settings.mongodb }}' --quiet --eval 'rs.status()' >/dev/null 2>&1; do sleep 5; done"]
 
         - name: meshcentral-init
           image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          securityContext:
-            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           command: ["/bin/bash", "-c"]
           args:
             - |
               set -e
-
               : "${MESH_DIR:?}" "${MESH_TEMP_DIR:?}" "${MESH_INSTALL_DIR:?}" "${MESH_CONFIG_KEY:?}"
+              DATA="${MESH_DIR}/meshcentral-data"; CFG=/tmp/config/config.json
 
-              DATAPATH="${MESH_DIR}/meshcentral-data"
-              CONFIG_FILE=/tmp/config/config.json
+              # pluginHandler.js hardcodes {datapath}/plugins; symlink from read-only image layer.
+              mkdir -p "${DATA}/plugins" && ln -sfn "${MESH_TEMP_DIR}/plugins/openframe" "${DATA}/plugins/openframe"
 
-              # Symlink plugin from read-only image layer; pluginHandler.js hardcodes
-              # {datapath}/plugins. Target defined by docker/Dockerfile COPY plugins/.
-              mkdir -p "${DATAPATH}/plugins"
-              ln -sfn "${MESH_TEMP_DIR}/plugins/openframe" "${DATAPATH}/plugins/openframe"
-
-              # --launch 1 bypasses the parent/child auto-restart monitor so sync failures
-              # surface to bash instead of looping. </dev/zero keeps stdin open — with
-              # --launch, mainStart exits on stdin 'end' (meshcentral.js:4545), which fires
-              # immediately in k8s and skips the sync. `timeout` bounds Mongo stalls.
-              echo "[init] syncing cert/config files with database..."
-              timeout "${SYNC_TIMEOUT:-600}" \
-                node "${MESH_INSTALL_DIR}/meshcentral/meshcentral.js" \
-                  --launch 1 \
-                  --datapath "${DATAPATH}" \
-                  --configfile "${CONFIG_FILE}" \
-                  --configkey "${MESH_CONFIG_KEY}" \
-                  --syncconfigfiles \
-                </dev/zero
-
-              echo "[init] running OpenFrame migration..."
-              timeout "${MIGRATE_TIMEOUT:-300}" \
-                node "${MESH_TEMP_DIR}/plugins/openframe/migrate.js" \
-                  --datapath "${DATAPATH}" \
-                  --configfile "${CONFIG_FILE}"
+              # --launch 1 bypasses parent/child auto-restart so sync errors surface; </dev/zero
+              # keeps stdin open (mainStart exits on stdin 'end' at meshcentral.js:4545 in k8s).
+              timeout "${SYNC_TIMEOUT:-600}" node "${MESH_INSTALL_DIR}/meshcentral/meshcentral.js" --launch 1 --datapath "${DATA}" --configfile "${CFG}" --configkey "${MESH_CONFIG_KEY}" --syncconfigfiles </dev/zero
+              timeout "${MIGRATE_TIMEOUT:-300}" node "${MESH_TEMP_DIR}/plugins/openframe/migrate.js" --datapath "${DATA}" --configfile "${CFG}"
           envFrom:
             - configMapRef:
                 name: meshcentral
@@ -90,8 +69,6 @@ spec:
         - name: meshcentral
           image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          securityContext:
-            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
           command: ["node"]
           args:
             - "/opt/meshcentral/meshcentral/meshcentral.js"
