@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: meshcentral-new
+  name: meshcentral
 data:
   MESH_PROTOCOL: "ws"
   MESH_NGINX_HOST: "localhost"
