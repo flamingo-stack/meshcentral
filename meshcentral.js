@@ -156,7 +156,7 @@ function CreateMeshCentralServer(config, args) {
             'logintoken', 'logintokenkey', 'logintokengen', 'mailtokengen', 'admin',
             'unadmin', 'sessionkey', 'sessiontime', 'minify', 'minifycore',
             'dblistconfigfiles', 'dbshowconfigfile', 'dbpushconfigfiles', 'oldencrypt',
-            'dbpullconfigfiles', 'dbdeleteconfigfiles', 'autosyncconfigfiles', 'vaultpushconfigfiles',
+            'dbpullconfigfiles', 'dbdeleteconfigfiles', 'autosyncconfigfiles', 'syncconfigfiles', 'vaultpushconfigfiles',
             'vaultpullconfigfiles', 'vaultdeleteconfigfiles', 'configkey',
             'loadconfigfromdb', 'npmpath', 'serverid', 'recordencryptionrecode', 'vault',
             'token', 'unsealkey', 'name', 'log', 'dbstats', 'translate', 'createaccount',
@@ -1792,16 +1792,37 @@ function CreateMeshCentralServer(config, args) {
         // Pull must run BEFORE GetMeshServerCertificate so restored files are on disk when it reads them.
         // Push runs AFTER, so any newly-generated certs on first boot land in the DB for future restarts.
         // config.json is never touched — the mounted source is authoritative.
+        // --syncconfigfiles is a one-shot mode: run the full sync cycle (pull → generate → push) and exit.
+        // Used by the Helm entrypoint to guarantee cert files exist on disk before running migrate.js
+        // on the first-ever pod start, without the old start-kill-restart bash dance.
+        const syncOnlyMode = (obj.args.syncconfigfiles === true) || (obj.args.syncconfigfiles === 'true')
+                          || (obj.args.syncConfigFiles === true) || (obj.args.syncConfigFiles === 'true');
         const autoSyncArg = obj.args.autosyncconfigfiles || obj.args.autoSyncConfigFiles;
-        const syncEnabled = ((autoSyncArg === true) || (autoSyncArg === 'true'))
+        const syncEnabled = (syncOnlyMode || (autoSyncArg === true) || (autoSyncArg === 'true'))
                          && (typeof obj.args.configkey == 'string');
+
+        if (syncOnlyMode && typeof obj.args.configkey != 'string') {
+            console.log('ERROR: --syncconfigfiles requires --configkey.');
+            process.exit(1);
+            return;
+        }
 
         const afterPull = function () {
             obj.certificateOperations.GetMeshServerCertificate(obj.args, obj.config, function (certs) {
-                const afterPush = function () { obj.StartEx2Continue(certs); };
+                const afterPush = function () {
+                    if (syncOnlyMode) {
+                        console.log('[syncconfigfiles] Done. Cert/config files synchronized with database.');
+                        process.exit(0);
+                        return;
+                    }
+                    obj.StartEx2Continue(certs);
+                };
                 if (!syncEnabled) { afterPush(); return; }
                 obj.pushConfigFilesToDB(obj.datapath, { configKey: obj.args.configkey, oldEncrypt: !!obj.args.oldencrypt }, function (err) {
-                    if (err != null) { addServerWarning('Config file sync (push) failed: ' + err.message, 30, null, true); }
+                    if (err != null) {
+                        if (syncOnlyMode) { console.log('ERROR: Config file sync (push) failed: ' + err.message); process.exit(1); return; }
+                        addServerWarning('Config file sync (push) failed: ' + err.message, 30, null, true);
+                    }
                     afterPush();
                 });
             });
@@ -1809,7 +1830,10 @@ function CreateMeshCentralServer(config, args) {
 
         if (!syncEnabled) { afterPull(); return; }
         obj.pullConfigFilesFromDB(obj.datapath, { configKey: obj.args.configkey }, function (err) {
-            if (err != null) { addServerWarning('Config file sync (pull) failed: ' + err.message, 31, null, true); }
+            if (err != null) {
+                if (syncOnlyMode) { console.log('ERROR: Config file sync (pull) failed: ' + err.message); process.exit(1); return; }
+                addServerWarning('Config file sync (pull) failed: ' + err.message, 31, null, true);
+            }
             afterPull();
         });
     };
