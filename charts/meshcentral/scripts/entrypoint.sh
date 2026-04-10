@@ -46,6 +46,13 @@ ln -sfn "${MESH_TEMP_DIR}/plugins/openframe" "${DATAPATH}/plugins/openframe"
 # trigger an infinite 5-second restart loop in the parent instead of surfacing
 # the failure to bash.
 #
+# stdin redirect from /dev/zero is REQUIRED: with --launch, mainStart registers
+# `process.stdin.on('end', process.exit)` (meshcentral.js:4545). In a k8s init
+# container stdin is closed, so 'end' fires immediately and node exits 0 BEFORE
+# syncconfigfiles runs — "sync complete" prints but nothing actually synced.
+# /dev/zero keeps the stream open so only the explicit process.exit(0) at the
+# end of the sync cycle terminates the process.
+#
 # `timeout` bounds a Mongo stall — initContainers have no liveness probe and
 # no implicit deadline, so an unresponsive sync would hang the pod forever.
 echo "[entrypoint] Synchronizing cert/config files with database..."
@@ -55,7 +62,8 @@ timeout "${SYNC_TIMEOUT:-600}" \
     --datapath "${DATAPATH}" \
     --configfile "${CONFIG_FILE}" \
     --configkey "${MESH_CONFIG_KEY}" \
-    --syncconfigfiles
+    --syncconfigfiles \
+  </dev/zero
 echo "[entrypoint] ✓ cert/config sync complete"
 
 # Run the OpenFrame migration (creates admin user, device group, MSH files).
