@@ -1,10 +1,12 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "meshcentral.fullname" . }}-env
-  labels:
-    {{- include "meshcentral.labels" . | nindent 4 }}
+  name: meshcentral
 data:
-  {{- range $key, $value := .Values.env }}
-  {{ $key }}: {{ $value | quote }}
-  {{- end }}
+  MESH_PROTOCOL: "ws"
+  MESH_NGINX_HOST: "localhost"
+  MESH_EXTERNAL_PORT: "8383"
+  MESH_DEVICE_GROUP: "OpenFrame"
+  MESH_NGINX_NAT_HOST: ""
+  OPENFRAME_MODE: "true"
+  OPENFRAME_GATEWAY_URL: ""

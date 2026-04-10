@@ -1147,40 +1147,53 @@ function CreateMeshCentralServer(config, args) {
                     // Used by the --dbpushconfigfiles CLI branch and by the auto-sync path in StartEx2.
                     // options: { configKey (required), oldEncrypt (default false), includeConfigJson (default false) }
                     // callback(err, pushedCount)
+                    //
+                    // includeConfigJson also controls whether existing cfile rows are wiped first:
+                    //   true  → full-snapshot mode (CLI): RemoveAllOfType('cfile') then write everything,
+                    //           so files deleted from disk disappear from the DB too.
+                    //   false → update-only mode (auto-sync): upsert only. The DB copy of config.json
+                    //           is left untouched because the runtime authoritative copy lives in a
+                    //           mounted Secret, and the cert file set is stable in this flow so there
+                    //           is nothing to garbage-collect.
                     obj.pushConfigFilesToDB = function (folder, options, callback) {
                         if (!options || typeof options.configKey != 'string') { return callback(new Error('configKey required')); }
                         if ((folder == null) || (folder === true) || (folder == '*')) { folder = obj.datapath; }
+                        const doPush = function () {
+                            obj.fs.readdir(folder, function (err, files) {
+                                if (err != null) { return callback(new Error('Unable to read from folder ' + folder)); }
+                                var lockCount = 1;
+                                var pushed = 0;
+                                var finished = false;
+                                var done = function () {
+                                    if ((--lockCount) == 0 && !finished) { finished = true; callback(null, pushed); }
+                                };
+                                for (var i in files) {
+                                    const file = files[i];
+                                    var eligible = file.endsWith('.key') || file.endsWith('.crt') || (file == 'terms.txt') || file.endsWith('.jpg') || file.endsWith('.png');
+                                    if (options.includeConfigJson && (file == 'config.json')) { eligible = true; }
+                                    if (!eligible) continue;
+                                    const fullPath = obj.path.join(folder, file);
+                                    var binary;
+                                    try { binary = Buffer.from(obj.fs.readFileSync(fullPath, { encoding: 'binary' }), 'binary'); }
+                                    catch (ex) { return callback(new Error('Unable to read ' + fullPath)); }
+                                    console.log('Pushing ' + file + ', ' + binary.length + ' bytes.');
+                                    lockCount++;
+                                    pushed++;
+                                    const encrypted = options.oldEncrypt
+                                        ? obj.db.oldEncryptData(options.configKey, binary)
+                                        : obj.db.encryptData(options.configKey, binary);
+                                    obj.db.setConfigFile(file, encrypted, done);
+                                }
+                                done();
+                            });
+                        };
                         obj.fs.readdir(folder, function (err, files) {
                             if (err != null) { return callback(new Error('Unable to read from folder ' + folder)); }
-                            obj.db.RemoveAllOfType('cfile', function () {
-                                obj.fs.readdir(folder, function (err, files) {
-                                    if (err != null) { return callback(new Error('Unable to read from folder ' + folder)); }
-                                    var lockCount = 1;
-                                    var pushed = 0;
-                                    var finished = false;
-                                    var done = function () {
-                                        if ((--lockCount) == 0 && !finished) { finished = true; callback(null, pushed); }
-                                    };
-                                    for (var i in files) {
-                                        const file = files[i];
-                                        var eligible = file.endsWith('.key') || file.endsWith('.crt') || (file == 'terms.txt') || file.endsWith('.jpg') || file.endsWith('.png');
-                                        if (options.includeConfigJson && (file == 'config.json')) { eligible = true; }
-                                        if (!eligible) continue;
-                                        const fullPath = obj.path.join(folder, file);
-                                        var binary;
-                                        try { binary = Buffer.from(obj.fs.readFileSync(fullPath, { encoding: 'binary' }), 'binary'); }
-                                        catch (ex) { return callback(new Error('Unable to read ' + fullPath)); }
-                                        console.log('Pushing ' + file + ', ' + binary.length + ' bytes.');
-                                        lockCount++;
-                                        pushed++;
-                                        const encrypted = options.oldEncrypt
-                                            ? obj.db.oldEncryptData(options.configKey, binary)
-                                            : obj.db.encryptData(options.configKey, binary);
-                                        obj.db.setConfigFile(file, encrypted, done);
-                                    }
-                                    done();
-                                });
-                            });
+                            if (options.includeConfigJson) {
+                                obj.db.RemoveAllOfType('cfile', doPush);
+                            } else {
+                                doPush();
+                            }
                         });
                     };
 

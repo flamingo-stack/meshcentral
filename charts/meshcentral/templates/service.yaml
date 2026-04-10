@@ -1,15 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "meshcentral.fullname" . }}
-  labels:
-    {{- include "meshcentral.labels" . | nindent 4 }}
+  name: meshcentral
 spec:
-  type: {{ .Values.service.type }}
+  type: ClusterIP
+  selector:
+    {{- include "meshcentral.selectorLabels" . | nindent 4 }}
   ports:
-    - port: {{ .Values.service.port }}
+    - port: {{ .Values.config.settings.port | default 4430 }}
       targetPort: http
       protocol: TCP
       name: http
-  selector:
-    {{- include "meshcentral.selectorLabels" . | nindent 4 }}
