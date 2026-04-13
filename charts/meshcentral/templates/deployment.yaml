@@ -55,7 +55,7 @@ spec:
               timeout "${MIGRATE_TIMEOUT:-300}" node "${MESH_TEMP_DIR}/plugins/openframe/migrate.js" --datapath "${DATA}" --configfile "${CFG}"
           envFrom:
             - configMapRef:
-                name: meshcentral
+                name: meshcentral-default
             - secretRef:
                 name: meshcentral-credentials
           volumeMounts:
@@ -84,7 +84,7 @@ spec:
 
           envFrom:
             - configMapRef:
-                name: meshcentral
+                name: meshcentral-default
             - secretRef:
                 name: meshcentral-credentials
 
