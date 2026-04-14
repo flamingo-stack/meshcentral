@@ -1,3 +1,4 @@
+
 image:
   registry: ghcr.io/flamingo-stack/meshcentral
   repository: meshcentral
@@ -8,11 +9,21 @@ initImage:
   repository: mongo
   tag: "8.0.9"
 
-# -- Sensitive credentials (stored in Secret)
+
+# -- Sensitive credentials.
+# If existingSecret is set, the chart reads MESH_USER / MESH_PASS / MESH_CONFIG_KEY
+# from that Secret using the *Key fields below. Otherwise the chart creates its
+# own Secret populated from the *Value fields.
 credentials:
-  meshUser: ""
-  meshPass: ""
-  meshConfigKey: ""
+  existingSecret: ""
+  meshUserKey: "MESH_USER"
+  meshPassKey: "MESH_PASS"
+  meshConfigKeyKey: "MESH_CONFIG_KEY"
+
+  meshUserValue: ""
+  meshPassValue: ""
+  meshConfigKeyValue: ""
+
 
 # -- MeshCentral config.json contents
 # Ref: https://github.com/Ylianst/MeshCentral/blob/master/meshcentral-config-schema.json

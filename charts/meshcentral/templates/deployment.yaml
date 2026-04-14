@@ -56,8 +56,22 @@ spec:
           envFrom:
             - configMapRef:
                 name: meshcentral-default
-            - secretRef:
-                name: meshcentral-credentials
+          env:
+            - name: MESH_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.credentials.existingSecret | default "meshcentral-credentials" }}
+                  key: {{ .Values.credentials.meshUserKey }}
+            - name: MESH_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.credentials.existingSecret | default "meshcentral-credentials" }}
+                  key: {{ .Values.credentials.meshPassKey }}
+            - name: MESH_CONFIG_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.credentials.existingSecret | default "meshcentral-credentials" }}
+                  key: {{ .Values.credentials.meshConfigKeyKey }}
           volumeMounts:
             - name: data
               mountPath: /opt/mesh
@@ -85,8 +99,22 @@ spec:
           envFrom:
             - configMapRef:
                 name: meshcentral-default
-            - secretRef:
-                name: meshcentral-credentials
+          env:
+            - name: MESH_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.credentials.existingSecret | default "meshcentral-credentials" }}
+                  key: {{ .Values.credentials.meshUserKey }}
+            - name: MESH_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.credentials.existingSecret | default "meshcentral-credentials" }}
+                  key: {{ .Values.credentials.meshPassKey }}
+            - name: MESH_CONFIG_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.credentials.existingSecret | default "meshcentral-credentials" }}
+                  key: {{ .Values.credentials.meshConfigKeyKey }}
 
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
