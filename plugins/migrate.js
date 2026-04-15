@@ -137,15 +137,43 @@ function loadConfig(configfile) {
 
 function ensureAdminUser(db, domain, cb) {
   var userid = 'user/' + domain + '/' + MESH_USER.toLowerCase();
+  var passModule = requireFromMeshCentral('pass.js');
 
   db.Get(userid, function (dbErr, docs) {
     if (docs != null && docs.length === 1) {
-      log('Admin user already exists: ' + MESH_USER);
-      return cb(null, userid);
+      var existingUser = docs[0];
+
+      // Verify current password matches MESH_PASS by rehashing with stored salt.
+      // pass.hash with 4 args: hash(password, existingSalt, callback, tag) → callback(err, hash, tag)
+      passModule.hash(MESH_PASS, existingUser.salt, function (hashErr, hash) {
+        if (hashErr) { return cb(hashErr); }
+
+        if (hash === existingUser.hash) {
+          log('Admin user verified: ' + MESH_USER + ' (password unchanged)');
+          return cb(null, userid);
+        }
+
+        // Password in env differs from DB — rotate it.
+        log('Password change detected for ' + MESH_USER + ', updating...');
+        passModule.hash(MESH_PASS, function (hashErr2, newSalt, newHash) {
+          if (hashErr2) { return cb(hashErr2); }
+
+          existingUser.salt = newSalt;
+          existingUser.hash = newHash;
+          existingUser.passchange = Math.floor(Date.now() / 1000);
+
+          db.Set(existingUser, function (setErr) {
+            if (setErr) { return cb(setErr); }
+            log('Admin user password updated: ' + MESH_USER);
+            cb(null, userid);
+          });
+        }, 0);
+      }, 0);
+      return;
     }
 
+    // User doesn't exist — create it
     log('Creating admin user: ' + MESH_USER);
-    var passModule = requireFromMeshCentral('pass.js');
     passModule.hash(MESH_PASS, function (hashErr, salt, hash) {
       if (hashErr) { return cb(hashErr); }
 
