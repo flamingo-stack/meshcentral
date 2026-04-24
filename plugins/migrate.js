@@ -52,6 +52,7 @@ function parseArgs() {
 var MESH_DIR = process.env.MESH_DIR;
 var MESH_USER = process.env.MESH_USER;
 var MESH_PASS = process.env.MESH_PASS;
+var MESH_DOMAIN = process.env.MESH_DOMAIN || '';
 var MESH_DEVICE_GROUP = process.env.MESH_DEVICE_GROUP || 'OpenFrame';
 var OPENFRAME_MODE = process.env.OPENFRAME_MODE || 'false';
 var OPENFRAME_GATEWAY_URL = process.env.OPENFRAME_GATEWAY_URL || '';
@@ -359,7 +360,7 @@ function main() {
     db.SetupDatabase(function (dbversion) {
       log('Database ready (version ' + dbversion + ')');
 
-      var domain = '';  // default domain
+      var domain = MESH_DOMAIN;
 
       // Step 4: Ensure user
       ensureAdminUser(db, domain, function (userErr, userid) {
