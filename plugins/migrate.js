@@ -204,7 +204,7 @@ function ensureAdminUser(db, domain, cb) {
 // --- Step 5: Ensure device group exists ---
 
 function ensureDeviceGroup(db, domain, userid, cb) {
-  db.GetAllType('mesh', function (dbErr, docs) {
+  db.GetAllTypeNoTypeField('mesh', domain, function (dbErr, docs) {
     if (dbErr) { return cb(dbErr); }
 
     // Look for existing mesh matching name + domain
