@@ -5,6 +5,7 @@ metadata:
 data:
   OPENFRAME_MODE: "true"
   OPENFRAME_GATEWAY_URL: "localhost"
+  MESH_DOMAIN: {{ .Values.meshDomain | default "" | quote }}
 
   MESH_PROTOCOL: "ws"
   MESH_DEVICE_GROUP: "OpenFrame"

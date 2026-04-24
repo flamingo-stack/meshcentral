@@ -71,6 +71,11 @@ config:
 deploymentAnnotations: {}
 podAnnotations: {}
 
+# -- Tenant domain name for this MeshCentral instance.
+# Each pod should have a unique value when sharing a single MongoDB database.
+# Corresponds to the key in config.domains. Leave empty for default domain.
+meshDomain: "test_domain"
+
 revisionHistoryLimit: 10
 
 resources:
