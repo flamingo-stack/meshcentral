@@ -2832,7 +2832,7 @@ function CreateMeshCentralServer(config, args) {
                 eventConnectChange = 1;
 
                 // Set new power state in database
-                const record = { time: new Date(connectTime), nodeid: nodeid, power: powerState };
+                const record = { time: new Date(connectTime), nodeid: nodeid, power: powerState, domain: nodeid.split('/')[1] };
                 if (oldPowerState != null) { record.oldPower = oldPowerState; }
                 obj.db.storePowerEvent(record, obj.multiServer);
             }
@@ -2876,7 +2876,7 @@ function CreateMeshCentralServer(config, args) {
                 eventConnectChange = 1;
 
                 // Set new power state in database
-                var record = { time: new Date(connectTime), nodeid: nodeid, power: powerState, server: obj.multiServer.serverid };
+                var record = { time: new Date(connectTime), nodeid: nodeid, power: powerState, domain: nodeid.split('/')[1], server: obj.multiServer.serverid };
                 if (oldPowerState != null) { record.oldPower = oldPowerState; }
                 obj.db.storePowerEvent(record, obj.multiServer);
             }
@@ -2938,7 +2938,7 @@ function CreateMeshCentralServer(config, args) {
                 eventConnectChange = 1;
 
                 // Set new power state in database
-                obj.db.storePowerEvent({ time: new Date(), nodeid: nodeid, power: powerState, oldPower: oldPowerState }, obj.multiServer);
+                obj.db.storePowerEvent({ time: new Date(), nodeid: nodeid, power: powerState, domain: nodeid.split('/')[1], oldPower: oldPowerState }, obj.multiServer);
             }
 
             // Event the node connection change

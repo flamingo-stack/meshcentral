@@ -104,25 +104,30 @@ module.exports.CreateDB = function (parent, func) {
     obj.SetupDatabase = function (func) {
         // Check if the database unique identifier is present
         // This is used to check that in server peering mode, everyone is using the same database.
-        obj.Get('DatabaseIdentifier', function (err, docs) {
+        var primaryDomain = '';
+        if (parent.config && parent.config.domains) { for (var pd in parent.config.domains) { if (pd !== '') { primaryDomain = pd; break; } } }
+        var dbIdentifierKey = primaryDomain ? ('DatabaseIdentifier_' + primaryDomain) : 'DatabaseIdentifier';
+        var dbSchemaKey = primaryDomain ? ('SchemaVersion_' + primaryDomain) : 'SchemaVersion';
+
+        obj.Get(dbIdentifierKey, function (err, docs) {
             if (err != null) { parent.debug('db', 'ERROR (Get DatabaseIdentifier): ' + err); }
             if ((err == null) && (docs.length == 1) && (docs[0].value != null)) {
                 obj.identifier = docs[0].value;
             } else {
                 obj.identifier = Buffer.from(require('crypto').randomBytes(48), 'binary').toString('hex');
-                obj.Set({ _id: 'DatabaseIdentifier', value: obj.identifier });
+                obj.Set({ _id: dbIdentifierKey, value: obj.identifier });
             }
         });
 
         // Load database schema version and check if we need to update
-        obj.Get('SchemaVersion', function (err, docs) {
+        obj.Get(dbSchemaKey, function (err, docs) {
             if (err != null) { parent.debug('db', 'ERROR (Get SchemaVersion): ' + err); }
             var ver = 0;
             if ((err == null) && (docs.length == 1)) { ver = docs[0].value; }
             if (ver == 1) { console.log('This is an unsupported beta 1 database, delete it to create a new one.'); process.exit(0); }
 
             // TODO: Any schema upgrades here...
-            obj.Set({ _id: 'SchemaVersion', value: 2 });
+            obj.Set({ _id: dbSchemaKey, value: 2 });
 
             func(ver);
         });
@@ -1050,10 +1055,12 @@ module.exports.CreateDB = function (parent, func) {
                 if (typeof obj.file.watch != 'function') {
                     console.log('WARNING: watch() is not a function, MongoDB ChangeStream not supported.');
                 } else {
+                    const changeStreamServerDomains = Object.keys(parent.config.domains);
                     obj.fileChangeStream = obj.file.watch([{ $match: { $or: [{ 'fullDocument.type': { $in: ['node', 'mesh', 'user', 'ugrp'] } }, { 'operationType': 'delete' }] } }], { fullDocument: 'updateLookup' });
                     obj.fileChangeStream.on('change', function (change) {
                         obj.dbCounters.changeStream.change++;
                         if ((change.operationType == 'update') || (change.operationType == 'replace')) {
+                            if (change.fullDocument && changeStreamServerDomains.indexOf(change.fullDocument.domain) === -1) return;
                             obj.dbCounters.changeStream.update++;
                             switch (change.fullDocument.type) {
                                 case 'node': { dbNodeChange(change, false); break; } // A node has changed
@@ -1062,6 +1069,7 @@ module.exports.CreateDB = function (parent, func) {
                                 case 'ugrp': { dbUGrpChange(change, false); break; } // A user account has changed
                             }
                         } else if (change.operationType == 'insert') {
+                            if (change.fullDocument && changeStreamServerDomains.indexOf(change.fullDocument.domain) === -1) return;
                             obj.dbCounters.changeStream.insert++;
                             switch (change.fullDocument.type) {
                                 case 'node': { dbNodeChange(change, true); break; } // A node has added
@@ -1073,6 +1081,7 @@ module.exports.CreateDB = function (parent, func) {
                             obj.dbCounters.changeStream.delete++;
                             if ((change.documentKey == null) || (change.documentKey._id == null)) return;
                             var splitId = change.documentKey._id.split('/');
+                            if (changeStreamServerDomains.indexOf(splitId[1]) === -1) return;
                             switch (splitId[0]) {
                                 case 'node': {
                                     //Not Good: Problem here is that we don't know what meshid the node belonged to before the delete.
