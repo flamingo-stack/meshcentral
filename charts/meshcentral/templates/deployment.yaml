@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: meshcentral
+  name: {{ .Chart.Name }}
   {{- with .Values.deploymentAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -55,22 +55,22 @@ spec:
               timeout "${MIGRATE_TIMEOUT:-300}" node "${MESH_TEMP_DIR}/plugins/openframe/migrate.js" --datapath "${DATA}" --configfile "${CFG}"
           envFrom:
             - configMapRef:
-                name: meshcentral-default
+                name: {{ .Chart.Name }}-default
           env:
             - name: MESH_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.credentials.existingSecret | default "meshcentral-credentials" }}
+                  name: {{ .Values.credentials.existingSecret | default (printf "%s-credentials" .Chart.Name) }}
                   key: {{ .Values.credentials.meshUserKey }}
             - name: MESH_PASS
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.credentials.existingSecret | default "meshcentral-credentials" }}
+                  name: {{ .Values.credentials.existingSecret | default (printf "%s-credentials" .Chart.Name) }}
                   key: {{ .Values.credentials.meshPassKey }}
             - name: MESH_CONFIG_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.credentials.existingSecret | default "meshcentral-credentials" }}
+                  name: {{ .Values.credentials.existingSecret | default (printf "%s-credentials" .Chart.Name) }}
                   key: {{ .Values.credentials.meshConfigKeyKey }}
           volumeMounts:
             - name: data
@@ -98,22 +98,22 @@ spec:
 
           envFrom:
             - configMapRef:
-                name: meshcentral-default
+                name: {{ .Chart.Name }}-default
           env:
             - name: MESH_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.credentials.existingSecret | default "meshcentral-credentials" }}
+                  name: {{ .Values.credentials.existingSecret | default (printf "%s-credentials" .Chart.Name) }}
                   key: {{ .Values.credentials.meshUserKey }}
             - name: MESH_PASS
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.credentials.existingSecret | default "meshcentral-credentials" }}
+                  name: {{ .Values.credentials.existingSecret | default (printf "%s-credentials" .Chart.Name) }}
                   key: {{ .Values.credentials.meshPassKey }}
             - name: MESH_CONFIG_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ .Values.credentials.existingSecret | default "meshcentral-credentials" }}
+                  name: {{ .Values.credentials.existingSecret | default (printf "%s-credentials" .Chart.Name) }}
                   key: {{ .Values.credentials.meshConfigKeyKey }}
 
           resources:
@@ -152,6 +152,6 @@ spec:
       volumes:
         - name: config
           secret:
-            secretName: meshcentral-config
+            secretName: {{ .Chart.Name }}-config
         - name: data
           emptyDir: {}

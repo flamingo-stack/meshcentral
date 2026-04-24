@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: meshcentral-default
+  name: {{ .Chart.Name }}-default
 data:
   OPENFRAME_MODE: "true"
   OPENFRAME_GATEWAY_URL: "localhost"
