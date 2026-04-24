@@ -104,7 +104,7 @@ module.exports.CreateDB = function (parent, func) {
     obj.SetupDatabase = function (func) {
         // Check if the database unique identifier is present
         // This is used to check that in server peering mode, everyone is using the same database.
-        var primaryDomain = process.env.MESH_DOMAIN || '';
+        var primaryDomain = (process.env.OPENFRAME_MODE === 'true') ? (process.env.MESH_DOMAIN || '') : '';
         var dbIdentifierKey = primaryDomain ? ('DatabaseIdentifier_' + primaryDomain) : 'DatabaseIdentifier';
         var dbSchemaKey = primaryDomain ? ('SchemaVersion_' + primaryDomain) : 'SchemaVersion';
 
@@ -1054,7 +1054,9 @@ module.exports.CreateDB = function (parent, func) {
                 if (typeof obj.file.watch != 'function') {
                     console.log('WARNING: watch() is not a function, MongoDB ChangeStream not supported.');
                 } else {
-                    const changeStreamServerDomains = process.env.MESH_DOMAIN ? [process.env.MESH_DOMAIN, ''] : Object.keys(parent.config.domains);
+                    const changeStreamServerDomains = (process.env.OPENFRAME_MODE === 'true' && process.env.MESH_DOMAIN)
+                        ? [process.env.MESH_DOMAIN, '']
+                        : Object.keys(parent.config.domains);
                     obj.fileChangeStream = obj.file.watch([{ $match: { $or: [{ 'fullDocument.type': { $in: ['node', 'mesh', 'user', 'ugrp'] } }, { 'operationType': 'delete' }] } }], { fullDocument: 'updateLookup' });
                     obj.fileChangeStream.on('change', function (change) {
                         obj.dbCounters.changeStream.change++;
