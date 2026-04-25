@@ -6,42 +6,50 @@ against a single shared MongoDB database, where each pod serves a distinct tenan
 ## Architecture
 
 ```
-Pod (tenant-1)          Pod (tenant-2)          Pod (tenant-3)
-  meshcentral.js          meshcentral.js          meshcentral.js
-  MESH_DOMAIN=tenant-1    MESH_DOMAIN=tenant-2    MESH_DOMAIN=tenant-3
-        |                       |                       |
-        └───────────────────────┴───────────────────────┘
-                                │
-                         MongoDB (single)
-                         database: meshcentral
-                         ┌─────────────────┐
-                         │  meshcentral    │  ← main collection (nodes, users, meshes)
-                         │  events         │
-                         │  power          │
-                         │  smbios         │
-                         │  serverstats    │
-                         └─────────────────┘
+Pod (tenant-1)              Pod (tenant-2)              Pod (tenant-3)
+  meshcentral.js              meshcentral.js              meshcentral.js
+  config.domains:             config.domains:             config.domains:
+    "":     {...}               "":     {...}               "":     {...}
+    tenant-1: { dns: ... }      tenant-2: { dns: ... }      tenant-3: { dns: ... }
+        |                           |                           |
+        └───────────────────────────┴───────────────────────────┘
+                                    │
+                             MongoDB (single)
+                             database: meshcentral
+                             ┌─────────────────┐
+                             │  meshcentral    │  ← main collection (nodes, users, meshes)
+                             │  events         │
+                             │  power          │
+                             │  smbios         │
+                             │  serverstats    │
+                             └─────────────────┘
 ```
 
-Each pod is deployed independently (separate Helm release, separate config, separate process).
-All pods share **one MongoDB instance and one database**. Data isolation relies on the
-`domain` field that MeshCentral already embeds in every document.
+Each pod is deployed independently (separate Helm release, separate config, separate
+process). All pods share **one MongoDB instance and one database**. Data isolation
+relies on the `domain` field that MeshCentral already embeds in every document.
+
+The tenant served by a given pod is **derived from `config.domains`** — there is no
+separate `MESH_DOMAIN` environment variable. The single non-empty, non-share key in
+`config.domains` is treated as the tenant. Same predicate as `meshcentral.js:1999`.
 
 ## Why `domain` is sufficient for isolation
 
-MeshCentral was originally designed as a multi-domain server (virtual hosting within one
-process). The `domain` field is embedded in:
+MeshCentral was originally designed as a multi-domain server (virtual hosting within
+one process). The `domain` field is embedded in:
 
 - Every `_id`: `user/{domain}/{name}`, `node/{domain}/{hash}`, `mesh/{domain}/{hash}`
 - Every document as a top-level `domain` field
-- All user-facing list queries (`GetAllTypeNoTypeField`, `GetAllTypeNoTypeFieldMeshFiltered`,
-  `GetEvents*`, etc.) already accept `domain` as a required filter parameter
+- All user-facing list queries (`GetAllTypeNoTypeField`,
+  `GetAllTypeNoTypeFieldMeshFiltered`, `GetEvents*`, etc.) accept `domain` as a
+  required filter parameter
 
 This means user-facing API endpoints are already tenant-isolated by design.
 
 ## Problems with the vanilla codebase (before changes)
 
-Running multiple MeshCentral instances against one database out-of-the-box had three issues:
+Running multiple MeshCentral instances against one database out-of-the-box had three
+issues:
 
 ### 1. `DatabaseIdentifier` and `SchemaVersion` conflicts
 
@@ -77,78 +85,70 @@ never cleaned up its power events.
 
 ## Changes made
 
-### `db.js` — domain-scoped startup identifiers
+### `db.js` — `deriveTenantDomain` helper + domain-scoped startup identifiers
 
-**File:** `db.js`  
-**Function:** `SetupDatabase(func)`
+**File:** `db.js`
 
-The `primaryDomain` is now derived from the `MESH_DOMAIN` environment variable when
-`OPENFRAME_MODE=true`. If the variable is not set the code falls back to the original
-global keys, maintaining full backward compatibility.
+A single module-level helper resolves the tenant for this pod from the loaded config.
+Exported so `plugins/migrate.js` reuses it.
 
 ```js
-// Before
-obj.Get('DatabaseIdentifier', function (err, docs) { ... });
-obj.Set({ _id: 'DatabaseIdentifier', value: obj.identifier });
-
-obj.Get('SchemaVersion', function (err, docs) { ... });
-obj.Set({ _id: 'SchemaVersion', value: 2 });
-
-// After
-var primaryDomain = (process.env.OPENFRAME_MODE === 'true') ? (process.env.MESH_DOMAIN || '') : '';
-var dbIdentifierKey = primaryDomain ? ('DatabaseIdentifier_' + primaryDomain) : 'DatabaseIdentifier';
-var dbSchemaKey     = primaryDomain ? ('SchemaVersion_'      + primaryDomain) : 'SchemaVersion';
-
-obj.Get(dbIdentifierKey, function (err, docs) { ... });
-obj.Set({ _id: dbIdentifierKey, value: obj.identifier });
-
-obj.Get(dbSchemaKey, function (err, docs) { ... });
-obj.Set({ _id: dbSchemaKey, value: 2 });
+function deriveTenantDomain(domains) {
+    if (!domains) return '';
+    for (const k in domains) { if (k !== '' && domains[k].share == null) return k; }
+    return '';
+}
+module.exports.deriveTenantDomain = deriveTenantDomain;
 ```
 
-Result: each pod maintains its own `DatabaseIdentifier_tenant-1` / `SchemaVersion_tenant-1`
-document with no cross-pod interference.
+The predicate matches `meshcentral.js:1999`'s rule for "real tenant" domains
+(non-default, non-share). Legacy single-tenant installs (only the default `""` domain,
+optionally with a `share`-only `openframe_public`) return `''` and behave exactly like
+vanilla MeshCentral.
+
+**Function:** `SetupDatabase(func)`
+
+```js
+// Before — required a separate MESH_DOMAIN env var
+var primaryDomain = (process.env.OPENFRAME_MODE === 'true') ? (process.env.MESH_DOMAIN || '') : '';
+
+// After — derived from config.domains
+var primaryDomain = (process.env.OPENFRAME_MODE === 'true') ? deriveTenantDomain(parent.config.domains) : '';
+
+var dbIdentifierKey = primaryDomain ? ('DatabaseIdentifier_' + primaryDomain) : 'DatabaseIdentifier';
+var dbSchemaKey     = primaryDomain ? ('SchemaVersion_'      + primaryDomain) : 'SchemaVersion';
+```
+
+Each pod maintains its own `DatabaseIdentifier_tenant-1` / `SchemaVersion_tenant-1`
+document with no cross-pod interference. Note: per-domain identifier keys are
+incompatible with multi-server peering (which checks the global `db.identifier` at
+`multiserver.js:205`). Peering is off in this chart, so this is informational only.
 
 ### `db.js` — ChangeStream domain filter
 
-**File:** `db.js`  
-**Section:** MongoDB ChangeStream setup (inside `parent.args.mongodbchangestream` block)
+**Section:** MongoDB ChangeStream setup (inside `parent.args.mongodbchangestream`
+block)
 
 ```js
 // Before
-obj.fileChangeStream = obj.file.watch([...], { fullDocument: 'updateLookup' });
-obj.fileChangeStream.on('change', function (change) {
-    if (change.operationType == 'update' || ...) {
-        switch (change.fullDocument.type) { ... }  // processes ALL tenants
-    }
-});
-
-// After
 const changeStreamServerDomains = (process.env.OPENFRAME_MODE === 'true' && process.env.MESH_DOMAIN)
     ? [process.env.MESH_DOMAIN, '']
     : Object.keys(parent.config.domains);
 
-obj.fileChangeStream.on('change', function (change) {
-    if (change.operationType == 'update' || change.operationType == 'replace') {
-        if (change.fullDocument && changeStreamServerDomains.indexOf(change.fullDocument.domain) === -1) return;
-        ...
-    } else if (change.operationType == 'insert') {
-        if (change.fullDocument && changeStreamServerDomains.indexOf(change.fullDocument.domain) === -1) return;
-        ...
-    } else if (change.operationType == 'delete') {
-        var splitId = change.documentKey._id.split('/');
-        if (changeStreamServerDomains.indexOf(splitId[1]) === -1) return;  // domain is 2nd segment of _id
-        ...
-    }
-});
+// After
+const tenantDomain = deriveTenantDomain(parent.config.domains);
+const changeStreamServerDomains = (process.env.OPENFRAME_MODE === 'true' && tenantDomain)
+    ? [tenantDomain, '']
+    : Object.keys(parent.config.domains);
 ```
 
-Result: each pod only reacts to ChangeStream events belonging to its own domain (and the
-default `""` domain as a safety fallback).
+Each pod only reacts to ChangeStream events belonging to its own domain (and the
+default `""` domain as a safety fallback) plus inserts/updates/deletes are filtered by
+checking `change.fullDocument.domain` (or `_id`'s second segment for deletes).
 
 ### `meshcentral.js` — `domain` field in power events
 
-**File:** `meshcentral.js`  
+**File:** `meshcentral.js`
 **Three call sites** where `storePowerEvent` is called with a real node id:
 
 ```js
@@ -179,26 +179,26 @@ The domain is derived from `nodeid` which always has the format `node/{domain}/{
 Server-level power events (`nodeid: '*'`) are left without a domain — they are
 infrastructure-level markers and not tenant-specific.
 
-### `plugins/migrate.js` — domain-aware init + optimized mesh lookup
+### `plugins/migrate.js` — config-derived tenant + optimized mesh lookup
 
 **File:** `plugins/migrate.js`
 
-1. **`MESH_DOMAIN` env var** — the migration script now reads the tenant domain from the
-   environment instead of hard-coding `""`:
+1. **Tenant derivation** — the migration script reads the tenant from the loaded
+   `config.json`, not from an env var:
 
    ```js
    // Before
-   var domain = '';  // default domain
-
-   // After
    var MESH_DOMAIN = process.env.MESH_DOMAIN || '';
    ...
    var domain = MESH_DOMAIN;
+
+   // After
+   var domain = dbModule.deriveTenantDomain(config.domains);
    ```
 
-   This ensures that the admin user and device group are created under the correct tenant
-   domain, so their `_id` values (`user/tenant-1/admin`, `mesh/tenant-1/...`) are
-   isolated from other tenants.
+   The admin user and device group are created under the derived tenant, so their
+   `_id` values (`user/tenant-1/admin`, `mesh/tenant-1/...`) are isolated from other
+   tenants. Single-tenant installs derive `''` and behave as before.
 
 2. **Domain-filtered mesh lookup** — replaced the global `GetAllType` call with the
    already-domain-scoped `GetAllTypeNoTypeField`:
@@ -215,39 +215,49 @@ infrastructure-level markers and not tenant-specific.
    });
    ```
 
-### Helm chart — `MESH_DOMAIN` propagation
+### Helm chart — single source of truth in `config.domains`
 
-**Files:** `charts/meshcentral/values.yaml`, `charts/meshcentral/templates/configmap.yaml`
+**Files:** `charts/meshcentral/values.yaml`,
+`charts/meshcentral/templates/configmap.yaml`
 
-A new top-level value `meshDomain` was added to `values.yaml`:
-
-```yaml
-# -- Tenant domain name for this MeshCentral instance.
-# Each pod should have a unique value when sharing a single MongoDB database.
-# Corresponds to the key in config.domains. Leave empty for default domain.
-meshDomain: ""
-```
-
-The value is exposed as the `MESH_DOMAIN` environment variable in the ConfigMap template:
+Both `meshDomain` (top-level value) and `MESH_DOMAIN` (configmap env var) were removed.
+The chart's `config.domains` map is the only place a tenant is declared.
 
 ```yaml
-data:
-  MESH_DOMAIN: {{ .Values.meshDomain | default "" | quote }}
+config:
+  domains:
+    "":
+      title: MeshCentral
+      title2: MeshCentral
+      minify: true
+      NewAccounts: false
+      allowedOrigin: true
+    openframe_public:
+      share: /opt/mesh/public
 ```
+
+Per-tenant releases set `allowedOrigin` on their own domain entry (see deployment
+example below).
 
 ## Deployment
 
 ### Per-tenant Helm values
 
-Each tenant is deployed as a separate Helm release with a unique `meshDomain`:
+Each tenant is its own Helm release. The release adds the tenant key to
+`config.domains`:
 
 ```yaml
 # values-tenant-1.yaml
-meshDomain: "tenant-1"
 config:
   settings:
     mongodb: "mongodb://mongo-host:27017"
     mongodbname: "meshcentral"
+  domains:
+    tenant-1:
+      dns: tenant-1.yourplatform.com
+      title: "Tenant 1"
+      NewAccounts: false
+      allowedOrigin: true
 ```
 
 ```bash
@@ -255,40 +265,37 @@ helm upgrade --install mesh-tenant-1 ./charts/meshcentral -f values-tenant-1.yam
 helm upgrade --install mesh-tenant-2 ./charts/meshcentral -f values-tenant-2.yaml
 ```
 
-### MeshCentral `config.json` per pod
+The same `config.domains.tenant-1` block drives:
 
-The `config.json` must declare the named domain so MeshCentral serves it correctly.
-The default domain `""` should have `newAccounts: false` to prevent accidental
-registrations on the shared default namespace:
+- `migrate.js` — creates `user/tenant-1/<MESH_USER>` and `mesh/tenant-1/<hash>`
+- `db.js` — writes `DatabaseIdentifier_tenant-1` / `SchemaVersion_tenant-1`,
+  filters ChangeStream to `["tenant-1", ""]`
+- `webserver.js:866-875` `getDomain()` — routes `tenant-1.yourplatform.com` requests
+  to this domain config
 
-```json
-{
-  "settings": {
-    "mongodb": "mongodb://mongo-host:27017",
-    "mongodbname": "meshcentral"
-  },
-  "domains": {
-    "": { "newAccounts": false },
-    "tenant-1": {
-      "dns": "tenant-1.yourplatform.com",
-      "newAccounts": false
-    }
-  }
-}
-```
+Drift between the runtime tenant and the routing layer is structurally impossible —
+they read from the same `config.domains` entry.
+
+### Default domain `""` and signup
+
+The default `""` domain has `NewAccounts: false` to seal it. Tenant domains should
+also keep `NewAccounts: false` after the first admin is bootstrapped — note that
+`webserver.js:1610`/`:1670` always allows the **first** signup on any domain, which
+becomes site admin (`siteadmin = 4294967295`). This is the non-`migrate.js` path; the
+chart uses `migrate.js` for non-interactive admin creation.
 
 ## Behavior summary
 
 | Condition | Behavior |
-|-----------|----------|
-| `OPENFRAME_MODE` not set or `false` | Vanilla MeshCentral — no changes active |
-| `OPENFRAME_MODE=true`, `MESH_DOMAIN` empty | OpenFrame mode, default domain `""`, backward-compatible |
-| `OPENFRAME_MODE=true`, `MESH_DOMAIN=tenant-1` | Full isolation: scoped identifiers, ChangeStream filtered, migrate creates data under `tenant-1` |
+|---|---|
+| `OPENFRAME_MODE` not set or `false` | Vanilla MeshCentral — derivation logic disabled |
+| `OPENFRAME_MODE=true`, `config.domains` has only `""` (and optionally `share` hosts) | OpenFrame mode, derives `''` → vanilla DB keys, ChangeStream over all keys |
+| `OPENFRAME_MODE=true`, `config.domains` adds `tenant-1: { dns: ... }` | Full isolation: scoped identifiers (`*_tenant-1`), ChangeStream filtered to `["tenant-1", ""]`, migrate creates data under `tenant-1` |
 
 ## MongoDB collection overview
 
 | Collection | `domain` field | Notes |
-|------------|---------------|-------|
+|---|---|---|
 | `meshcentral` (main) | Yes — on all entities | `_id` also encodes domain |
 | `events` | Yes — on most events | All list queries filter by domain |
 | `power` | **Added by this patch** | Required for correct `removeDomain` cleanup |

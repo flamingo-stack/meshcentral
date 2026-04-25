@@ -25,6 +25,19 @@
 // Just run with --mongodb [connectionstring], where the connection string is documented here: https://docs.mongodb.com/manual/reference/connection-string/
 // The default collection is "meshcentral", but you can override it using --mongodbcol [collection]
 //
+
+// Derive the tenant domain key for this server instance from config.domains.
+// The single key that is non-empty and not a static-share host is treated as the tenant.
+// Returns '' for legacy single-tenant installs (only the default '' domain), keeping
+// vanilla DatabaseIdentifier / SchemaVersion / ChangeStream behavior unchanged.
+// Same predicate as meshcentral.js:1999 (`(i != '') && (config.domains[i].share == null)`).
+function deriveTenantDomain(domains) {
+    if (!domains) return '';
+    for (const k in domains) { if (k !== '' && domains[k].share == null) return k; }
+    return '';
+}
+module.exports.deriveTenantDomain = deriveTenantDomain;
+
 module.exports.CreateDB = function (parent, func) {
     var obj = {};
     var Datastore = null;
@@ -104,7 +117,9 @@ module.exports.CreateDB = function (parent, func) {
     obj.SetupDatabase = function (func) {
         // Check if the database unique identifier is present
         // This is used to check that in server peering mode, everyone is using the same database.
-        var primaryDomain = (process.env.OPENFRAME_MODE === 'true') ? (process.env.MESH_DOMAIN || '') : '';
+        // Note: per-domain identifier keys are incompatible with multi-server peering, which
+        // checks the global db.identifier at multiserver.js:205. Peering is off in the chart.
+        var primaryDomain = (process.env.OPENFRAME_MODE === 'true') ? deriveTenantDomain(parent.config.domains) : '';
         var dbIdentifierKey = primaryDomain ? ('DatabaseIdentifier_' + primaryDomain) : 'DatabaseIdentifier';
         var dbSchemaKey = primaryDomain ? ('SchemaVersion_' + primaryDomain) : 'SchemaVersion';
 
@@ -1054,8 +1069,9 @@ module.exports.CreateDB = function (parent, func) {
                 if (typeof obj.file.watch != 'function') {
                     console.log('WARNING: watch() is not a function, MongoDB ChangeStream not supported.');
                 } else {
-                    const changeStreamServerDomains = (process.env.OPENFRAME_MODE === 'true' && process.env.MESH_DOMAIN)
-                        ? [process.env.MESH_DOMAIN, '']
+                    const tenantDomain = deriveTenantDomain(parent.config.domains);
+                    const changeStreamServerDomains = (process.env.OPENFRAME_MODE === 'true' && tenantDomain)
+                        ? [tenantDomain, '']
                         : Object.keys(parent.config.domains);
                     obj.fileChangeStream = obj.file.watch([{ $match: { $or: [{ 'fullDocument.type': { $in: ['node', 'mesh', 'user', 'ugrp'] } }, { 'operationType': 'delete' }] } }], { fullDocument: 'updateLookup' });
                     obj.fileChangeStream.on('change', function (change) {
