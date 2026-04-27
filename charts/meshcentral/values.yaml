@@ -68,6 +68,16 @@ config:
     openframe_public:
       share: /opt/mesh/public
 
+# Per-tenant Helm releases declare their tenant by adding a key to config.domains, e.g.:
+#   config:
+#     domains:
+#       tenant-1:
+#         dns: tenant-1.example.com
+#         title: "Tenant 1"
+#         NewAccounts: false
+# The single non-empty, non-share key in config.domains is auto-detected by db.js and
+# plugins/migrate.js as the tenant for this pod (deriveTenantDomain in db.js).
+
 deploymentAnnotations: {}
 podAnnotations: {}
 

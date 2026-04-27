@@ -20,6 +20,10 @@
  *   MESH_DIR, MESH_USER, MESH_PASS, MESH_DEVICE_GROUP
  *   OPENFRAME_MODE, OPENFRAME_GATEWAY_URL (for OpenFrame mode MSH URL)
  *   MESH_PROTOCOL, MESH_NGINX_NAT_HOST, MESH_EXTERNAL_PORT (for standard mode MSH URL)
+ *
+ * Tenant domain is derived from config.domains via db.js's deriveTenantDomain helper —
+ * no MESH_DOMAIN env var. The single non-empty, non-share key in config.domains is
+ * treated as the tenant; legacy single-tenant installs (only the default '') return ''.
  */
 
 'use strict';
@@ -203,7 +207,7 @@ function ensureAdminUser(db, domain, cb) {
 // --- Step 5: Ensure device group exists ---
 
 function ensureDeviceGroup(db, domain, userid, cb) {
-  db.GetAllType('mesh', function (dbErr, docs) {
+  db.GetAllTypeNoTypeField('mesh', domain, function (dbErr, docs) {
     if (dbErr) { return cb(dbErr); }
 
     // Look for existing mesh matching name + domain
@@ -359,7 +363,8 @@ function main() {
     db.SetupDatabase(function (dbversion) {
       log('Database ready (version ' + dbversion + ')');
 
-      var domain = '';  // default domain
+      var domain = dbModule.deriveTenantDomain(config.domains);
+      log('Tenant domain: ' + (domain ? domain : '(default)'));
 
       // Step 4: Ensure user
       ensureAdminUser(db, domain, function (userErr, userid) {
