@@ -38,6 +38,34 @@ function deriveTenantDomain(domains) {
 }
 module.exports.deriveTenantDomain = deriveTenantDomain;
 
+// Build the per-tenant document id for shared-MongoDB multi-tenant mode. Off OPENFRAME_MODE
+// (or with no derived tenant) returns baseId unchanged — vanilla single-tenant behavior.
+// Used for global-state docs in the main collection that would otherwise collide between
+// pods sharing the same database (DatabaseIdentifier, SchemaVersion, LoginCookieEncryptionKey,
+// InvitationLinkEncryptionKey, dbconfig).
+function tenantScopedDocId(baseId, domains) {
+    if (process.env.OPENFRAME_MODE !== 'true') return baseId;
+    var d = deriveTenantDomain(domains);
+    return d ? (baseId + '_' + d) : baseId;
+}
+module.exports.tenantScopedDocId = tenantScopedDocId;
+
+// Filter an array of typed docs to only those that belong to the pod's derived tenant
+// (or the default '' domain — same allow-list as the ChangeStream filter in
+// SetupDatabase). Off OPENFRAME_MODE or without a derived tenant the array passes
+// through unchanged, preserving vanilla single-tenant behavior.
+//
+// Used to neuter cross-tenant exposure in code paths that pull all docs of a type
+// from the shared collection (GetAllType) without going through a domain-scoped DB
+// helper — runtime caches in webserver.js, the SetupDatabase cleanup pass, etc.
+function filterDocsToTenantDomain(docs, domains) {
+    if (process.env.OPENFRAME_MODE !== 'true' || !Array.isArray(docs)) return docs;
+    var d = deriveTenantDomain(domains);
+    if (!d) return docs;
+    return docs.filter(function (x) { return x && (x.domain === d || x.domain === '' || x.domain == null); });
+}
+module.exports.filterDocsToTenantDomain = filterDocsToTenantDomain;
+
 module.exports.CreateDB = function (parent, func) {
     var obj = {};
     var Datastore = null;
@@ -75,7 +103,12 @@ module.exports.CreateDB = function (parent, func) {
     obj.dbRecordsEncryptKey = null;
     obj.dbRecordsDecryptKey = null;
     obj.changeStream = false;
-    obj.pluginsActive = ((parent.config) && (parent.config.settings) && (parent.config.settings.plugins != null) && (parent.config.settings.plugins != false) && ((typeof parent.config.settings.plugins != 'object') || (parent.config.settings.plugins.enabled != false)));
+    // Plugins use the shared `plugins`/`pluginpermissions` collections without a domain field
+    // and the in-tree pluginpermissionlist UI dumps users/meshes/nodes from every tenant
+    // (meshuser.js:getpluginpermissionlist). Force-disable in OPENFRAME_MODE — the OpenFrame
+    // integration does not use MeshCentral plugins, so this trades nothing for a cross-tenant
+    // safety guarantee. Toggle via setting plugins.enabled if a tenant ever needs them.
+    obj.pluginsActive = (process.env.OPENFRAME_MODE !== 'true') && ((parent.config) && (parent.config.settings) && (parent.config.settings.plugins != null) && (parent.config.settings.plugins != false) && ((typeof parent.config.settings.plugins != 'object') || (parent.config.settings.plugins.enabled != false)));
     obj.dbCounters = {
         fileSet: 0,
         fileRemove: 0,
@@ -374,9 +407,14 @@ module.exports.CreateDB = function (parent, func) {
         // List of valid identifiers
         var validIdentifiers = {}
 
-        // Load all user groups
+        // Load all user groups.
+        // In OPENFRAME_MODE, restrict the cleanup pass to this pod's tenant: every pod runs
+        // SetupDatabase at startup and writes back fixes (obj.Set on user/mesh below). Without
+        // domain filtering N pods race on each other's docs and cross-tenant data lands in
+        // this pod's logs and validIdentifiers set.
         obj.GetAllType('ugrp', function (err, docs) {
             if (err != null) { parent.debug('db', 'ERROR (GetAll user): ' + err); }
+            docs = filterDocsToTenantDomain(docs, parent.config.domains);
             if ((err == null) && (docs.length > 0)) {
                 for (var i in docs) {
                     // Add this as a valid user identifier
@@ -387,6 +425,7 @@ module.exports.CreateDB = function (parent, func) {
             // Fix all of the creating & login to ticks by seconds, not milliseconds.
             obj.GetAllType('user', function (err, docs) {
                 if (err != null) { parent.debug('db', 'ERROR (GetAll user): ' + err); }
+                docs = filterDocsToTenantDomain(docs, parent.config.domains);
                 if ((err == null) && (docs.length > 0)) {
                     for (var i in docs) {
                         var fixed = false;
@@ -425,9 +464,11 @@ module.exports.CreateDB = function (parent, func) {
                     }
 
                     // Remove all objects that have a "meshid" that no longer points to a valid mesh.
-                    // Fix any incorrectly escaped user identifiers
+                    // Fix any incorrectly escaped user identifiers.
+                    // Tenant-scoped in OPENFRAME_MODE for the same reason as the user/ugrp passes above.
                     obj.GetAllType('mesh', function (err, docs) {
                         if (err != null) { parent.debug('db', 'ERROR (GetAll mesh): ' + err); }
+                        docs = filterDocsToTenantDomain(docs, parent.config.domains);
                         var meshlist = [];
                         if ((err == null) && (docs.length > 0)) {
                             for (var i in docs) {

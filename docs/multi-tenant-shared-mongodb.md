@@ -48,8 +48,11 @@ This means user-facing API endpoints are already tenant-isolated by design.
 
 ## Problems with the vanilla codebase (before changes)
 
-Running multiple MeshCentral instances against one database out-of-the-box had three
-issues:
+Running multiple MeshCentral instances against one database out-of-the-box had nine
+issues — three structural (1-3), three cryptographic (4-6) where global secrets in
+the main collection let one tenant forge tokens valid in another, and three runtime-
+exposure (7-9) where unscoped GetAllType pulls and the plugin subsystem leaked
+cross-tenant data into in-memory caches and admin UIs.
 
 ### 1. `DatabaseIdentifier` and `SchemaVersion` conflicts
 
@@ -82,6 +85,56 @@ Power events (device on/off/sleep) were stored without a `domain` field:
 MeshCentral's `removeDomain(domainName)` helper calls
 `powerfile.deleteMany({ domain: domainName })`. Without the field, deleting a tenant
 never cleaned up its power events.
+
+### 4. `LoginCookieEncryptionKey` shared across tenants
+
+`meshcentral.js:2175` and the on-demand login-token endpoints
+(`getLoginToken`, `showLoginTokenKey`) read/write the doc
+`{ _id: 'LoginCookieEncryptionKey', key: <hex> }`. With multiple pods on one DB the
+first pod to start generates the key; every other pod reads and uses it. Login
+cookies (`encodeCookie({ u: userid, ... }, key)`) are then signable by any tenant
+admin against any tenant's userid — cross-tenant cookie forgery.
+
+### 5. `InvitationLinkEncryptionKey` shared across tenants
+
+Same shape as #4: `meshcentral.js:2185` writes a single global
+`{ _id: 'InvitationLinkEncryptionKey' }`. Invitation tokens (delivered via URL — not
+gated by browser SameSite/Domain rules like cookies are) become forgeable across
+tenants.
+
+### 6. `dbconfig.amtWsEventSecret` shared across tenants
+
+`meshcentral.js:1753` reads/writes `{ _id: 'dbconfig' }`, which holds
+`amtWsEventSecret` — a 256-bit HMAC key used to derive AMT WSMAN event credentials
+(`webserver.js:5816`). Sharing it lets one tenant generate valid AMT event
+credentials for any node in any other tenant.
+
+### 7. Runtime user/mesh/ugrp caches loaded across all tenants
+
+At startup `webserver.js:291` calls `obj.db.GetAllType('user', ...)` (and the same
+for `mesh`, `ugrp`) and stores every returned document in `obj.users`, `obj.meshes`,
+`obj.userGroups`. The ChangeStream filter from #2 keeps those caches from receiving
+foreign-domain *updates*, but the initial load is unfiltered: each pod pre-populates
+its in-memory state with every other tenant's identities. Memory grows O(N tenants)
+per pod, and any code path that later does `obj.users[someId]` without re-checking
+`u.domain` becomes a cross-tenant leak.
+
+### 8. SetupDatabase cleanup writes back fixes for foreign-domain docs
+
+The cleanup pass at `db.js:390-441` calls `GetAllType` for `ugrp`, `user`, `mesh`
+during `SetupDatabase` to: build a global `validIdentifiers` set, fix mistyped
+timestamps (`obj.Set(user)`), and prune stale links (`obj.Set(mesh)`). With shared
+collections every pod processes every other tenant's docs at startup. Multiple pods
+race on writes to the same documents, and one tenant's view of "valid identifiers"
+ends up shaping cleanup decisions on another tenant's data.
+
+### 9. Plugin subsystem dumps cross-tenant data and uses unscoped collections
+
+`meshuser.js:4783-4813` (`getpluginpermissionlist`) sends every `user`, `ugrp`,
+`mesh`, `node` from the database to the requesting site admin — used by the plugin
+permission UI. The `plugins` and `pluginpermissions` collections themselves carry no
+`domain` field. Any tenant admin opening the plugin UI sees other tenants' identities;
+any tenant installing or configuring a plugin affects the whole shared cluster.
 
 ## Changes made
 
@@ -178,6 +231,153 @@ obj.db.storePowerEvent({ time: new Date(), nodeid: nodeid, power: powerState, do
 The domain is derived from `nodeid` which always has the format `node/{domain}/{hash}`.
 Server-level power events (`nodeid: '*'`) are left without a domain — they are
 infrastructure-level markers and not tenant-specific.
+
+### `db.js` — `tenantScopedDocId` helper for shared global-state docs
+
+**File:** `db.js`
+
+Generalises the suffix-with-domain pattern from #1 so it can be reused by other call
+sites in `meshcentral.js`. Returns `baseId` unchanged outside `OPENFRAME_MODE` or with
+no derived tenant, preserving vanilla single-tenant behavior.
+
+```js
+function tenantScopedDocId(baseId, domains) {
+    if (process.env.OPENFRAME_MODE !== 'true') return baseId;
+    var d = deriveTenantDomain(domains);
+    return d ? (baseId + '_' + d) : baseId;
+}
+module.exports.tenantScopedDocId = tenantScopedDocId;
+```
+
+### `meshcentral.js` — domain-scoped `LoginCookieEncryptionKey`
+
+**File:** `meshcentral.js` — three call sites: startup load (~line 2175), on-demand
+generation in `getLoginToken` (~line 3855), and `showLoginTokenKey` (~line 3873).
+
+```js
+// Before
+obj.db.Get('LoginCookieEncryptionKey', function (err, docs) { ... });
+obj.db.Set({ _id: 'LoginCookieEncryptionKey', key: ..., time: Date.now() });
+
+// After
+const loginCookieKeyId = require('./db.js').tenantScopedDocId('LoginCookieEncryptionKey', obj.config && obj.config.domains);
+obj.db.Get(loginCookieKeyId, function (err, docs) { ... });
+obj.db.Set({ _id: loginCookieKeyId, key: ..., time: Date.now() });
+```
+
+Each pod ends up with its own `LoginCookieEncryptionKey_<domain>` doc. A login cookie
+encoded by tenant-A's pod cannot be verified or forged using tenant-B's key.
+
+### `meshcentral.js` — domain-scoped `InvitationLinkEncryptionKey`
+
+Identical pattern at `meshcentral.js:~2185`. Each pod issues invitation tokens with
+its own key; tokens from one tenant are unintelligible to another.
+
+### `meshcentral.js` — domain-scoped `dbconfig`
+
+**File:** `meshcentral.js:~1753`
+
+```js
+// Before
+obj.db.Get('dbconfig', function (err, dbconfig) {
+    if (...) { obj.dbconfig = dbconfig[0]; } else { obj.dbconfig = { _id: 'dbconfig', version: 1 }; }
+    if (obj.dbconfig.amtWsEventSecret == null) { ... obj.db.Set(obj.dbconfig); }
+});
+
+// After
+const dbconfigId = require('./db.js').tenantScopedDocId('dbconfig', obj.config && obj.config.domains);
+obj.db.Get(dbconfigId, function (err, dbconfig) {
+    if (...) { obj.dbconfig = dbconfig[0]; } else { obj.dbconfig = { _id: dbconfigId, version: 1 }; }
+    ...
+});
+```
+
+`amtWsEventSecret` is now per-tenant; AMT WSMAN event credentials derived from it
+cannot be forged across tenants.
+
+### `db.js` — `filterDocsToTenantDomain` + scoped SetupDatabase cleanup
+
+**File:** `db.js`
+
+Sibling helper to `tenantScopedDocId` for the dual problem: dropping foreign-domain
+documents from a result array. Off OPENFRAME_MODE or with no derived tenant, returns
+the input unchanged.
+
+```js
+function filterDocsToTenantDomain(docs, domains) {
+    if (process.env.OPENFRAME_MODE !== 'true' || !Array.isArray(docs)) return docs;
+    var d = deriveTenantDomain(domains);
+    if (!d) return docs;
+    return docs.filter(function (x) { return x && (x.domain === d || x.domain === '' || x.domain == null); });
+}
+module.exports.filterDocsToTenantDomain = filterDocsToTenantDomain;
+```
+
+Applied to the three `GetAllType` calls in `SetupDatabase` (`db.js:390, 400, 441` —
+`ugrp`, `user`, `mesh`). The cleanup writes (`obj.Set(user)`, `obj.Set(mesh)`) now
+only touch this pod's tenant. The default `''` domain is included in the allow list
+to keep vanilla rows visible — same predicate as the ChangeStream filter (#2).
+
+### `webserver.js` — tenant-scoped startup caches
+
+**File:** `webserver.js:291, 307, 312`
+
+```js
+// Before (vanilla)
+obj.db.GetAllType('user', function (err, docs) {
+    obj.common.unEscapeAllLinksFieldName(docs);
+    for (i in docs) { obj.users[docs[i]._id] = docs[i]; ... }
+    ...
+});
+
+// After
+obj.db.GetAllType('user', function (err, docs) {
+    docs = require('./db.js').filterDocsToTenantDomain(docs, parent.config.domains);
+    obj.common.unEscapeAllLinksFieldName(docs);
+    for (i in docs) { obj.users[docs[i]._id] = docs[i]; ... }
+    ...
+});
+```
+
+`obj.users`, `obj.meshes`, `obj.userGroups` now contain only this pod's tenant
+documents (plus default-domain rows). Verified on a two-pod spike: with `alice` in
+tenant-a, `bob` in tenant-b, and a directly-injected foreign `user/tenant-c/...`,
+each pod's load function returned only its own tenant's users.
+
+### `db.js` — `pluginsActive` forced off in OPENFRAME_MODE
+
+**File:** `db.js:106`
+
+```js
+// Before
+obj.pluginsActive = (parent.config && parent.config.settings && parent.config.settings.plugins != null && ...);
+
+// After
+obj.pluginsActive = (process.env.OPENFRAME_MODE !== 'true') &&
+                    (parent.config && parent.config.settings && parent.config.settings.plugins != null && ...);
+```
+
+Plugins are not used in the OpenFrame integration. Disabling `pluginsActive` skips
+creation of the unscoped `plugins`/`pluginpermissions` collections and disables the
+`getpluginpermissionlist` code path that dumps cross-tenant identities.
+
+### `meshuser.js` — `serverUserCommandAmtStats` filtered by caller's domain
+
+**File:** `meshuser.js:7726`
+
+```js
+// After
+parent.parent.db.GetAllType('node', function (err, docs) {
+    if ((process.env.OPENFRAME_MODE === 'true') && Array.isArray(docs)) {
+        docs = docs.filter(function (n) { return n && n.domain === domain.id; });
+    }
+    ...
+});
+```
+
+The `amtstats` server-console command (siteadmin-only) used to aggregate Intel AMT
+device counts across every domain in the shared collection. The filter narrows the
+aggregate to the caller's session domain.
 
 ### `plugins/migrate.js` — config-derived tenant + optimized mesh lookup
 
@@ -290,7 +490,7 @@ chart uses `migrate.js` for non-interactive admin creation.
 |---|---|
 | `OPENFRAME_MODE` not set or `false` | Vanilla MeshCentral — derivation logic disabled |
 | `OPENFRAME_MODE=true`, `config.domains` has only `""` (and optionally `share` hosts) | OpenFrame mode, derives `''` → vanilla DB keys, ChangeStream over all keys |
-| `OPENFRAME_MODE=true`, `config.domains` adds `tenant-1: { dns: ... }` | Full isolation: scoped identifiers (`*_tenant-1`), ChangeStream filtered to `["tenant-1", ""]`, migrate creates data under `tenant-1` |
+| `OPENFRAME_MODE=true`, `config.domains` adds `tenant-1: { dns: ... }` | Full isolation: scoped identifiers and crypto material (`DatabaseIdentifier_tenant-1`, `SchemaVersion_tenant-1`, `LoginCookieEncryptionKey_tenant-1`, `InvitationLinkEncryptionKey_tenant-1`, `dbconfig_tenant-1`), ChangeStream filtered to `["tenant-1", ""]`, migrate creates data under `tenant-1` |
 
 ## MongoDB collection overview
 
@@ -300,7 +500,21 @@ chart uses `migrate.js` for non-interactive admin creation.
 | `events` | Yes — on most events | All list queries filter by domain |
 | `power` | **Added by this patch** | Required for correct `removeDomain` cleanup |
 | `smbios` | Yes | One document per node (upsert) |
-| `serverstats` | No | Server-wide infrastructure metric; not tenant-specific |
+| `serverstats` | No | Server-wide infrastructure metric; not tenant-specific. Stats from all pods commingle in this collection — fine for capacity-planning aggregates, not suitable for per-tenant SLA reporting (use Prometheus per-pod for that). |
+
+### Global state docs in the main collection (per-tenant copies in OPENFRAME_MODE)
+
+These six `_id`s in the `meshcentral` collection have no `domain` field. In OPENFRAME_MODE
+each is suffixed with the tenant domain (`<id>_<domain>`) so every pod sharing one
+database has its own copy and cannot read or overwrite another tenant's:
+
+| Doc | Holds | Why isolation matters |
+|---|---|---|
+| `DatabaseIdentifier` | UUID for this DB | Stable peering identity |
+| `SchemaVersion` | Schema version int | Per-pod migration state |
+| `LoginCookieEncryptionKey` | 80-byte cookie HMAC key | Forge any tenant's login cookie |
+| `InvitationLinkEncryptionKey` | 80-byte invitation HMAC key | Forge any tenant's invitation token (URLs, no SameSite protection) |
+| `dbconfig.amtWsEventSecret` | 32-byte HMAC key | Forge any tenant's AMT WSMAN event credentials |
 
 ## Scalability
 
