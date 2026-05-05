@@ -1750,8 +1750,12 @@ function CreateMeshCentralServer(config, args) {
         obj.db.storePowerEvent({ time: new Date(), nodeid: '*', power: 0, s: 1 }, obj.multiServer); // s:1 indicates that the server is starting up.
 
         // Read or setup database configuration values
-        obj.db.Get('dbconfig', function (err, dbconfig) {
-            if ((dbconfig != null) && (dbconfig.length == 1)) { obj.dbconfig = dbconfig[0]; } else { obj.dbconfig = { _id: 'dbconfig', version: 1 }; }
+        // Tenant-scoped in OPENFRAME_MODE: dbconfig holds amtWsEventSecret (HMAC key for AMT
+        // WSMAN event credential generation, see webserver.js:5816). Sharing it across pods
+        // lets one tenant forge another tenant's AMT event credentials.
+        const dbconfigId = require('./db.js').tenantScopedDocId('dbconfig', obj.config && obj.config.domains);
+        obj.db.Get(dbconfigId, function (err, dbconfig) {
+            if ((dbconfig != null) && (dbconfig.length == 1)) { obj.dbconfig = dbconfig[0]; } else { obj.dbconfig = { _id: dbconfigId, version: 1 }; }
             if (obj.dbconfig.amtWsEventSecret == null) { obj.crypto.randomBytes(32, function (err, buf) { obj.dbconfig.amtWsEventSecret = buf.toString('hex'); obj.db.Set(obj.dbconfig); }); }
 
             // This is used by the user to create a username/password for a Intel AMT WSMAN event subscription
@@ -2171,22 +2175,29 @@ function CreateMeshCentralServer(config, args) {
                     }
 
                     // Login cookie encryption key not set, use one from the database
+                    // In OPENFRAME_MODE the doc id is suffixed with the tenant domain so each
+                    // pod sharing one MongoDB has its own key and cannot forge cookies for
+                    // other tenants (see db.js:tenantScopedDocId).
                     if (obj.loginCookieEncryptionKey == null) {
-                        obj.db.Get('LoginCookieEncryptionKey', function (err, docs) {
+                        const loginCookieKeyId = require('./db.js').tenantScopedDocId('LoginCookieEncryptionKey', obj.config && obj.config.domains);
+                        obj.db.Get(loginCookieKeyId, function (err, docs) {
                             if ((docs != null) && (docs.length > 0) && (docs[0].key != null) && (obj.args.logintokengen == null) && (docs[0].key.length >= 160)) {
                                 obj.loginCookieEncryptionKey = Buffer.from(docs[0].key, 'hex');
                             } else {
-                                obj.loginCookieEncryptionKey = obj.generateCookieKey(); obj.db.Set({ _id: 'LoginCookieEncryptionKey', key: obj.loginCookieEncryptionKey.toString('hex'), time: Date.now() });
+                                obj.loginCookieEncryptionKey = obj.generateCookieKey(); obj.db.Set({ _id: loginCookieKeyId, key: obj.loginCookieEncryptionKey.toString('hex'), time: Date.now() });
                             }
                         });
                     }
 
                     // Load the invitation link encryption key from the database
-                    obj.db.Get('InvitationLinkEncryptionKey', function (err, docs) {
+                    // Tenant-scoped in OPENFRAME_MODE so invitation tokens issued by one tenant
+                    // cannot be decoded or forged by another sharing the same MongoDB.
+                    const invitationLinkKeyId = require('./db.js').tenantScopedDocId('InvitationLinkEncryptionKey', obj.config && obj.config.domains);
+                    obj.db.Get(invitationLinkKeyId, function (err, docs) {
                         if ((docs != null) && (docs.length > 0) && (docs[0].key != null) && (docs[0].key.length >= 160)) {
                             obj.invitationLinkEncryptionKey = Buffer.from(docs[0].key, 'hex');
                         } else {
-                            obj.invitationLinkEncryptionKey = obj.generateCookieKey(); obj.db.Set({ _id: 'InvitationLinkEncryptionKey', key: obj.invitationLinkEncryptionKey.toString('hex'), time: Date.now() });
+                            obj.invitationLinkEncryptionKey = obj.generateCookieKey(); obj.db.Set({ _id: invitationLinkKeyId, key: obj.invitationLinkEncryptionKey.toString('hex'), time: Date.now() });
                         }
                     });
 
@@ -3851,8 +3862,9 @@ function CreateMeshCentralServer(config, args) {
             if (err != null || docs == null || docs.length == 0) {
                 func('User ' + userid + ' not found.'); return;
             } else {
-                // Load the login cookie encryption key from the database
-                obj.db.Get('LoginCookieEncryptionKey', function (err, docs) {
+                // Load the login cookie encryption key from the database (tenant-scoped in OPENFRAME_MODE)
+                const loginCookieKeyId = require('./db.js').tenantScopedDocId('LoginCookieEncryptionKey', obj.config && obj.config.domains);
+                obj.db.Get(loginCookieKeyId, function (err, docs) {
                     if ((docs.length > 0) && (docs[0].key != null) && (obj.args.logintokengen == null) && (docs[0].key.length >= 160)) {
                         // Key is present, use it.
                         obj.loginCookieEncryptionKey = Buffer.from(docs[0].key, 'hex');
@@ -3860,7 +3872,7 @@ function CreateMeshCentralServer(config, args) {
                     } else {
                         // Key is not present, generate one.
                         obj.loginCookieEncryptionKey = obj.generateCookieKey();
-                        obj.db.Set({ _id: 'LoginCookieEncryptionKey', key: obj.loginCookieEncryptionKey.toString('hex'), time: Date.now() }, function () { func(obj.encodeCookie({ u: userid, a: 3 }, obj.loginCookieEncryptionKey)); });
+                        obj.db.Set({ _id: loginCookieKeyId, key: obj.loginCookieEncryptionKey.toString('hex'), time: Date.now() }, function () { func(obj.encodeCookie({ u: userid, a: 3 }, obj.loginCookieEncryptionKey)); });
                     }
                 });
             }
@@ -3869,15 +3881,16 @@ function CreateMeshCentralServer(config, args) {
 
     // Show the user login token generation key
     obj.showLoginTokenKey = function (func) {
-        // Load the login cookie encryption key from the database
-        obj.db.Get('LoginCookieEncryptionKey', function (err, docs) {
+        // Load the login cookie encryption key from the database (tenant-scoped in OPENFRAME_MODE)
+        const loginCookieKeyId = require('./db.js').tenantScopedDocId('LoginCookieEncryptionKey', obj.config && obj.config.domains);
+        obj.db.Get(loginCookieKeyId, function (err, docs) {
             if ((docs.length > 0) && (docs[0].key != null) && (obj.args.logintokengen == null) && (docs[0].key.length >= 160)) {
                 // Key is present, use it.
                 func(docs[0].key);
             } else {
                 // Key is not present, generate one.
                 obj.loginCookieEncryptionKey = obj.generateCookieKey();
-                obj.db.Set({ _id: 'LoginCookieEncryptionKey', key: obj.loginCookieEncryptionKey.toString('hex'), time: Date.now() }, function () { func(obj.loginCookieEncryptionKey.toString('hex')); });
+                obj.db.Set({ _id: loginCookieKeyId, key: obj.loginCookieEncryptionKey.toString('hex'), time: Date.now() }, function () { func(obj.loginCookieEncryptionKey.toString('hex')); });
             }
         });
     };

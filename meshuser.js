@@ -7725,6 +7725,12 @@ module.exports.CreateMeshUser = function (parent, db, ws, req, args, domain, use
     function serverUserCommandAmtStats(cmdData) {
         parent.parent.db.GetAllType('node', function (err, docs) {
             var r = '';
+            // In OPENFRAME_MODE the node collection is shared across tenants; restrict the
+            // aggregate to nodes in the calling session's domain so the stats don't include
+            // device counts from other tenants.
+            if ((process.env.OPENFRAME_MODE === 'true') && Array.isArray(docs)) {
+                docs = docs.filter(function (n) { return n && n.domain === domain.id; });
+            }
             if (err != null) {
                 r = "Error occured.";
             } else if ((docs == null) || (docs.length == 0)) {

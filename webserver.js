@@ -287,8 +287,13 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
 
     function EscapeHtml(x) { if (typeof x == 'string') return x.replace(/&/g, '&amp;').replace(/>/g, '&gt;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); if (typeof x == 'boolean') return x; if (typeof x == 'number') return x; }
     //function EscapeHtmlBreaks(x) { if (typeof x == "string") return x.replace(/&/g, '&amp;').replace(/>/g, '&gt;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;').replace(/\r/g, '<br />').replace(/\n/g, '').replace(/\t/g, '&nbsp;&nbsp;'); if (typeof x == "boolean") return x; if (typeof x == "number") return x; }
-    // Fetch all users from the database, keep this in memory
+    // Fetch all users from the database, keep this in memory.
+    // In OPENFRAME_MODE multiple pods share one collection — without filtering, every
+    // pod would cache every other tenant's users in memory and tally domainUserCount
+    // for foreign domains it does not own. filterDocsToTenantDomain narrows the result
+    // to this pod's tenant (plus the legacy '' domain) before it lands in obj.users.
     obj.db.GetAllType('user', function (err, docs) {
+        docs = require('./db.js').filterDocsToTenantDomain(docs, parent.config.domains);
         obj.common.unEscapeAllLinksFieldName(docs);
         var domainUserCount = {}, i = 0;
         for (i in parent.config.domains) { domainUserCount[i] = 0; }
@@ -301,15 +306,19 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
             }
         }
 
-        // Fetch all device groups (meshes) from the database, keep this in memory
+        // Fetch all device groups (meshes) from the database, keep this in memory.
         // As we load things in memory, we will also be doing some cleaning up.
         // We will not save any clean up in the database right now, instead it will be saved next time there is a change.
+        // Tenant-scoped in OPENFRAME_MODE for the same reason as the user load above.
         obj.db.GetAllType('mesh', function (err, docs) {
+            docs = require('./db.js').filterDocsToTenantDomain(docs, parent.config.domains);
             obj.common.unEscapeAllLinksFieldName(docs);
             for (var i in docs) { obj.meshes[docs[i]._id] = docs[i]; } // Get all meshes, including deleted ones.
 
-            // Fetch all user groups from the database, keep this in memory
+            // Fetch all user groups from the database, keep this in memory.
+            // Tenant-scoped in OPENFRAME_MODE.
             obj.db.GetAllType('ugrp', function (err, docs) {
+                docs = require('./db.js').filterDocsToTenantDomain(docs, parent.config.domains);
                 obj.common.unEscapeAllLinksFieldName(docs);
 
                 // Perform user group link cleanup
