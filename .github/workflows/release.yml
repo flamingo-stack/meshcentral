@@ -86,7 +86,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.ORGANISATION }}/${{ env.REPOSITORY }}/meshcentral
           tags: |
             type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=dev,enable={{is_default_branch}}
             type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
           labels: |
             org.opencontainers.image.vendor=${{ env.ORGANISATION }}
@@ -114,7 +114,7 @@ jobs:
           package: ${{ env.REPOSITORY }}/meshcentral
           delete-ghost-images: true
           delete-tags: '.*'
-          exclude-tags: '^(?:[0-9]+\.[0-9]+\.[0-9]+|latest|test-.*)$'
+          exclude-tags: '^(?:[0-9]+\.[0-9]+\.[0-9]+|dev|test-.*)$'
           use-regex: true
 
 
