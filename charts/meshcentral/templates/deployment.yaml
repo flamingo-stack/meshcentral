@@ -34,12 +34,17 @@ spec:
       initContainers:
         - name: wait-mongodb
           image: "{{ .Values.initImage.registry }}/{{ .Values.initImage.repository }}:{{ .Values.initImage.tag }}"
-          # Composes the URI from envFrom'd parts at shell-run time. mongosh has no
-          # ${VAR} substitution of its own, so we assemble in bash and pass as one arg.
-          command: ["sh", "-c", "URI=\"mongodb://$MC_MONGO_USER:$MC_MONGO_PASSWORD@$MC_MONGO_HOST:$MC_MONGO_PORT/$MC_MONGO_DATABASE?authSource=$MC_MONGO_AUTH_SOURCE\"; until timeout 10 mongosh \"$URI\" --quiet --eval 'rs.status()' >/dev/null 2>&1; do sleep 5; done"]
+          # MC_MONGO_URI is assembled by the kubelet via $(VAR) substitution against
+          # envFrom-sourced parts (see pkg/kubelet/kubelet_pods.go makeEnvironmentVariables:
+          # envFrom is processed first, then env[]). bash only sees a fully-resolved URI,
+          # so values containing $ or other shell metachars are safe.
+          command: ["timeout", "300", "sh", "-c", "until timeout 10 mongosh \"$MC_MONGO_URI\" --quiet --eval 'rs.status()' >/dev/null 2>&1; do sleep 5; done"]
           envFrom:
             - secretRef:
-                name: {{ .Values.mongodb.existingSecret | default (printf "%s-mongodb" .Chart.Name) }}
+                name: {{ .Values.mongodb.existingSecret | default (printf "%s-mongodb-creds" .Chart.Name) }}
+          env:
+            - name: MC_MONGO_URI
+              value: "mongodb://$(MC_MONGO_USER):$(MC_MONGO_PASSWORD)@$(MC_MONGO_HOST):$(MC_MONGO_PORT)/$(MC_MONGO_DATABASE)?authSource=$(MC_MONGO_AUTH_SOURCE)"
 
         - name: meshcentral-init
           image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -64,7 +69,7 @@ spec:
             - configMapRef:
                 name: {{ .Chart.Name }}-default
             - secretRef:
-                name: {{ .Values.mongodb.existingSecret | default (printf "%s-mongodb" .Chart.Name) }}
+                name: {{ .Values.mongodb.existingSecret | default (printf "%s-mongodb-creds" .Chart.Name) }}
           env:
             - name: MESH_USER
               valueFrom:
@@ -109,7 +114,7 @@ spec:
             - configMapRef:
                 name: {{ .Chart.Name }}-default
             - secretRef:
-                name: {{ .Values.mongodb.existingSecret | default (printf "%s-mongodb" .Chart.Name) }}
+                name: {{ .Values.mongodb.existingSecret | default (printf "%s-mongodb-creds" .Chart.Name) }}
           env:
             - name: MESH_USER
               valueFrom:
