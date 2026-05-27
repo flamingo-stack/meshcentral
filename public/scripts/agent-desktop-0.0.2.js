@@ -651,18 +651,16 @@ var CreateAgentRemoteDesktop = function (canvasid, scrolldiv) {
     }
     obj.xxKeyDown = function (e) {
         if ((e.key != 'Dead') && (obj.State == 3)) {
-            if (!((typeof e.key == 'string') && (e.key.length == 1) && (e.ctrlKey != true) && (e.altKey != true) && (obj.remoteKeyMap == false))) {
-                obj.SendKeyMsg(obj.KeyAction.DOWN, e);
-                if (e.preventDefault) e.preventDefault(); if (e.stopPropagation) e.stopPropagation(); return false;
-            }
-        }
-    }
-    obj.xxKeyPress = function (e) {
-        if ((e.key != 'Dead') && (obj.State == 3)) {
             if ((typeof e.key == 'string') && (e.key.length == 1) && (e.ctrlKey != true) && (e.altKey != true) && (obj.remoteKeyMap == false)) {
                 obj.SendKeyUnicode(obj.KeyAction.DOWN, e.key.charCodeAt(0));
-            } // else { obj.SendKeyMsg(obj.KeyAction.DOWN, e); }
+            } else {
+                obj.SendKeyMsg(obj.KeyAction.DOWN, e);
+            }
         }
+        if (e.preventDefault) e.preventDefault(); if (e.stopPropagation) e.stopPropagation(); return false;
+    }
+    obj.xxKeyPress = function (e) {
+        // Unicode key down is now sent from xxKeyDown, keypress is only used to suppress default browser behavior
         if (e.preventDefault) e.preventDefault(); if (e.stopPropagation) e.stopPropagation(); return false;
     }
 
