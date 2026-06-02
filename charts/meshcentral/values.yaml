@@ -25,6 +25,40 @@ credentials:
   meshConfigKeyValue: ""
 
 
+# -- MongoDB connection settings.
+# Split across a Secret (sensitive) and a ConfigMap (non-sensitive) — both are
+# envFrom'd into every container so config.settings.mongodb below can reference
+# them via ${VAR} placeholders. meshcentral.js getConfig() and plugins/migrate.js
+# loadConfig() substitute placeholders at startup; the password never appears in
+# any rendered manifest when sourced via existingSecret.
+#
+# MC_MONGO_HOSTS is a comma-separated host:port list so a single shape works for
+# standalone (one entry) and replica sets (N entries). Combined with replicaSet
+# in the URI, the driver discovers the primary regardless of which member it
+# connects to first.
+#
+# Each ref has two modes:
+#   1. existingX: ""           → chart creates "{Chart.Name}-mongodb-creds" / "-config"
+#                                 from the *Value fields below. Dev/test only.
+#   2. existingX: "<name>"     → chart references that resource. Required keys:
+#                                 Secret    → MC_MONGO_USER, MC_MONGO_PASSWORD
+#                                 ConfigMap → MC_MONGO_HOSTS, MC_MONGO_DATABASE,
+#                                             MC_MONGO_AUTH_SOURCE, MC_MONGO_REPLICA_SET
+mongodb:
+  existingSecret: ""
+  userValue: ""
+  passwordValue: ""
+
+  existingConfigMap: ""
+  hostsValue: ""
+  databaseValue: "meshcentral"
+  authSourceValue: "admin"
+  replicaSetValue: "rs0"
+  # Extra URI options appended to MC_MONGO_URI verbatim (must start with '&', or
+  # leave empty). Use for cross-cluster TLS ("&tls=true"), read preference, etc.
+  uriOptionsValue: ""
+
+
 # -- MeshCentral config.json contents
 # Ref: https://github.com/Ylianst/MeshCentral/blob/master/meshcentral-config-schema.json
 config:
@@ -37,7 +71,9 @@ config:
       enabled: true
       list:
         - openframe
-    mongodb: ""  # Set via --set or values override
+    # ${VAR} placeholders are substituted at startup from container env (see mongodb block above).
+    # Override only to change query options or auth strategy; do not paste a literal URI.
+    mongodb: "mongodb://${MC_MONGO_USER}:${MC_MONGO_PASSWORD}@${MC_MONGO_HOSTS}/${MC_MONGO_DATABASE}?replicaSet=${MC_MONGO_REPLICA_SET}&authSource=${MC_MONGO_AUTH_SOURCE}${MC_MONGO_URI_OPTIONS}"
     dbExpire:
       events: 157680000
     port: 8383
