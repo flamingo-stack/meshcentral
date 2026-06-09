@@ -62,6 +62,11 @@ var OPENFRAME_GATEWAY_URL = process.env.OPENFRAME_GATEWAY_URL || '';
 var MESH_PROTOCOL = process.env.MESH_PROTOCOL || 'wss';
 var MESH_NGINX_NAT_HOST = process.env.MESH_NGINX_NAT_HOST || '';
 var MESH_EXTERNAL_PORT = process.env.MESH_EXTERNAL_PORT || '8383';
+// MESH_CONFIG_KEY seeds the deterministic device-group id (see deterministicMeshId).
+// TENANT_ID is the authoritative tenant domain — used to assert that config.domains
+// rendered correctly before we touch the device group.
+var MESH_CONFIG_KEY = process.env.MESH_CONFIG_KEY || '';
+var TENANT_ID = process.env.TENANT_ID || '';
 
 if (!MESH_DIR) { err('MESH_DIR env var is required'); process.exit(1); }
 if (!MESH_USER || !MESH_PASS) { err('MESH_USER and MESH_PASS env vars are required'); process.exit(1); }
@@ -206,62 +211,85 @@ function ensureAdminUser(db, domain, cb) {
 
 // --- Step 5: Ensure device group exists ---
 
+// Deterministic device-group MeshID.
+//
+// The MeshID is baked into every agent's .msh at enrollment, so it must stay
+// stable for the life of the fleet. Deriving it from stable inputs (config key +
+// tenant domain + group name) instead of crypto.randomBytes means that if the
+// Mongo record is ever lost, this script reconstructs the *same* MeshID and
+// already-enrolled agents keep validating — instead of being silently orphaned.
+function deterministicMeshId(domain) {
+  var seed = MESH_CONFIG_KEY + '|' + domain + '|' + MESH_DEVICE_GROUP;
+  var b64 = crypto.createHash('sha384').update(seed).digest('base64')
+    .replace(/\+/g, '@').replace(/\//g, '$').replace(/=+$/, '');
+  return 'mesh/' + domain + '/' + b64;
+}
+
 function ensureDeviceGroup(db, domain, userid, cb) {
   db.GetAllTypeNoTypeField('mesh', domain, function (dbErr, docs) {
+    // Never fall through to creating a group on a read error: that would mint a
+    // second, divergent identity and orphan every enrolled agent. Fail instead.
     if (dbErr) { return cb(dbErr); }
 
-    // Look for existing mesh matching name + domain
+    // Reuse the existing group if one is present for this (domain, name).
     if (docs) {
       for (var i = 0; i < docs.length; i++) {
         var m = docs[i];
         if (m.domain === domain && m.name === MESH_DEVICE_GROUP && !m.deleted) {
           log('Device group already exists: ' + MESH_DEVICE_GROUP + ' (' + m._id + ')');
+          if (MESH_CONFIG_KEY && m._id !== deterministicMeshId(domain)) {
+            log('WARNING: existing device group id differs from the deterministic id '
+              + deterministicMeshId(domain) + '. Preserving the existing id so current '
+              + 'agents stay valid; a future DB loss would regenerate the deterministic '
+              + 'id and require re-enrollment of agents created before this run.');
+          }
           return cb(null, m._id);
         }
       }
     }
 
-    // Create new mesh
-    log('Creating device group: ' + MESH_DEVICE_GROUP);
-    crypto.randomBytes(48, function (randErr, buf) {
-      if (randErr) { return cb(randErr); }
+    // Create the device group with a DETERMINISTIC id (reconstructible after a DB
+    // loss). Refuse to run without the seed rather than mint a random, unstable id.
+    if (!MESH_CONFIG_KEY) {
+      return cb(new Error('MESH_CONFIG_KEY is required to derive a stable device-group id; '
+        + 'refusing to mint a random id that cannot survive a DB loss'));
+    }
+    var meshid = deterministicMeshId(domain);
+    log('Creating device group: ' + MESH_DEVICE_GROUP + ' (' + meshid + ')');
 
-      var meshid = 'mesh/' + domain + '/' + buf.toString('base64').replace(/\+/g, '@').replace(/\//g, '$');
+    var links = {};
+    if (userid) {
+      links[userid] = { name: MESH_USER, rights: 0xFFFFFFFF };
+    }
 
-      var links = {};
-      if (userid) {
-        links[userid] = { name: MESH_USER, rights: 0xFFFFFFFF };
-      }
+    var mesh = {
+      type: 'mesh',
+      _id: meshid,
+      name: MESH_DEVICE_GROUP,
+      mtype: 2,
+      desc: 'Created by openframe migration',
+      domain: domain,
+      links: links,
+      creation: Date.now(),
+      creatorid: userid,
+      creatorname: MESH_USER
+    };
 
-      var mesh = {
-        type: 'mesh',
-        _id: meshid,
-        name: MESH_DEVICE_GROUP,
-        mtype: 2,
-        desc: 'Created by openframe migration',
-        domain: domain,
-        links: links,
-        creation: Date.now(),
-        creatorid: userid,
-        creatorname: MESH_USER
-      };
+    db.Set(mesh, function (setErr) {
+      if (setErr) { return cb(setErr); }
+      log('Device group created: ' + meshid);
 
-      db.Set(mesh, function (setErr) {
-        if (setErr) { return cb(setErr); }
-        log('Device group created: ' + meshid);
-
-        // Update user to include this mesh in their links
-        db.Get(userid, function (getErr, userDocs) {
-          if (getErr || !userDocs || userDocs.length !== 1) {
-            // Not fatal — mesh is created, just couldn't update user links
-            return cb(null, meshid);
-          }
-          var user = userDocs[0];
-          if (user.links == null) { user.links = {}; }
-          user.links[meshid] = { rights: 0xFFFFFFFF };
-          db.Set(user, function () {
-            cb(null, meshid);
-          });
+      // Update user to include this mesh in their links
+      db.Get(userid, function (getErr, userDocs) {
+        if (getErr || !userDocs || userDocs.length !== 1) {
+          // Not fatal — mesh is created, just couldn't update user links
+          return cb(null, meshid);
+        }
+        var user = userDocs[0];
+        if (user.links == null) { user.links = {}; }
+        user.links[meshid] = { rights: 0xFFFFFFFF };
+        db.Set(user, function () {
+          cb(null, meshid);
         });
       });
     });
@@ -365,6 +393,17 @@ function main() {
 
       var domain = dbModule.deriveTenantDomain(config.domains);
       log('Tenant domain: ' + (domain ? domain : '(default)'));
+
+      // Safety: in a tenant deployment the domain derived from config.domains MUST
+      // equal TENANT_ID. A mismatch means config.domains was mis-rendered (e.g. a
+      // missing ${TENANT_ID} substitution), and proceeding would create the device
+      // group under the wrong domain and orphan every enrolled agent. Fail loudly.
+      if (TENANT_ID && domain !== TENANT_ID) {
+        err('Domain mismatch: TENANT_ID="' + TENANT_ID + '" but config.domains derived "'
+          + domain + '". Refusing to proceed to avoid re-minting the device group under '
+          + 'the wrong domain.');
+        process.exit(1);
+      }
 
       // Step 4: Ensure user
       ensureAdminUser(db, domain, function (userErr, userid) {
