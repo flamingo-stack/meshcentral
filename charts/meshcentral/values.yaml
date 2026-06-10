@@ -9,6 +9,13 @@ initImage:
   repository: mongo
   tag: "8.0.9"
 
+# -- Authoritative tenant domain, cross-checked by plugins/migrate.js against the
+# domain it derives from config.domains before it touches the device group. A
+# mismatch aborts the migration instead of creating the group under a
+# mis-rendered domain (which would orphan every enrolled agent). Leave empty to
+# skip the check (single-tenant / non-OpenFrame installs).
+tenantId: ""
+
 
 # -- Sensitive credentials.
 # If existingSecret is set, the chart reads MESH_USER / MESH_PASS / MESH_CONFIG_KEY
