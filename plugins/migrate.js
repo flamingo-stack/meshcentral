@@ -243,7 +243,7 @@ function ensureDeviceGroup(db, domain, userid, cb) {
               + 'agents stay valid; a future DB loss would regenerate the deterministic '
               + 'id and require re-enrollment of agents created before this run.');
           }
-          return cb(null, m._id);
+          return cb(null, m._id, false);
         }
       }
     }
@@ -283,13 +283,13 @@ function ensureDeviceGroup(db, domain, userid, cb) {
       db.Get(userid, function (getErr, userDocs) {
         if (getErr || !userDocs || userDocs.length !== 1) {
           // Not fatal — mesh is created, just couldn't update user links
-          return cb(null, meshid);
+          return cb(null, meshid, true);
         }
         var user = userDocs[0];
         if (user.links == null) { user.links = {}; }
         user.links[meshid] = { rights: 0xFFFFFFFF };
         db.Set(user, function () {
-          cb(null, meshid);
+          cb(null, meshid, true);
         });
       });
     });
@@ -410,8 +410,25 @@ function main() {
         if (userErr) { err('User setup failed: ' + userErr); process.exit(1); }
 
         // Step 5: Ensure device group
-        ensureDeviceGroup(db, domain, userid, function (meshErr, meshid) {
+        ensureDeviceGroup(db, domain, userid, function (meshErr, meshid, wasCreated) {
           if (meshErr) { err('Device group setup failed: ' + meshErr); process.exit(1); }
+
+          // One structured, alertable summary per run (migrate.js runs on every pod
+          // boot). Monitor: action=CREATED on an already-enrolled tenant means the DB
+          // came up empty/lost and the whole fleet just (re-)orphaned; idMatch=false
+          // means the live group id has drifted from the deterministic one (a future
+          // DB loss would then re-orphan agents enrolled before this run).
+          var idMatch = MESH_CONFIG_KEY ? (meshid === deterministicMeshId(domain)) : 'n/a';
+          log('RESULT action=' + (wasCreated ? 'CREATED' : 'reused')
+            + ' domain=' + domain
+            + ' tenantId=' + (TENANT_ID || '(unset)')
+            + ' idMatch=' + idMatch
+            + ' meshid=' + meshid);
+          if (wasCreated) {
+            err('ALERT: device group was CREATED, not reused. If this tenant was already '
+              + 'enrolled, every existing agent is now orphaned (empty or lost database). '
+              + 'meshid=' + meshid);
+          }
 
           // Step 6 + 7: Write files
           try {
