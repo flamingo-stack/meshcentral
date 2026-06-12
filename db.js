@@ -260,7 +260,7 @@ module.exports.CreateDB = function (parent, func) {
                                     obj.Remove('si' + node._id);                          // Remove system information
                                     obj.Remove('al' + node._id);                          // Remove error log last time
                                     if (obj.RemoveSMBIOS) { obj.RemoveSMBIOS(node._id); } // Remove SMBios data
-                                    obj.RemoveAllNodeEvents(node._id);                    // Remove all events for this node
+                                    obj.RemoveAllNodeEvents(node.domain, node._id);       // Remove all events for this node
                                     obj.removeAllPowerEventsForNode(node._id);            // Remove all power events for this node
                                     if (typeof node.pmt == 'string') { obj.Remove('pmt_' + node.pmt); } // Remove Push Messaging Token
                                     obj.Get('ra' + node._id, function (err, nodes) {
@@ -286,7 +286,7 @@ module.exports.CreateDB = function (parent, func) {
                                                     parent.DispatchEvent(targets, obj, event);
                                                 }
                                             } else if (i.startsWith('ugrp/')) {
-                                                var cusergroup = parent.userGroups[i];
+                                                var cusergroup = parent.webserver.userGroups[i];
                                                 if ((cusergroup != null) && (cusergroup.links != null) && (cusergroup.links[node._id] != null)) {
                                                     // Remove the user link & save the user
                                                     delete cusergroup.links[node._id];
@@ -473,7 +473,7 @@ module.exports.CreateDB = function (parent, func) {
 
                         } else if (obj.databaseType == DB_POSTGRESQL) {
                             // Postgres
-                            sqlDbQuery('DELETE FROM Main WHERE ((extra != NULL) AND (extra LIKE (\'mesh/%\')) AND (extra != ANY ($1)))', [meshlist], function (err, response) { });
+                            sqlDbQuery('DELETE FROM main WHERE extra LIKE \'mesh/%\' AND extra <> ALL ($1)', [meshlist], function (err, response) { });
                         } else if ((obj.databaseType == DB_MARIADB) || (obj.databaseType == DB_MYSQL)) {
                             // MariaDB
                             sqlDbQuery('DELETE FROM Main WHERE (extra LIKE ("mesh/%") AND (extra NOT IN ?)', [meshlist], function (err, response) { });
@@ -787,6 +787,7 @@ module.exports.CreateDB = function (parent, func) {
                     sqlDbExec('CREATE INDEX ndxeventsusername ON events(domain, userid, time)', null, function (err, response) { });
                     sqlDbExec('CREATE INDEX ndxeventsdomainnodeidtime ON events(domain, nodeid, time)', null, function (err, response) { });
                     sqlDbExec('CREATE INDEX ndxeventids ON eventids(target)', null, function (err, response) { });
+					sqlDbExec('CREATE INDEX ndxeventidsfkid ON eventids(fkid)', null, function (err, response) { });
                     sqlDbExec('CREATE INDEX ndxserverstattime ON serverstats (time)', null, function (err, response) { });
                     sqlDbExec('CREATE INDEX ndxserverstatexpire ON serverstats (expire)', null, function (err, response) { });
                     sqlDbExec('CREATE INDEX ndxpowernodeidtime ON power (nodeid, time)', null, function (err, response) { });
@@ -1644,18 +1645,18 @@ module.exports.CreateDB = function (parent, func) {
             obj.GetAllTypeNoTypeFieldMeshFiltered = function (meshes, extrasids, domain, type, id, skip, limit, func) {
                 if (limit == 0) { limit = -1; } // In SQLite, no limit is -1
                 if (id && (id != '')) {
-                    sqlDbQuery('SELECT doc FROM main WHERE (id = $1) AND (type = $2) AND (domain = $3) AND (extra IN (' + dbMergeSqlArray(meshes) + ')) LIMIT $4 OFFSET $5', [id, type, domain, limit, skip], function (err, docs) {
+                    sqlDbQuery('SELECT doc FROM main WHERE (id = $1) AND (type = $2) AND (domain = $3) AND (extra IN (' + dbMergeSqlArray(meshes) + ')) ORDER BY LOWER(json_extract(doc, \'$.name\')) LIMIT $4 OFFSET $5', [id, type, domain, limit, skip], function (err, docs) {
                         if (docs != null) { for (var i in docs) { delete docs[i].type; if (docs[i].links != null) { docs[i] = common.unEscapeLinksFieldName(docs[i]); } } }
                         func(err, performTypedRecordDecrypt(docs));
                     });
                 } else {
                     if (extrasids == null) {
-                        sqlDbQuery('SELECT doc FROM main WHERE (type = $1) AND (domain = $2) AND (extra IN (' + dbMergeSqlArray(meshes) + ')) LIMIT $3 OFFSET $4', [type, domain, limit, skip], function (err, docs) {
+                        sqlDbQuery('SELECT doc FROM main WHERE (type = $1) AND (domain = $2) AND (extra IN (' + dbMergeSqlArray(meshes) + ')) ORDER BY LOWER(json_extract(doc, \'$.name\')) LIMIT $3 OFFSET $4', [type, domain, limit, skip], function (err, docs) {
                             if (docs != null) { for (var i in docs) { delete docs[i].type; if (docs[i].links != null) { docs[i] = common.unEscapeLinksFieldName(docs[i]); } } }
                             func(err, performTypedRecordDecrypt(docs));
                         });
                     } else {
-                        sqlDbQuery('SELECT doc FROM main WHERE (type = $1) AND (domain = $2) AND ((extra IN (' + dbMergeSqlArray(meshes) + ')) OR (id IN (' + dbMergeSqlArray(extrasids) + '))) LIMIT $3 OFFSET $4', [type, domain, limit, skip], function (err, docs) {
+                        sqlDbQuery('SELECT doc FROM main WHERE (type = $1) AND (domain = $2) AND ((extra IN (' + dbMergeSqlArray(meshes) + ')) OR (id IN (' + dbMergeSqlArray(extrasids) + '))) ORDER BY LOWER(json_extract(doc, \'$.name\')) LIMIT $3 OFFSET $4', [type, domain, limit, skip], function (err, docs) {
                             if (docs != null) { for (var i in docs) { delete docs[i].type; if (docs[i].links != null) { docs[i] = common.unEscapeLinksFieldName(docs[i]); } } }
                             func(err, performTypedRecordDecrypt(docs));
                         });
@@ -1960,7 +1961,7 @@ module.exports.CreateDB = function (parent, func) {
             }
             obj.GetAllTypeNoTypeFieldMeshFiltered = function (meshes, extrasids, domain, type, id, skip, limit, func) {
                 if (meshes.length == 0) { func(null, []); return; }
-                var query = obj.file.query('meshcentral').skip(skip).take(limit).filter('type', '==', type).filter('domain', '==', domain);
+                var query = obj.file.query('meshcentral').sort('name', true).skip(skip).take(limit).filter('type', '==', type).filter('domain', '==', domain);
                 if (id) { query = query.filter('_id', '==', id); }
                 if (extrasids == null) {
                     query = query.filter('meshid', 'in', meshes);
@@ -2246,12 +2247,12 @@ module.exports.CreateDB = function (parent, func) {
             obj.GetAllTypeNoTypeFieldMeshFiltered = function (meshes, extrasids, domain, type, id, skip, limit, func) {
                 if (limit == 0) { limit = 0xFFFFFFFF; }
                 if (id && (id != '')) {
-                    sqlDbQuery('SELECT doc FROM main WHERE (id = $1) AND (type = $2) AND (domain = $3) AND (extra = ANY ($4)) LIMIT $5 OFFSET $6', [id, type, domain, meshes, limit, skip], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, performTypedRecordDecrypt(docs)); });
+                    sqlDbQuery('SELECT doc FROM main WHERE (id = $1) AND (type = $2) AND (domain = $3) AND (extra = ANY ($4)) ORDER BY LOWER(doc->>\'name\') LIMIT $5 OFFSET $6', [id, type, domain, meshes, limit, skip], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, performTypedRecordDecrypt(docs)); });
                 } else {
                     if (extrasids == null) {
-                        sqlDbQuery('SELECT doc FROM main WHERE (type = $1) AND (domain = $2) AND (extra = ANY ($3)) LIMIT $4 OFFSET $5', [type, domain, meshes, limit, skip], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, performTypedRecordDecrypt(docs)); }, true);
+                        sqlDbQuery('SELECT doc FROM main WHERE (type = $1) AND (domain = $2) AND (extra = ANY ($3)) ORDER BY LOWER(doc->>\'name\') LIMIT $4 OFFSET $5', [type, domain, meshes, limit, skip], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, performTypedRecordDecrypt(docs)); }, true);
                     } else {
-                        sqlDbQuery('SELECT doc FROM main WHERE (type = $1) AND (domain = $2) AND ((extra = ANY ($3)) OR (id = ANY ($4))) LIMIT $5 OFFSET $6', [type, domain, meshes, extrasids, limit, skip], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, performTypedRecordDecrypt(docs)); });
+                        sqlDbQuery('SELECT doc FROM main WHERE (type = $1) AND (domain = $2) AND ((extra = ANY ($3)) OR (id = ANY ($4))) ORDER BY LOWER(doc->>\'name\') LIMIT $5 OFFSET $6', [type, domain, meshes, extrasids, limit, skip], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, performTypedRecordDecrypt(docs)); });
                     }
                 }
             };
@@ -2510,9 +2511,9 @@ module.exports.CreateDB = function (parent, func) {
                 if ((meshes == null) || (meshes.length == 0)) { meshes = ''; } // MySQL can't handle a query with IN() on an empty array, we have to use an empty string instead.
                 if ((extrasids == null) || (extrasids.length == 0)) { extrasids = ''; } // MySQL can't handle a query with IN() on an empty array, we have to use an empty string instead.
                 if (id && (id != '')) {
-                    sqlDbQuery('SELECT doc FROM main WHERE id = ? AND type = ? AND domain = ? AND extra IN (?) LIMIT ? OFFSET ?', [id, type, domain, meshes, limit, skip], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, performTypedRecordDecrypt(docs)); });
+                    sqlDbQuery('SELECT doc FROM main WHERE id = ? AND type = ? AND domain = ? AND extra IN (?) ORDER BY LOWER(JSON_UNQUOTE(JSON_EXTRACT(doc, \'$.name\'))) LIMIT ? OFFSET ?', [id, type, domain, meshes, limit, skip], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, performTypedRecordDecrypt(docs)); });
                 } else {
-                    sqlDbQuery('SELECT doc FROM main WHERE type = ? AND domain = ? AND (extra IN (?) OR id IN (?)) LIMIT ? OFFSET ?', [type, domain, meshes, extrasids, limit, skip], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, performTypedRecordDecrypt(docs)); });
+                    sqlDbQuery('SELECT doc FROM main WHERE type = ? AND domain = ? AND (extra IN (?) OR id IN (?)) ORDER BY LOWER(JSON_UNQUOTE(JSON_EXTRACT(doc, \'$.name\'))) LIMIT ? OFFSET ?', [type, domain, meshes, extrasids, limit, skip], function (err, docs) { if (err == null) { for (var i in docs) { delete docs[i].type } } func(err, performTypedRecordDecrypt(docs)); });
                 }
             };
             obj.CountAllTypeNoTypeFieldMeshFiltered = function (meshes, extrasids, domain, type, id, func) {
@@ -2815,14 +2816,14 @@ module.exports.CreateDB = function (parent, func) {
                 if (extrasids == null) {
                     const x = { type: type, domain: domain, meshid: { $in: meshes } };
                     if (id) { x._id = id; }
-                    var f = obj.file.find(x, { type: 0 });
+                    var f = obj.file.find(x, { type: 0 }).collation({ locale: 'en', strength: 2 }).sort({ name: 1 });
                     if (skip > 0) f = f.skip(skip); // Skip records
                     if (limit > 0) f = f.limit(limit); // Limit records
                     f.toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); });
                 } else {
                     const x = { type: type, domain: domain, $or: [ { meshid: { $in: meshes } }, { _id: { $in: extrasids } } ] };
                     if (id) { x._id = id; }
-                    var f = obj.file.find(x, { type: 0 });
+                    var f = obj.file.find(x, { type: 0 }).collation({ locale: 'en', strength: 2 }).sort({ name: 1 });
                     if (skip > 0) f = f.skip(skip); // Skip records
                     if (limit > 0) f = f.limit(limit); // Limit records
                     f.toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); });
@@ -3102,11 +3103,11 @@ module.exports.CreateDB = function (parent, func) {
                 if (extrasids == null) {
                     const x = { type: type, domain: domain, meshid: { $in: meshes } };
                     if (id) { x._id = id; }
-                    obj.file.find(x).skip(skip).limit(limit).exec(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); });
+                    obj.file.find(x).sort({ name: 1 }).skip(skip).limit(limit).exec(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); });
                 } else {
                     const x = { type: type, domain: domain, $or: [{ meshid: { $in: meshes } }, { _id: { $in: extrasids } }] };
                     if (id) { x._id = id; }
-                    obj.file.find(x).skip(skip).limit(limit).exec(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); });
+                    obj.file.find(x).sort({ name: 1 }).skip(skip).limit(limit).exec(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); });
                 }
             };
             obj.GetAllTypeNodeFiltered = function (nodes, domain, type, id, func) {
@@ -3489,6 +3490,13 @@ module.exports.CreateDB = function (parent, func) {
             child_process.exec(cmd, { cwd: backupPath }, function (error, stdout, stderr) {
                 if ((error != null) && (error != '')) {
                         func(1, "Mongodump error, backup will not be performed. Check path or use mongodumppath & mongodumpargs");
+						
+						let processedError = error;
+						if (typeof parent?.config?.settings?.postgres?.password === "string" &&	parent.config.settings.postgres.password.length > 0) {
+							processedError = encodeURIComponent(processedError.replaceAll(parent.config.settings.postgres.password, "****"));
+						}
+						parent.debug('backup', 'MongoDB/MongoJS DumpTool: ' + processedError);			
+						
                         return;
                 } else {parent.config.settings.autobackup.backupintervalhours = backupInterval;}
             });
@@ -3500,6 +3508,13 @@ module.exports.CreateDB = function (parent, func) {
             child_process.exec(cmd, { cwd: backupPath, timeout: 1000*30 }, function(error, stdout, stdin) {
                 if ((error != null) && (error != '')) {
                         func(1, "mysqldump error, backup will not be performed. Check path or use mysqldumppath");
+						
+						let processedError = error;
+						if (typeof parent?.config?.settings?.postgres?.password === "string" &&	parent.config.settings.postgres.password.length > 0) {
+							processedError = encodeURIComponent(processedError.replaceAll(parent.config.settings.postgres.password, "****"));
+						}
+						parent.debug('backup', 'MariaDB/MySQL DumpTool: ' + processedError);
+						
                         return;
                 } else {parent.config.settings.autobackup.backupintervalhours = backupInterval;}
 
@@ -3515,6 +3530,13 @@ module.exports.CreateDB = function (parent, func) {
             child_process.exec(cmd, { cwd: backupPath }, function(error, stdout, stdin) {
                 if ((error != null) && (error != '')) {
                         func(1, "pg_dump error, backup will not be performed. Check path or use pgdumppath.");
+						
+						let processedError = error;
+						if (typeof parent?.config?.settings?.postgres?.password === "string" &&	parent.config.settings.postgres.password.length > 0) {
+							processedError = encodeURIComponent(processedError.replaceAll(parent.config.settings.postgres.password, "****"));
+						}
+						parent.debug('backup', 'PostgreSQL DumpTool: ' + processedError);				
+						
                         return;
                 } else {parent.config.settings.autobackup.backupintervalhours = backupInterval;}
             });        
@@ -3636,8 +3658,8 @@ module.exports.CreateDB = function (parent, func) {
     obj.performBackup = function (func) {
         parent.debug('backup','Entering performBackup');
         try {
-            if (obj.performingBackup) return 'Backup alreay in progress.';
-            if (parent.config.settings.autobackup.backupintervalhours == -1) { if (func) { func('Backup disabled.'); return 'Backup disabled.' }};
+            if (obj.performingBackup) { return 'Backup already in progress.' };
+            if (parent.config.settings.autobackup.backupintervalhours == -1) { return 'Backup disabled.' };
             obj.performingBackup = true;
             let backupPath = parent.backuppath;
             let dataPath = parent.datapath;
@@ -3733,12 +3755,13 @@ module.exports.CreateDB = function (parent, func) {
         let archive = null;
         let zipLevel = Math.min(Math.max(Number(parent.config.settings.autobackup.zipcompression ? parent.config.settings.autobackup.zipcompression : 5),1),9);
 
-        //if password defined, create encrypted zip
-        if (parent.config.settings.autobackup && (typeof parent.config.settings.autobackup.zippassword == 'string')) {
+        //if password defined, or a password entered for the manual backup, create encrypted zip
+        if ((parent.config.settings.autobackup.zippasswordrequest != '') && ((typeof parent.config.settings.autobackup.zippassword == 'string') || (typeof parent.config.settings.autobackup.zippasswordrequest == 'string')))  {
             try {
                 //Only register format once, otherwise it triggers an error
                 if (archiver.isRegisteredFormat('zip-encrypted') == false) { archiver.registerFormat('zip-encrypted', require('archiver-zip-encrypted')); }
-                archive = archiver.create('zip-encrypted', { zlib: { level: zipLevel }, encryptionMethod: 'aes256', password: parent.config.settings.autobackup.zippassword });
+                archive = archiver.create('zip-encrypted', { zlib: { level: zipLevel }, encryptionMethod: 'aes256',
+                    password: (typeof parent.config.settings.autobackup.zippasswordrequest == 'string')?parent.config.settings.autobackup.zippasswordrequest:parent.config.settings.autobackup.zippassword });
                 if (func) { func('Creating encrypted ZIP'); }
             } catch (ex) { // registering encryption failed, do not fall back to non-encrypted, fail backup and skip old backup removal as a precaution to not lose any backups
                 obj.backupStatus |= BACKUPFAIL_ZIPMODULE;
@@ -3749,6 +3772,7 @@ module.exports.CreateDB = function (parent, func) {
             if (func) { func('Creating a NON-ENCRYPTED ZIP'); }
             archive = archiver('zip', { zlib: { level: zipLevel } });
         }
+        delete parent.config.settings.autobackup.zippasswordrequest;
 
         //original behavior, just a filebackup if dbdump fails : (obj.backupStatus == 0 || obj.backupStatus == BACKUPFAIL_DBDUMP)
         if (obj.backupStatus == 0) {

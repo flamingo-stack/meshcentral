@@ -98,7 +98,7 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
             db.Remove('si' + obj.dbNodeKey);                          // Remove system information
             db.Remove('al' + obj.dbNodeKey);                          // Remove error log last time
             if (db.RemoveSMBIOS) { db.RemoveSMBIOS(obj.dbNodeKey); }  // Remove SMBios data
-            db.RemoveAllNodeEvents(obj.dbNodeKey);                    // Remove all events for this node
+            db.RemoveAllNodeEvents(domain.id, obj.dbNodeKey);         // Remove all events for this node
             db.removeAllPowerEventsForNode(obj.dbNodeKey);            // Remove all power events for this node
 
             // Event node deletion
@@ -208,7 +208,7 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
                                 // Clear the core
                                 obj.sendBinary(common.ShortToStr(10) + common.ShortToStr(0)); // MeshCommand_CoreModule, ask mesh agent to clear the core
                                 parent.agentStats.clearingCoreCount++;
-                                parent.parent.debug('agent', "Clearing core");
+                                parent.parent.debug('agent', "Clearing core for agent " + obj.nodeid);
                             } else {
                                 // Setup task limiter options, this system limits how many tasks can run at the same time to spread the server load.
                                 var taskLimiterOptions = { hash: meshcorehash, core: parent.parent.defaultMeshCores[corename], name: corename };
@@ -226,7 +226,7 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
                                         delete obj.agentCoreUpdatePending;
                                         obj.sendBinary(common.ShortToStr(10) + common.ShortToStr(0) + argument.hash + argument.core.toString('binary'), function () { parent.parent.taskLimiter.completed(taskid); }); // MeshCommand_CoreModule, start core update
                                         parent.agentStats.updatingCoreCount++;
-                                        parent.parent.debug('agent', "Updating core " + argument.name);
+                                        parent.parent.debug('agent', "Updating core " + argument.name + " for agent " + obj.nodeid);
                                     } else {
                                         // This agent is probably disconnected, nothing to do.
                                         parent.parent.taskLimiter.completed(taskid);
@@ -1224,6 +1224,12 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
                         parent.routeAgentCommand(command, obj.domain.id, obj.dbNodeKey, obj.dbMeshKey);
                         break;
                     }
+                case 'software':
+                    {
+                        // Todo - save software into database for offline access but send to web clients for now
+                        parent.routeAgentCommand(command, obj.domain.id, obj.dbNodeKey, obj.dbMeshKey);
+                        break;
+                    }
                 case 'coreinfo':
                     {
                         // Sent by the agent to update agent information
@@ -1237,7 +1243,8 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
 
                                 // Agent update. The recovery core was loaded in the agent, send a command to update the agent
                                 obj.agentCoreUpdateTaskId = taskid;
-                                const url = '*' + require('url').parse(obj.agentExeInfo.url).path;
+                                const getme = new URL(obj.agentExeInfo.url);
+                                const url = '*' + getme.pathname + getme.search;
                                 var cmd = { action: 'agentupdate', url: url, hash: obj.agentExeInfo.hashhex };
                                 parent.parent.debug('agentupdate', "Sending agent update url: " + cmd.url);
 
@@ -1584,7 +1591,8 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
 
                             // Agent is requesting an agent update
                             obj.agentCoreUpdateTaskId = taskid;
-                            const url = '*' + require('url').parse(obj.agentExeInfo.url).path;
+                            const getme = new URL(obj.agentExeInfo.url);
+                            const url = '*' + getme.pathname + getme.search;
                             var cmd = { action: 'agentupdate', url: url, hash: obj.agentExeInfo.hashhex, sessionid: agentUpdateFunc.sessionid };
                             parent.parent.debug('agentupdate', "Sending user requested agent update url: " + cmd.url);
 
@@ -1630,11 +1638,11 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
 
                     // parse the URL
                     var url = null;
-                    try { url = require('url').parse(command.url); } catch (ex) { }
+                    try { url = new URL(command.url); } catch (ex) { }
                     if (url == null) return;
 
                     // Decode the cookie
-                    var urlSplit = url.query.split('&c=');
+                    var urlSplit = url.search.slice(1).split('&c=');
                     if (urlSplit.length != 2) return;
                     const authCookie = parent.parent.decodeCookie(urlSplit[1], null, 1);
                     if ((authCookie == null) || (typeof authCookie.c != 'string') || (('code=' + authCookie.c) != urlSplit[0])) return;
@@ -1924,6 +1932,10 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
                 if (command.wsc != null) { // Windows Security Center
                     if (!device.wsc) { device.wsc = {}; }
                     if (JSON.stringify(device.wsc) != JSON.stringify(command.wsc)) { /*changes.push('Windows Security Center status');*/ device.wsc = command.wsc; change = 1; log = 1; }
+                }
+                if (command.lsc != null) { // Linux Security Center
+                    if (!device.lsc) { device.lsc = {}; }
+                    if (JSON.stringify(device.lsc) != JSON.stringify(command.lsc)) { /*changes.push('Linux Security Center status');*/ device.lsc = command.lsc; change = 1; log = 1; }
                 }
                 if (command.defender != null) { // Defender For Windows Server
                     if (!device.defender) { device.defender = {}; }

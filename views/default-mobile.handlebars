@@ -918,6 +918,9 @@
                     <img id="deskkeybutton5b" src="images/mobile-desk-scale-in.png" class="deskButton" style="top:160px;display:none" onclick="deskChangeFullscreenZoom()" />
                     <img id="deskkeybutton2a" src="images/mobile-desk-keyboard-open.png" class="deskButton" style="top:210px;display:none" onclick="toggleKeyboard()" />
                     <img id="deskkeybutton2b" src="images/mobile-desk-keyboard-close.png" class="deskButton" style="top:210px;display:none" onclick="toggleKeyboard()" />
+                    <img id="deskkeybutton6a" src="images/mobile-touch.png" class="deskButton" style="top:260px;display:none" onclick="deskToggleTrackpad()" title="Switch to trackpad mode" />
+                    <img id="deskkeybutton6b" src="images/mobile-desk-mouse.png" class="deskButton" style="top:260px;display:none" onclick="deskToggleTrackpad()" title="Switch to direct touch mode" />
+                    <img id="trackpadCursor" src="images/mobile-pointer.png" style="display:none;position:absolute;pointer-events:none;z-index:999;width:24px;height:24px" />
                     <div style="position:absolute;top:0;left:0;z-index:200;opacity:0;width:1px;height:1px">
                         <input id="softKeyboard" autocapitalize="off" autocomplete="off" type="text" inputmode="text" spellcheck="false" style="z-index:200;opacity:0;width:1px;height:1px" onfocus="keyboardFocusChange()" onblur="keyboardFocusChange()" />
                     </div>
@@ -939,7 +942,7 @@
                         </div>
                         <div id=deskarea3 style="position:absolute;top:32px;width:100%;height:calc(100% - 64px);background-color:#000;text-align:center">
                             <div id=DeskParent style="height:100%">
-                                <canvas id=Desk width=640 height=200 style="width:100%;-ms-touch-action:none;margin-left:0px" oncontextmenu="return false" onmousedown=dmousedown(event) onmouseup=dmouseup(event) onmousemove=dmousemove(event) onmousewheel=dmousewheel(event)></canvas>
+                                <canvas id=Desk width=640 height=200 style="width:100%;-ms-touch-action:none;margin-left:0px" oncontextmenu="return false" onmousedown=dmousedown(event) onmouseup=dmouseup(event) onmousemove=dmousemove(event) onmousewheel=dmousewheel(event) ontouchstart=dtouchstart(event) ontouchmove=dtouchmove(event) ontouchend=dtouchend(event)></canvas>
                             </div>
                             <div id=p11DeskConsoleMsg style="display:none;cursor:pointer;position:absolute;left:30px;top:17px;color:yellow;background-color:rgba(0,0,0,0.6);padding:10px;border-radius:5px;text-align:left" onclick=p11clearConsoleMsg()></div>
                             <div id=p11DeskSessionSelector style="display:none;position:absolute;left:30px;top:17px;right:30px;bottom:17px;overflow-y:auto"></div>
@@ -2096,6 +2099,7 @@
                                     if (message.event.node.intelamt.warn != null) { node.intelamt.warn = message.event.node.intelamt.warn; } else { delete node.intelamt.warn; }
                                 }
                                 if (message.event.node.av != null) { node.av = message.event.node.av; }
+                                if (message.event.node.lsc != null) { node.lsc = message.event.node.lsc; }
                                 if (message.event.node.wsc != null) { node.wsc = message.event.node.wsc; }
                                 if (message.event.node.defender != null) { node.defender = message.event.node.defender; }
                                 node.namel = node.name.toLowerCase();
@@ -3174,7 +3178,7 @@
             } else {
                 // Device name search
                 try {
-                    var rs = x.split(/\s+/).join('|'), rx = new RegExp(rs); // In some cases (like +), this can throw an exception.
+                    var rs = x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), rx = new RegExp(rs); // In some cases (like +), this can throw an exception.
                     for (var d in nodes) {
                         if (features2 & 0x00008000) {
                             if(features2 & 0x10000000){
@@ -5091,6 +5095,14 @@
                 QV('deskkeybutton4b', fullscreen && inputAllowed && (desktop.m.SwapMouse));
                 QV('deskkeybutton5a', fullscreen && (fullscreenzoom == 1));
                 QV('deskkeybutton5b', fullscreen && (fullscreenzoom != 1));
+                if (!fullscreen && trackpadMode) {
+                    trackpadMode = false;
+                    trackpadStopEdgeScroll();
+                    trackpadCurX = 0; trackpadCurY = 0;
+                    Q('trackpadCursor').style.display = 'none';
+                }
+                QV('deskkeybutton6a', fullscreen && inputAllowed && !trackpadMode);
+                QV('deskkeybutton6b', fullscreen && inputAllowed && trackpadMode);
             }
             if (currentDevicePanel == 5) {
                 // Move right buttons to terminal position
@@ -5105,6 +5117,8 @@
                 QV('deskkeybutton4b', false);
                 QV('deskkeybutton5a', false);
                 QV('deskkeybutton5a', false);
+                QV('deskkeybutton6a', false);
+                QV('deskkeybutton6b', false);
                 //QV('deskkeybutton5a', xterm.getOption('fontSize') == 15);
                 //QV('deskkeybutton5b', xterm.getOption('fontSize') != 15);
             }
@@ -5237,6 +5251,158 @@
         function dmousemove(e) { setSessionActivity(); if ((!xxdialogMode && desktop != null)) { if (fullscreen) { e.addx = Q('p10desktop').scrollLeft * (1 / fullscreenzoom); e.addy = Q('p10desktop').scrollTop * (1 / fullscreenzoom); } desktop.m.mousemove(e); } }
         function dmousewheel(e) { setSessionActivity(); if ((!xxdialogMode && desktop != null) && desktop.m.mousewheel) { if (fullscreen) { e.addx = Q('p10desktop').scrollLeft * (1 / fullscreenzoom); e.addy = Q('p10desktop').scrollTop * (1 / fullscreenzoom); } desktop.m.mousewheel(e); haltEvent(e); return true; } return false; }
         function drotate(x) { if (!xxdialogMode && desktop != null) { desktop.m.setRotation(desktop.m.rotation + x); deskAdjust(); } }
+
+        //
+        // TRACKPAD MODE
+        //
+        var trackpadMode = false;
+        var trackpadLastX = null, trackpadLastY = null;
+        var trackpadCurX = 0, trackpadCurY = 0;
+        var trackpadDown = false;
+        var trackpadTapTimer = null;
+        var trackpadTapMoved = false;
+        var trackpadEdgeTimer = null;
+        var trackpadEdgeDX = 0, trackpadEdgeDY = 0;
+
+        function deskToggleTrackpad() {
+            trackpadMode = !trackpadMode;
+            var rights = GetNodeRights(currentNode);
+            var inputAllowed = ((features2 & 0x2000) == 0) && (currentNode.agent.id != 14) && ((rights == 0xFFFFFFFF) || (((rights & 8) != 0) && ((rights & 256) == 0) && ((rights & 4096) == 0)));
+            QV('deskkeybutton6a', fullscreen && inputAllowed && !trackpadMode);
+            QV('deskkeybutton6b', fullscreen && inputAllowed && trackpadMode);
+            if (trackpadMode) {
+                // Place cursor at the centre of the visible viewport, not the full canvas
+                var vpRect = Q('p10desktop').getBoundingClientRect();
+                trackpadMoveCursor(vpRect.left + vpRect.width / 2, vpRect.top + vpRect.height / 2);
+            } else {
+                trackpadStopEdgeScroll();
+                Q('trackpadCursor').style.display = 'none';
+                trackpadCurX = 0; trackpadCurY = 0;
+            }
+        }
+
+        // x, y are clientX/clientY (viewport coordinates) of the pointer tip (hot spot)
+        function trackpadMoveCursor(clientX, clientY) {
+            var deskRect = Q('Desk').getBoundingClientRect();
+            var p10Rect = Q('p10').getBoundingClientRect();
+            // Clamp cursor centre within canvas display bounds
+            var cx = Math.max(0, Math.min(deskRect.width,  clientX - deskRect.left));
+            var cy = Math.max(0, Math.min(deskRect.height, clientY - deskRect.top));
+            // Position cursor so its tip (top-left of canvas) is at the hot spot
+            Q('trackpadCursor').style.left = (deskRect.left - p10Rect.left + cx) + 'px';
+            Q('trackpadCursor').style.top  = (deskRect.top  - p10Rect.top  + cy) + 'px';
+            Q('trackpadCursor').style.display = 'block';
+            trackpadCurX = cx; // cursor centre in canvas display-space X
+            trackpadCurY = cy;
+        }
+
+        function trackpadMakeEvent(button, buttons) {
+            var rect = Q('Desk').getBoundingClientRect();
+            // SendMouseMsg uses pageX/pageY minus the canvas's offsetLeft/offsetTop walk.
+            // pageX = clientX + scrollX, and GetPositionOfControl returns the same page offset,
+            // so pageX - canvasPageLeft = trackpadCurX (display pixels from canvas left edge).
+            var e = {
+                pageX: rect.left + window.scrollX + trackpadCurX,
+                pageY: rect.top  + window.scrollY + trackpadCurY,
+                button: button || 0,
+                buttons: buttons || 0,
+                which: (button === 2) ? 3 : 1
+            };
+            if (fullscreen) { e.addx = Q('p10desktop').scrollLeft * (1 / fullscreenzoom); e.addy = Q('p10desktop').scrollTop * (1 / fullscreenzoom); }
+            return e;
+        }
+
+        function trackpadSendMove() {
+            if (!xxdialogMode && desktop != null) {
+                desktop.m.mousemove(trackpadMakeEvent(0, trackpadDown ? 1 : 0));
+            }
+        }
+
+        function trackpadSendClick(button) {
+            if (!xxdialogMode && desktop != null) {
+                desktop.m.mousedown(trackpadMakeEvent(button, 1));
+                desktop.m.mouseup(trackpadMakeEvent(button, 0));
+            }
+        }
+
+        function trackpadStopEdgeScroll() {
+            if (trackpadEdgeTimer) { clearInterval(trackpadEdgeTimer); trackpadEdgeTimer = null; }
+            trackpadEdgeDX = 0; trackpadEdgeDY = 0;
+        }
+
+        function trackpadStartEdgeScroll() {
+            if (trackpadEdgeTimer) return;
+            trackpadEdgeTimer = setInterval(function() {
+                if (!trackpadMode || (trackpadEdgeDX === 0 && trackpadEdgeDY === 0)) { trackpadStopEdgeScroll(); return; }
+                Q('p10desktop').scrollLeft += trackpadEdgeDX;
+                Q('p10desktop').scrollTop  += trackpadEdgeDY;
+            }, 16);
+        }
+
+        function trackpadCheckEdge() {
+            var vpRect = Q('p10desktop').getBoundingClientRect();
+            var cursorRect = Q('trackpadCursor').getBoundingClientRect();
+            var cx = cursorRect.left + 10, cy = cursorRect.top + 10; // cursor centre in viewport coords
+            var edgeDX = 0, edgeDY = 0;
+            var zone = 60; // px from viewport edge that triggers auto-scroll
+            if (cx < vpRect.left + zone)        edgeDX = -Math.round((zone - (cx - vpRect.left)) / 4);
+            else if (cx > vpRect.right - zone)  edgeDX =  Math.round((zone - (vpRect.right - cx)) / 4);
+            if (cy < vpRect.top + zone)         edgeDY = -Math.round((zone - (cy - vpRect.top)) / 4);
+            else if (cy > vpRect.bottom - zone) edgeDY =  Math.round((zone - (vpRect.bottom - cy)) / 4);
+            trackpadEdgeDX = edgeDX;
+            trackpadEdgeDY = edgeDY;
+            if (edgeDX !== 0 || edgeDY !== 0) trackpadStartEdgeScroll();
+            else trackpadStopEdgeScroll();
+        }
+
+        function dtouchstart(e) {
+            setSessionActivity();
+            if (xxdialogMode || desktop == null) return;
+            if (!trackpadMode) return;
+            e.preventDefault();
+            trackpadStopEdgeScroll();
+            var t = e.touches[0];
+            trackpadLastX = t.clientX;
+            trackpadLastY = t.clientY;
+            trackpadTapMoved = false;
+            trackpadTapTimer = setTimeout(function() { trackpadTapTimer = null; }, 250);
+            trackpadDown = false;
+        }
+
+        function dtouchmove(e) {
+            setSessionActivity();
+            if (xxdialogMode || desktop == null) return;
+            if (!trackpadMode) return;
+            e.preventDefault();
+            var t = e.touches[0];
+            if (trackpadLastX == null) { trackpadLastX = t.clientX; trackpadLastY = t.clientY; return; }
+            var dx = t.clientX - trackpadLastX;
+            var dy = t.clientY - trackpadLastY;
+            trackpadLastX = t.clientX;
+            trackpadLastY = t.clientY;
+            if (Math.abs(dx) > 1 || Math.abs(dy) > 1) { trackpadTapMoved = true; }
+            var rect = Q('Desk').getBoundingClientRect();
+            trackpadMoveCursor(rect.left + trackpadCurX + dx * 1.5, rect.top + trackpadCurY + dy * 1.5);
+            trackpadSendMove();
+            trackpadCheckEdge();
+        }
+
+        function dtouchend(e) {
+            setSessionActivity();
+            if (xxdialogMode || desktop == null) return;
+            if (!trackpadMode) return;
+            e.preventDefault();
+            trackpadStopEdgeScroll();
+            trackpadLastX = null;
+            trackpadLastY = null;
+            trackpadDown = false;
+            // Tap = left click (short touch, minimal movement)
+            if (trackpadTapTimer != null && !trackpadTapMoved) {
+                clearTimeout(trackpadTapTimer);
+                trackpadTapTimer = null;
+                trackpadSendClick(0);
+            }
+        }
 
 
         //
@@ -6343,6 +6509,12 @@
                 const date = printDateTime(new Date(thedate.year, thedate.month, thedate.day, thedate.hours, thedate.minutes, thedate.seconds));
                 x += addDetailItem("Last Boot Up Time", date);
             }
+            if (hardware.linux && hardware.linux.arch) {
+                var arch = hardware.linux.arch;
+                x += addDetailItem("Architecture", (['x86_64','amd64'].includes(arch) ? "64-bit" : ['i686','x86','i586'].includes(arch) ? "32-bit" : EscapeHtml(arch)), s);
+            }
+            if (hardware.linux && hardware.linux.kernel_release) { x += addDetailItem("Kernel Release", EscapeHtml(hardware.linux.kernel_release), s); }
+            if (hardware.linux && hardware.linux.kernel_build) { x += addDetailItem("Kernel Build", EscapeHtml(hardware.linux.kernel_build), s); }
             if(hardware.darwin && hardware.darwin.LastBootUpTime){
                 var lastBootUpTime = new Date(hardware.darwin.LastBootUpTime * 1000); // must times by 1000 even tho timestamp is correct?
                 var thedate = {
@@ -6373,6 +6545,14 @@
                 if (node.defender.TamperProtected != null) { if (node.defender.TamperProtected == true) { y.push("TamperProtection" + ' - <span style=color:green>' + "On" + '</span>'); } else { y.push("TamperProtection" + ' - <span style=color:red>' + "Off" + '</span>'); } }
                 if (node.defender.AntivirusSignatureVersion != null) { y.push("SignatureVersion" + ' - <span style=color:green>' + EscapeHtml(node.defender.AntivirusSignatureVersion) + '</span>'); }
                 if (y.length > 0) x += addDetailItem("Windows Defender", y.join(', '));
+            }
+
+            // Linux Security Central
+            if (node.lsc) {
+                var y = [];
+                if (node.lsc.antiVirus != null) { if (node.lsc.antiVirus == 'OK') { y.push("AV" + ' - <span style=color:green>' + "OK" + '</span>'); } else { y.push("AV" + ' - <span style=color:red>' + "BAD" + '</span>'); } }
+                if (node.lsc.firewall != null) { if (node.lsc.firewall == 'OK') { y.push("Firewall" + ' - <span style=color:green>' + "OK" + '</span>'); } else { y.push("Firewall" + ' - <span style=color:red>' + "BAD" + '</span>'); } }
+                if (y.length > 0) x += addDetailItem("Linux Security", y.join(', '));
             }
 
             // Antivirus
