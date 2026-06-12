@@ -328,6 +328,14 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
                     for (var censusMk in obj.meshes) { if ((obj.meshes[censusMk].domain == censusDom) && (obj.meshes[censusMk].deleted == null)) censusDomMeshes++; }
                     console.log('DB census domain "' + censusDom + '": activeDeviceGroups=' + censusDomMeshes);
                 }
+                // Full device-group inventory: the exact ids present, so the log can be
+                // grepped to confirm whether a given (possibly re-minted) group id exists.
+                var censusListed = 0;
+                for (var censusGk in obj.meshes) {
+                    if (censusListed++ >= 100) { console.log('DB census: device-group list truncated at 100'); break; }
+                    var censusG = obj.meshes[censusGk];
+                    console.log('DB census device group: ' + censusGk + ' name="' + (censusG.name || '') + '" domain="' + (censusG.domain || '') + '"' + ((censusG.deleted != null) ? ' DELETED' : ''));
+                }
             } catch (censusEx) { console.log('DB census error: ' + censusEx); }
 
             // Fetch all user groups from the database, keep this in memory
