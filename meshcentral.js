@@ -713,7 +713,7 @@ function CreateMeshCentralServer(config, args) {
             var datastr = data;
             while (datastr.endsWith('\r') || datastr.endsWith('\n')) { datastr = datastr.substring(0, datastr.length - 1); }
             logFromChildProcess('ERR: ' + datastr);
-            if (data.startsWith('le.challenges[tls-sni-01].loopback')) { return; } // Ignore this error output from GreenLock
+            if (data.indexOf('le.challenges[tls-sni-01].loopback') >= 0) { return; } // Ignore this error output from GreenLock (indexOf, not startsWith, so a leading console timestamp does not defeat the filter)
             if (data[data.length - 1] == '\n') { data = data.substring(0, data.length - 1); }
             obj.logError(data);
         });

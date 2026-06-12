@@ -1028,13 +1028,12 @@ module.exports.CreateDB = function (parent, func) {
             Datastore = client;
             parent.debug('db', 'Connected to MongoDB database...');
 
-            // Log MongoDB connection-level events so transient drops/timeouts are VISIBLE
-            // before one bubbles up as an uncaught error and crashes the process (the
-            // "MongoNetworkError ... Restarting in 5 seconds" loop). Pure logging.
+            // Log MongoDB SDAM monitoring events so transient member drops / replica-set
+            // degradation are VISIBLE before an operation bubbles up as the uncaught
+            // "MongoNetworkError ... Restarting in 5 seconds" crash. These are pure
+            // OBSERVER events; we deliberately do NOT attach an 'error' listener (which
+            // would change unhandled-error behavior) — strictly observational.
             try {
-                client.on('error', function (e) { console.log('MongoDB client error: ' + (e ? ((e.name || '') + ': ' + (e.message || e)) : e)); });
-                client.on('timeout', function () { console.log('MongoDB client socket timeout'); });
-                client.on('close', function () { console.log('MongoDB connection closed'); });
                 client.on('serverHeartbeatFailed', function (e) { console.log('MongoDB heartbeat FAILED' + ((e && e.connectionId) ? (' to ' + e.connectionId) : '') + ((e && e.failure) ? (': ' + e.failure) : '')); });
                 client.on('serverClosed', function (e) { console.log('MongoDB server connection closed' + ((e && e.address) ? (': ' + e.address) : '')); });
                 client.on('topologyDescriptionChanged', function (e) {
