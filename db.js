@@ -1028,6 +1028,24 @@ module.exports.CreateDB = function (parent, func) {
             Datastore = client;
             parent.debug('db', 'Connected to MongoDB database...');
 
+            // Log MongoDB connection-level events so transient drops/timeouts are VISIBLE
+            // before one bubbles up as an uncaught error and crashes the process (the
+            // "MongoNetworkError ... Restarting in 5 seconds" loop). Pure logging.
+            try {
+                client.on('error', function (e) { console.log('MongoDB client error: ' + (e ? ((e.name || '') + ': ' + (e.message || e)) : e)); });
+                client.on('timeout', function () { console.log('MongoDB client socket timeout'); });
+                client.on('close', function () { console.log('MongoDB connection closed'); });
+                client.on('serverHeartbeatFailed', function (e) { console.log('MongoDB heartbeat FAILED' + ((e && e.connectionId) ? (' to ' + e.connectionId) : '') + ((e && e.failure) ? (': ' + e.failure) : '')); });
+                client.on('serverClosed', function (e) { console.log('MongoDB server connection closed' + ((e && e.address) ? (': ' + e.address) : '')); });
+                client.on('topologyDescriptionChanged', function (e) {
+                    try {
+                        var sd = e && e.newDescription && e.newDescription.servers; var up = 0, total = 0;
+                        if (sd) { sd.forEach(function (s) { total++; if (s.type && s.type !== 'Unknown') up++; }); }
+                        console.log('MongoDB topology changed: reachableMembers=' + up + '/' + total + ((e && e.newDescription && e.newDescription.type) ? (' (' + e.newDescription.type + ')') : ''));
+                    } catch (te) { /* ignore */ }
+                });
+            } catch (listenerEx) { console.log('Unable to attach MongoDB event listeners: ' + listenerEx); }
+
             // Get the database name and setup the database client
             var dbname = 'meshcentral';
             if (parent.args.mongodbname) { dbname = parent.args.mongodbname; }

@@ -289,6 +289,7 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
     //function EscapeHtmlBreaks(x) { if (typeof x == "string") return x.replace(/&/g, '&amp;').replace(/>/g, '&gt;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;').replace(/\r/g, '<br />').replace(/\n/g, '').replace(/\t/g, '&nbsp;&nbsp;'); if (typeof x == "boolean") return x; if (typeof x == "number") return x; }
     // Fetch all users from the database, keep this in memory
     obj.db.GetAllType('user', function (err, docs) {
+        if (err != null) { console.log('ERROR: failed to load users from database at startup: ' + err); }
         obj.common.unEscapeAllLinksFieldName(docs);
         var domainUserCount = {}, i = 0;
         for (i in parent.config.domains) { domainUserCount[i] = 0; }
@@ -305,8 +306,29 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
         // As we load things in memory, we will also be doing some cleaning up.
         // We will not save any clean up in the database right now, instead it will be saved next time there is a change.
         obj.db.GetAllType('mesh', function (err, docs) {
+            // A failed device-group load (e.g. a transient Mongo timeout) silently left
+            // obj.meshes empty, which makes the server orphan EVERY agent ("invalid
+            // domain/mesh, holding connection") until the next restart. Surface it.
+            if (err != null) { console.log('ERROR: failed to load device groups from database at startup: ' + err + ' — agents may be held as invalid until the next restart'); }
             obj.common.unEscapeAllLinksFieldName(docs);
             for (var i in docs) { obj.meshes[docs[i]._id] = docs[i]; } // Get all meshes, including deleted ones.
+
+            // Startup DB census. Makes an empty/fresh database UNAMBIGUOUS in the log
+            // (the per-domain "has no users" line above does not cover device groups).
+            // An EMPTY census at boot is the signal that migrate.js is about to (re)mint
+            // a device-group id, which orphans every agent still carrying the prior id.
+            try {
+                var censusUsers = Object.keys(obj.users).length;
+                var censusMeshes = Object.keys(obj.meshes).length;
+                console.log('DB census at startup: users=' + censusUsers + ' deviceGroups=' + censusMeshes
+                    + (((censusUsers == 0) && (censusMeshes == 0)) ? '  <-- EMPTY/FRESH DATABASE (device-group id will be re-minted)' : ''));
+                for (var censusDom in parent.config.domains) {
+                    if (parent.config.domains[censusDom].share != null) continue;
+                    var censusDomMeshes = 0;
+                    for (var censusMk in obj.meshes) { if ((obj.meshes[censusMk].domain == censusDom) && (obj.meshes[censusMk].deleted == null)) censusDomMeshes++; }
+                    console.log('DB census domain "' + censusDom + '": activeDeviceGroups=' + censusDomMeshes);
+                }
+            } catch (censusEx) { console.log('DB census error: ' + censusEx); }
 
             // Fetch all user groups from the database, keep this in memory
             obj.db.GetAllType('ugrp', function (err, docs) {
