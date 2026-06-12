@@ -14,34 +14,6 @@
 /*jshint esversion: 6 */
 "use strict";
 
-// Prefix every console line with an ISO-8601 UTC timestamp so MeshCentral's
-// (otherwise un-timestamped) server logs can be time-aligned with agent/client
-// logs, which carry their own ISO timestamps. Idempotent: a line already starting
-// with an ISO timestamp is not re-stamped — the supervisor (parent) process relays
-// already-stamped child output through its own console.log. The parent matches
-// child output with indexOf() substring checks (see launchChildServer), so a
-// leading timestamp does not affect the restart-control signalling.
-(function () {
-    var isoRe = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
-    function wrap(orig) {
-        return function () {
-            var args = Array.prototype.slice.call(arguments);
-            if (typeof args[0] === 'string') {
-                // Prefix the format string itself (don't unshift a separate arg) so
-                // console's %s/%d/%o interpolation against the remaining args still
-                // works. Idempotent: skip if already timestamped (relayed child output).
-                if (!isoRe.test(args[0])) { args[0] = new Date().toISOString() + ' ' + args[0]; }
-            } else {
-                args.unshift(new Date().toISOString());
-            }
-            return orig.apply(console, args);
-        };
-    }
-    console.log = wrap(console.log);
-    console.warn = wrap(console.warn);
-    console.error = wrap(console.error);
-})();
-
 const common = require('./common.js');
 
 // If app metrics is available
@@ -704,7 +676,7 @@ function CreateMeshCentralServer(config, args) {
             else if (data.indexOf('Server Ctrl-C exit...') >= 0) { childProcess.xrestart = 2; }
             else if (data.indexOf('Starting self upgrade...') >= 0) { childProcess.xrestart = 3; }
             else if (data.indexOf('Server restart...') >= 0) { childProcess.xrestart = 1; }
-            else if (data.indexOf('Starting self upgrade to: ') >= 0) { obj.args.specificupdate = data.substring(data.indexOf('Starting self upgrade to: ') + 26).split('\r')[0].split('\n')[0]; childProcess.xrestart = 3; } // offset from the marker (not a fixed index) so a leading console timestamp does not shift the parse
+            else if (data.indexOf('Starting self upgrade to: ') >= 0) { obj.args.specificupdate = data.substring(26).split('\r')[0].split('\n')[0]; childProcess.xrestart = 3; }
             var datastr = data;
             while (datastr.endsWith('\r') || datastr.endsWith('\n')) { datastr = datastr.substring(0, datastr.length - 1); }
             logFromChildProcess(datastr);
@@ -713,7 +685,7 @@ function CreateMeshCentralServer(config, args) {
             var datastr = data;
             while (datastr.endsWith('\r') || datastr.endsWith('\n')) { datastr = datastr.substring(0, datastr.length - 1); }
             logFromChildProcess('ERR: ' + datastr);
-            if (data.indexOf('le.challenges[tls-sni-01].loopback') >= 0) { return; } // Ignore this error output from GreenLock (indexOf, not startsWith, so a leading console timestamp does not defeat the filter)
+            if (data.startsWith('le.challenges[tls-sni-01].loopback')) { return; } // Ignore this error output from GreenLock
             if (data[data.length - 1] == '\n') { data = data.substring(0, data.length - 1); }
             obj.logError(data);
         });
@@ -4161,7 +4133,7 @@ function CreateMeshCentralServer(config, args) {
     function logErrorEvent(msg) { if (obj.servicelog != null) { obj.servicelog.error(msg); } console.error(msg); }
     obj.getServerWarnings = function () { return serverWarnings; }
     // TODO: migrate from other addServerWarning function and add timestamp
-    obj.addServerWarning = function (msg, id, args, print) { serverWarnings.push({ msg: msg, id: id, args: args }); if (print !== false) { console.log("WARNING: " + msg); } }
+    obj.addServerWarning = function (msg, id, args, print) { serverWarnings.push({ msg: msg, id: id, args: args }); if (print !== false) { console.log(new Date().toISOString() + " WARNING: " + msg); } }
 
     // auth.log functions
     obj.authLog = function (server, msg, args) {
@@ -4360,7 +4332,7 @@ process.on('SIGINT', function () { if (meshserver != null) { meshserver.Stop(); 
 // Add a server warning, warnings will be shown to the administrator on the web application
 // TODO: migrate to obj.addServerWarning?
 const serverWarnings = [];
-function addServerWarning(msg, id, args, print) { serverWarnings.push({ msg: msg, id: id, args: args }); if (print !== false) { console.log("WARNING: " + msg); } }
+function addServerWarning(msg, id, args, print) { serverWarnings.push({ msg: msg, id: id, args: args }); if (print !== false) { console.log(new Date().toISOString() + " WARNING: " + msg); } }
 
 /*
 var ServerWarnings = {
