@@ -853,9 +853,12 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
             console.log('Agent connected with invalid domain/mesh, holding connection (' + obj.remoteaddrport + ', ' + obj.dbMeshKey + ').');
             // Diagnostic: record this orphaned node's presented group ONCE (deduped) so the
             // orphaned-vs-working distribution across group ids is countable in the log.
+            // OK and ORPHANED use SEPARATE per-node flags so a node that later recovers
+            // (orphaned -> OK after re-enrollment) still logs the OK transition.
             try {
                 if (parent.diagAgentSeen == null) { parent.diagAgentSeen = {}; }
-                if (parent.diagAgentSeen[obj.nodeid] == null) { parent.diagAgentSeen[obj.nodeid] = 1; console.log('Agent census: node ' + obj.nodeid + ' -> group ' + obj.dbMeshKey + ' (ORPHANED, no such device group)'); }
+                var diagSeen = parent.diagAgentSeen[obj.nodeid] || (parent.diagAgentSeen[obj.nodeid] = {});
+                if (!diagSeen.orphaned) { diagSeen.orphaned = true; console.log('Agent census: node ' + obj.nodeid + ' -> group ' + obj.dbMeshKey + ' (ORPHANED, no such device group)'); }
             } catch (diagEx) { }
             return;
         }
@@ -876,7 +879,8 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
         // split per group id without a database query.
         try {
             if (parent.diagAgentSeen == null) { parent.diagAgentSeen = {}; }
-            if (parent.diagAgentSeen[obj.nodeid] == null) { parent.diagAgentSeen[obj.nodeid] = 1; console.log('Agent census: node ' + obj.nodeid + ' -> group ' + obj.dbMeshKey + ' (OK, name="' + (mesh.name || '') + '")'); }
+            var diagSeen = parent.diagAgentSeen[obj.nodeid] || (parent.diagAgentSeen[obj.nodeid] = {});
+            if (!diagSeen.ok) { diagSeen.ok = true; console.log('Agent census: node ' + obj.nodeid + ' -> group ' + obj.dbMeshKey + ' (OK, name="' + (mesh.name || '') + '")'); }
         } catch (diagEx) { }
 
         // Mark when this device connected

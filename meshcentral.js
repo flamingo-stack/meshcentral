@@ -26,7 +26,14 @@
     function wrap(orig) {
         return function () {
             var args = Array.prototype.slice.call(arguments);
-            if (!((typeof args[0] === 'string') && isoRe.test(args[0]))) { args.unshift(new Date().toISOString()); }
+            if (typeof args[0] === 'string') {
+                // Prefix the format string itself (don't unshift a separate arg) so
+                // console's %s/%d/%o interpolation against the remaining args still
+                // works. Idempotent: skip if already timestamped (relayed child output).
+                if (!isoRe.test(args[0])) { args[0] = new Date().toISOString() + ' ' + args[0]; }
+            } else {
+                args.unshift(new Date().toISOString());
+            }
             return orig.apply(console, args);
         };
     }
