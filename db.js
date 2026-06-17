@@ -1023,7 +1023,17 @@ module.exports.CreateDB = function (parent, func) {
         if (global.TextEncoder == null) { global.TextEncoder = require('util').TextEncoder; }
         if (global.TextDecoder == null) { global.TextDecoder = require('util').TextDecoder; }
 
-        require('mongodb').MongoClient.connect(parent.args.mongodb, { useNewUrlParser: true, useUnifiedTopology: true, enableUtf8Validation: false }, function (err, client) {
+        // Bound per-process MongoDB connection fan-in. When many tenant servers share one
+        // replica set, the driver defaults (maxPoolSize=100, and maxIdleTimeMS=0 meaning idle
+        // connections are NEVER closed) let each server accumulate up to 100 permanent
+        // connections, which can exhaust the RS connection cap. Cap the pool, keep no warm
+        // minimum, and let idle connections close. All overridable via args (mongodbmaxpoolsize,
+        // mongodbminpoolsize, mongodbmaxidletimems).
+        var mongoConnectOptions = { useNewUrlParser: true, useUnifiedTopology: true, enableUtf8Validation: false };
+        mongoConnectOptions.maxPoolSize = (typeof parent.args.mongodbmaxpoolsize == 'number') ? parent.args.mongodbmaxpoolsize : 20;
+        mongoConnectOptions.minPoolSize = (typeof parent.args.mongodbminpoolsize == 'number') ? parent.args.mongodbminpoolsize : 0;
+        mongoConnectOptions.maxIdleTimeMS = (typeof parent.args.mongodbmaxidletimems == 'number') ? parent.args.mongodbmaxidletimems : 120000;
+        require('mongodb').MongoClient.connect(parent.args.mongodb, mongoConnectOptions, function (err, client) {
             if (err != null) { console.log("Unable to connect to database: " + err); process.exit(); return; }
             Datastore = client;
             parent.debug('db', 'Connected to MongoDB database...');
