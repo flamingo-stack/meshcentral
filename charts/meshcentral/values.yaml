@@ -1,4 +1,7 @@
 
+# -- MeshCentral debug sources surfaced as MESH_DEBUG, substituted into config.settings.debug at startup. "" = off, "diag" = OpenFrame diagnostics, "*" = all.
+debug: "diag"
+
 image:
   registry: ghcr.io/flamingo-stack/meshcentral
   repository: meshcentral
@@ -67,6 +70,8 @@ config:
     # Required for stateless (emptyDir) deployments so server identity survives
     # pod restarts. Needs credentials.meshConfigKey set (becomes --configkey).
     autoSyncConfigFiles: true
+    # ${MESH_DEBUG} (top-level `debug` value) substituted from container env at startup; "" = off, "diag" enables the OpenFrame diagnostics.
+    debug: "${MESH_DEBUG}"
     plugins:
       enabled: true
       list:
