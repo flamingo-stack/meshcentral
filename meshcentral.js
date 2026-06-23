@@ -965,6 +965,8 @@ function CreateMeshCentralServer(config, args) {
         if (typeof obj.args.debug == 'string') { obj.debugSources = obj.args.debug.toLowerCase().split(','); }
         else if (typeof obj.args.debug == 'object') { obj.debugSources = obj.args.debug; }
         else if (obj.args.debug === true) { obj.debugSources = '*'; }
+        // OpenFrame: MESH_LOGGING env is the sole switch for the 'diag' diagnostics (e.g. MESH_LOGGING=diag); empty/unset = off, "*" = all.
+        if ((process.env.MESH_LOGGING) && (obj.debugSources !== '*')) { obj.debugSources = (Array.isArray(obj.debugSources) ? obj.debugSources : []).concat(process.env.MESH_LOGGING.toLowerCase().split(',')); }
 
         require('./db.js').CreateDB(obj,
             function (db) {
