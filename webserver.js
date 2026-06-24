@@ -289,7 +289,7 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
     //function EscapeHtmlBreaks(x) { if (typeof x == "string") return x.replace(/&/g, '&amp;').replace(/>/g, '&gt;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;').replace(/\r/g, '<br />').replace(/\n/g, '').replace(/\t/g, '&nbsp;&nbsp;'); if (typeof x == "boolean") return x; if (typeof x == "number") return x; }
     // Fetch all users from the database, keep this in memory
     obj.db.GetAllType('user', function (err, docs) {
-        if (err != null) { parent.diagLog('DEBUG', new Date().toISOString() + ' ERROR: failed to load users from database at startup: ' + err); }
+        if (err != null) { parent.diagLog('ERROR', new Date().toISOString() + ' ERROR: failed to load users from database at startup: ' + err); }
         obj.common.unEscapeAllLinksFieldName(docs);
         var domainUserCount = {}, i = 0;
         for (i in parent.config.domains) { domainUserCount[i] = 0; }
@@ -309,7 +309,7 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
             // A failed device-group load (e.g. a transient Mongo timeout) silently left
             // obj.meshes empty, which makes the server orphan EVERY agent ("invalid
             // domain/mesh, holding connection") until the next restart. Surface it.
-            if (err != null) { parent.diagLog('DEBUG', new Date().toISOString() + ' ERROR: failed to load device groups from database at startup: ' + err + ' — agents may be held as invalid until the next restart'); }
+            if (err != null) { parent.diagLog('ERROR', new Date().toISOString() + ' ERROR: failed to load device groups from database at startup: ' + err + ' — agents may be held as invalid until the next restart'); }
             obj.common.unEscapeAllLinksFieldName(docs);
             for (var i in docs) { obj.meshes[docs[i]._id] = docs[i]; } // Get all meshes, including deleted ones.
 
