@@ -1033,18 +1033,18 @@ module.exports.CreateDB = function (parent, func) {
             // "MongoNetworkError ... Restarting in 5 seconds" crash. These are pure
             // OBSERVER events; we deliberately do NOT attach an 'error' listener (which
             // would change unhandled-error behavior) — strictly observational.
-            // Gated behind the 'diag' debug source (config.settings.debug / MESH_DEBUG=diag).
+            // Gated via parent.diagLog at DEBUG severity (set MESH_LOGGING=DEBUG to show).
             try {
-                client.on('serverHeartbeatFailed', function (e) { parent.debug('diag', new Date().toISOString() + ' MongoDB heartbeat FAILED' + ((e && e.connectionId) ? (' to ' + e.connectionId) : '') + ((e && e.failure) ? (': ' + e.failure) : '')); });
-                client.on('serverClosed', function (e) { parent.debug('diag', new Date().toISOString() + ' MongoDB server connection closed' + ((e && e.address) ? (': ' + e.address) : '')); });
+                client.on('serverHeartbeatFailed', function (e) { parent.diagLog('DEBUG', new Date().toISOString() + ' MongoDB heartbeat FAILED' + ((e && e.connectionId) ? (' to ' + e.connectionId) : '') + ((e && e.failure) ? (': ' + e.failure) : '')); });
+                client.on('serverClosed', function (e) { parent.diagLog('DEBUG', new Date().toISOString() + ' MongoDB server connection closed' + ((e && e.address) ? (': ' + e.address) : '')); });
                 client.on('topologyDescriptionChanged', function (e) {
                     try {
                         var sd = e && e.newDescription && e.newDescription.servers; var up = 0, total = 0;
                         if (sd) { sd.forEach(function (s) { total++; if (s.type && s.type !== 'Unknown') up++; }); }
-                        parent.debug('diag', new Date().toISOString() + ' MongoDB topology changed: reachableMembers=' + up + '/' + total + ((e && e.newDescription && e.newDescription.type) ? (' (' + e.newDescription.type + ')') : ''));
+                        parent.diagLog('DEBUG', new Date().toISOString() + ' MongoDB topology changed: reachableMembers=' + up + '/' + total + ((e && e.newDescription && e.newDescription.type) ? (' (' + e.newDescription.type + ')') : ''));
                     } catch (te) { /* ignore */ }
                 });
-            } catch (listenerEx) { parent.debug('diag', new Date().toISOString() + ' Unable to attach MongoDB event listeners: ' + listenerEx); }
+            } catch (listenerEx) { parent.diagLog('DEBUG', new Date().toISOString() + ' Unable to attach MongoDB event listeners: ' + listenerEx); }
 
             // Get the database name and setup the database client
             var dbname = 'meshcentral';

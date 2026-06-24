@@ -965,8 +965,10 @@ function CreateMeshCentralServer(config, args) {
         if (typeof obj.args.debug == 'string') { obj.debugSources = obj.args.debug.toLowerCase().split(','); }
         else if (typeof obj.args.debug == 'object') { obj.debugSources = obj.args.debug; }
         else if (obj.args.debug === true) { obj.debugSources = '*'; }
-        // OpenFrame: MESH_LOGGING env is the sole switch for the 'diag' diagnostics (e.g. MESH_LOGGING=diag); empty/unset = off, "*" = all.
-        if ((process.env.MESH_LOGGING) && (obj.debugSources !== '*')) { obj.debugSources = (Array.isArray(obj.debugSources) ? obj.debugSources : []).concat(process.env.MESH_LOGGING.toLowerCase().split(',')); }
+        // OpenFrame: MESH_LOGGING is a severity threshold (debug<info<warn<error) gating the diagnostic lines; unset/off = silent, debug = show all. Read once at startup.
+        var diagRanks = { debug: 1, info: 2, warn: 3, error: 4 };
+        var diagThreshold = diagRanks[('' + (process.env.MESH_LOGGING || '')).trim().toLowerCase()] || 0;
+        obj.diagLog = function (level, msg) { if (diagThreshold && ((diagRanks[('' + level).toLowerCase()] || 1) >= diagThreshold)) { console.log(msg); } };
 
         require('./db.js').CreateDB(obj,
             function (db) {
