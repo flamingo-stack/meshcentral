@@ -7743,7 +7743,7 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
                 obj.app.ws(url + 'agent.ashx', function (ws, req) {
                     // Diag: the upgrade reached this process; absence of this line for an offline agent means the connection died upstream (gateway), not here.
                     var diagTs = new Date().toISOString() + ' ';
-                    parent.diagLog('DEBUG', diagTs + 'Agent WS upgrade received from ' + req.clientIp + ' url=' + req.url);
+                    parent.diagLog('DEBUG', diagTs + 'Agent WS upgrade received from ' + req.clientIp + ' path=' + req.url.split('?')[0]);
                     var domain = checkAgentIpAddress(ws, req);
                     if (domain == null) { parent.diagLog('INFO', diagTs + 'Agent WS HELD (bad domain or blocked IP) from ' + req.clientIp); parent.debug('web', 'Got agent connection with bad domain or blocked IP address ' + req.clientIp + ', holding.'); return; }
                     if (domain.agentkey && ((req.query.key == null) || (domain.agentkey.indexOf(req.query.key) == -1))) { parent.diagLog('INFO', diagTs + 'Agent WS HELD (missing or invalid agent key) from ' + req.clientIp); return; } // If agent key is required and not provided or not valid, just hold the websocket and do nothing.
@@ -7777,7 +7777,7 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
                     obj.agentapp.ws(url + 'agent.ashx', function (ws, req) {
                         // Diag: the upgrade reached this process; absence of this line for an offline agent means the connection died upstream (gateway), not here.
                         var diagTs = new Date().toISOString() + ' ';
-                        parent.diagLog('DEBUG', diagTs + 'Agent WS upgrade received (agent port) from ' + req.clientIp + ' url=' + req.url);
+                        parent.diagLog('DEBUG', diagTs + 'Agent WS upgrade received (agent port) from ' + req.clientIp + ' path=' + req.url.split('?')[0]);
                         var domain = checkAgentIpAddress(ws, req);
                         if (domain == null) { parent.diagLog('INFO', diagTs + 'Agent WS HELD (bad domain or blocked IP, agent port) from ' + req.clientIp); parent.debug('web', 'Got agent connection with bad domain or blocked IP address ' + req.clientIp + ', holding.'); return; }
                         if (domain.agentkey && ((req.query.key == null) || (domain.agentkey.indexOf(req.query.key) == -1))) { parent.diagLog('INFO', diagTs + 'Agent WS HELD (missing or invalid agent key, agent port) from ' + req.clientIp); return; } // If agent key is required and not provided or not valid, just hold the websocket and do nothing.
