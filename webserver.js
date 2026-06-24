@@ -7745,8 +7745,8 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
                     var diagTs = new Date().toISOString() + ' ';
                     parent.diagLog('DEBUG', diagTs + 'Agent WS upgrade received from ' + req.clientIp + ' path=' + req.url.split('?')[0]);
                     var domain = checkAgentIpAddress(ws, req);
-                    if (domain == null) { parent.diagLog('INFO', diagTs + 'Agent WS HELD (bad domain or blocked IP) from ' + req.clientIp); parent.debug('web', 'Got agent connection with bad domain or blocked IP address ' + req.clientIp + ', holding.'); return; }
-                    if (domain.agentkey && ((req.query.key == null) || (domain.agentkey.indexOf(req.query.key) == -1))) { parent.diagLog('INFO', diagTs + 'Agent WS HELD (missing or invalid agent key) from ' + req.clientIp); return; } // If agent key is required and not provided or not valid, just hold the websocket and do nothing.
+                    if (domain == null) { parent.diagLog('DEBUG', diagTs + 'Agent WS HELD (bad domain or blocked IP) from ' + req.clientIp); parent.debug('web', 'Got agent connection with bad domain or blocked IP address ' + req.clientIp + ', holding.'); return; }
+                    if (domain.agentkey && ((req.query.key == null) || (domain.agentkey.indexOf(req.query.key) == -1))) { parent.diagLog('DEBUG', diagTs + 'Agent WS HELD (missing or invalid agent key) from ' + req.clientIp); return; } // If agent key is required and not provided or not valid, just hold the websocket and do nothing.
                     //console.log('Agent connect: ' + req.clientIp);
                     try { obj.meshAgentHandler.CreateMeshAgent(obj, obj.db, ws, req, obj.args, domain); } catch (ex) { parent.diagLog('INFO', diagTs + 'Agent WS FAILED in CreateMeshAgent from ' + req.clientIp + ': ' + ex); console.log(ex); }
                 });
@@ -7779,8 +7779,8 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
                         var diagTs = new Date().toISOString() + ' ';
                         parent.diagLog('DEBUG', diagTs + 'Agent WS upgrade received (agent port) from ' + req.clientIp + ' path=' + req.url.split('?')[0]);
                         var domain = checkAgentIpAddress(ws, req);
-                        if (domain == null) { parent.diagLog('INFO', diagTs + 'Agent WS HELD (bad domain or blocked IP, agent port) from ' + req.clientIp); parent.debug('web', 'Got agent connection with bad domain or blocked IP address ' + req.clientIp + ', holding.'); return; }
-                        if (domain.agentkey && ((req.query.key == null) || (domain.agentkey.indexOf(req.query.key) == -1))) { parent.diagLog('INFO', diagTs + 'Agent WS HELD (missing or invalid agent key, agent port) from ' + req.clientIp); return; } // If agent key is required and not provided or not valid, just hold the websocket and do nothing.
+                        if (domain == null) { parent.diagLog('DEBUG', diagTs + 'Agent WS HELD (bad domain or blocked IP, agent port) from ' + req.clientIp); parent.debug('web', 'Got agent connection with bad domain or blocked IP address ' + req.clientIp + ', holding.'); return; }
+                        if (domain.agentkey && ((req.query.key == null) || (domain.agentkey.indexOf(req.query.key) == -1))) { parent.diagLog('DEBUG', diagTs + 'Agent WS HELD (missing or invalid agent key, agent port) from ' + req.clientIp); return; } // If agent key is required and not provided or not valid, just hold the websocket and do nothing.
                         try { obj.meshAgentHandler.CreateMeshAgent(obj, obj.db, ws, req, obj.args, domain); } catch (e) { parent.diagLog('INFO', diagTs + 'Agent WS FAILED in CreateMeshAgent (agent port) from ' + req.clientIp + ': ' + e); console.log(e); }
                     });
 
