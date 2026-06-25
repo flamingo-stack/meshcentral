@@ -1,6 +1,6 @@
 ### STAGE 1 PRECOMPILE DEPS MODULE
 
-FROM alpine:3.23 AS dep-compiler
+FROM alpine:3.24 AS dep-compiler
 
 RUN echo -e "----------\nINSTALLING ALPINE PACKAGES...\n----------"; \
     apk add --no-cache --update \
@@ -17,7 +17,7 @@ RUN jq '.dependencies += {"modern-syslog": "1.2.0", "telegram": "2.26.22", "mong
 ### STAGE 2 OPENFRAME RUNTIME
 # Use same alpine version as dep-compiler to ensure native module ABI compatibility
 
-FROM alpine:3.23
+FROM alpine:3.24
 
 ARG MESH_INSTALL_DIR=/opt/meshcentral
 ARG MESH_DIR=/opt/mesh
