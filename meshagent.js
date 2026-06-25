@@ -579,6 +579,8 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
     // If the mesh agent web socket is closed, clean up.
     ws.on('close', function (req) {
         parent.agentStats.agentClose++;
+        // Diag: log EVERY close, including pre-auth ones (nodeid still null) — distinguishes "upgraded but dropped before authenticating" from "was online then dropped".
+        try { parent.parent.diagLog('DEBUG', new Date().toISOString() + ' Agent WS closed from ' + obj.remoteaddrport + ' (authenticated=' + (obj.authenticated || 0) + ', nodeid=' + (obj.nodeid || 'none') + ')'); } catch (diagEx) { }
         if (obj.nodeid != null) {
             const agentId = (obj.agentInfo && obj.agentInfo.agentId) ? obj.agentInfo.agentId : 'Unknown';
             //console.log('Agent disconnect ' + obj.nodeid + ' (' + obj.remoteaddrport + ') id=' + agentId);
@@ -934,6 +936,8 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
         // We are done, ready to communicate with this agent
         delete obj.pendingCompleteAgentConnection;
         obj.authenticated = 2;
+        // Diag: agent finished authentication and is now online; fires for BOTH new and reconnecting nodes (unlike the new-node-only census above), so reconnect successes are visible.
+        try { parent.parent.diagLog('DEBUG', new Date().toISOString() + ' Agent authenticated: node ' + obj.nodeid + ' -> group ' + obj.dbMeshKey + ' (now online) from ' + obj.remoteaddrport); } catch (diagEx) { }
 
         // Check how many times this agent disconnected in the last few minutes.
         const disconnectCount = parent.wsagentsDisconnections[obj.nodeid];
