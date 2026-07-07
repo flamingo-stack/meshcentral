@@ -18,23 +18,24 @@ jobs:
     name: Resolve version
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.version.outputs.version }}
+      version: ${{ steps.version_push.outputs.version || steps.version_dispatch.outputs.version }}
     steps:
-      - name: Resolve version
-        id: version
+      - name: Resolve version (push)
+        id: version_push
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          echo "push event: version resolves to latest"
+          echo "version=latest" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve version (dispatch)
+        id: version_dispatch
+        if: github.event_name == 'workflow_dispatch'
         env:
           INPUT_VERSION: ${{ inputs.version }}
-          EVENT_NAME: ${{ github.event_name }}
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-
-          if [ "$EVENT_NAME" != "workflow_dispatch" ]; then
-            echo "push event: version resolves to latest"
-            echo "version=latest" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
 
           # Releases, not git tags: upstream's inherited bare tags and the 9.9.x sentinel outrank the real line under sort -V
           latest=$(gh release list --limit 100 --exclude-drafts --exclude-pre-releases \
