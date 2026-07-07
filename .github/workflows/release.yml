@@ -145,7 +145,7 @@ jobs:
         with:
           name: meshcentral
           repository: ${{ github.repository }}/helm-charts
-          tag: ${{ inputs.version || '9.9.9' }}
+          tag: ${{ needs.version.outputs.version || '9.9.9' }}
           path: ./charts/meshcentral
           registry: ${{ env.REGISTRY }}
           registry_username: ${{ github.actor }}
