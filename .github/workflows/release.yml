@@ -35,7 +35,6 @@ env:
 jobs:
   version:
     name: Resolve Version
-    if: github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/version.yml
     with:
       version: ${{ inputs.version }}
@@ -53,11 +52,8 @@ jobs:
     needs: [version, changes]
     runs-on: ubuntu-latest
     if: |
-      !failure() && !cancelled() &&
-      (
-        (github.event_name == 'push' && needs.changes.outputs.docker == 'true') ||
-        (github.event_name == 'workflow_dispatch' && needs.version.outputs.version != '')
-      )
+      (github.event_name == 'push' && needs.changes.outputs.docker == 'true') ||
+      (github.event_name == 'workflow_dispatch' && needs.version.outputs.version != '')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -134,11 +130,8 @@ jobs:
     needs: [version, changes]
     runs-on: ubuntu-latest
     if: |
-      !failure() && !cancelled() &&
-      (
-        (github.event_name == 'push' && needs.changes.outputs.helm == 'true') ||
-        (github.event_name == 'workflow_dispatch' && needs.version.outputs.version != '')
-      )
+      (github.event_name == 'push' && needs.changes.outputs.helm == 'true') ||
+      (github.event_name == 'workflow_dispatch' && needs.version.outputs.version != '')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -151,7 +144,7 @@ jobs:
         with:
           name: meshcentral
           repository: ${{ github.repository }}/helm-charts
-          tag: ${{ needs.version.outputs.version || '9.9.9' }}
+          tag: ${{ needs.version.outputs.version }}
           path: ./charts/meshcentral
           registry: ${{ env.REGISTRY }}
           registry_username: ${{ github.actor }}
@@ -162,14 +155,13 @@ jobs:
     name: "Create Release"
     needs: [version, build, build_helm]
     runs-on: ubuntu-latest
-    if: ${{ !failure() && !cancelled() }} 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Generate release header
         run: |
-          VERSION="${{ needs.version.outputs.version || 'latest' }}"
+          VERSION="${{ needs.version.outputs.version }}"
           cat > RELEASE_HEADER.md <<EOF
           ## Images
           - \`${{ env.REGISTRY }}/${{ github.repository }}/meshcentral:${VERSION}\`
@@ -182,8 +174,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.version.outputs.version || 'latest' }}
-          name: "🦩 ${{ needs.version.outputs.version || 'latest' }}"
+          tag_name: ${{ needs.version.outputs.version }}
+          name: "🦩 ${{ needs.version.outputs.version }}"
           draft: false
           prerelease: ${{ github.event_name == 'push' }}
           token: ${{ secrets.GITHUB_TOKEN }}

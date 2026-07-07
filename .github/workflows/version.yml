@@ -24,10 +24,18 @@ jobs:
         id: version
         env:
           INPUT_VERSION: ${{ inputs.version }}
+          EVENT_NAME: ${{ github.event_name }}
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+
+          if [ "$EVENT_NAME" != "workflow_dispatch" ]; then
+            echo "push event: version resolves to latest"
+            echo "version=latest" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           # Releases, not git tags: upstream's inherited bare tags and the 9.9.x sentinel outrank the real line under sort -V
           latest=$(gh release list --limit 100 --exclude-drafts --exclude-pre-releases \
             --json tagName --jq '.[].tagName' \
