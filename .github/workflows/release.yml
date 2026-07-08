@@ -154,6 +154,7 @@ jobs:
   release:
     name: "Create Release"
     needs: [version, build, build_helm]
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
