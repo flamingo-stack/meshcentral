@@ -595,7 +595,8 @@ jobs:
           echo "3️⃣ Parsing YouTube configuration..."
 
           # Parse YouTube config from JSONB (channels only - API key from secrets)
-          YOUTUBE_CHANNELS=$(echo "$YOUTUBE_CONFIG_JSON" | jq -c '.channels // []'  # channels is legitimately optional: no channels == feature off)
+          # channels is legitimately optional: no channels == feature off
+          YOUTUBE_CHANNELS=$(echo "$YOUTUBE_CONFIG_JSON" | jq -c '.channels // []')
 
           # YouTube is enabled if channels array has items
           YOUTUBE_ENABLED=$(echo "$YOUTUBE_CHANNELS" | jq -r 'if length > 0 then "true" else "false" end')
@@ -701,7 +702,7 @@ jobs:
           # ===================================================================
           # Custom instructions come as plain text from user
           # Read from the environment rather than interpolating into single quotes.
-          # `${{ }}` substitution happens BEFORE bash parses the line, so a single
+          # GitHub Actions expression substitution runs BEFORE bash parses the line, so a
           # apostrophe anywhere in an admin's instructions used to terminate the
           # string and kill the step with a syntax error.
           USER_CUSTOM_INSTRUCTIONS="$CUSTOM_REPO_INSTRUCTIONS"
