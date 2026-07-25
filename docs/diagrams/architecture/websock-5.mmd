@@ -1,0 +1,4 @@
+flowchart LR
+    WS["WebSocket State"] --> Map["ReadyStates Mapping"]
+    DC["RTCDataChannel State"] --> Map
+    Map --> WebsockState["connecting | open | closing | closed"]

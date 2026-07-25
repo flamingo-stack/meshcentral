@@ -1,0 +1,4 @@
+flowchart LR
+    AppCall["Application Action"] --> BuildPdu["Build Clipboard PDU"]
+    BuildPdu --> WrapChannel["Wrap Channel Header"]
+    WrapChannel --> TransportSend["Transport send cliprdr"]

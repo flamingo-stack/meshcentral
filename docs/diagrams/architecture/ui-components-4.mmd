@@ -1,0 +1,12 @@
+flowchart TD
+    User["User"] -->|"Enter URL"| UrlInput["handleUrlInput()"]
+    User -->|"Upload File"| FileUpload["handleFileUpload()"]
+    User -->|"Remove"| Remove["removeIcon()"]
+
+    FileUpload -->|"await onUpload()"| Callback["Application Callback"]
+    UrlInput -->|"onUrlInput()"| Callback
+    Remove -->|"onRemove()"| Callback
+
+    FileUpload --> Preview["Preview Update"]
+    UrlInput --> Preview
+    Remove --> Preview

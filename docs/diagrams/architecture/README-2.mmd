@@ -1,0 +1,18 @@
+flowchart TD
+    Websock["Websock"]
+    RFB["RFB"]
+    Decoders["Decoders"]
+    Compression["Compression"]
+    Crypto["Crypto Components"]
+    Display["Display"]
+    Input["Input Handlers"]
+    Utility["Utility"]
+
+    Websock --> RFB
+    RFB --> Decoders
+    Decoders --> Compression
+    RFB --> Crypto
+    Decoders --> Display
+    Input --> RFB
+    Utility --> RFB
+    Utility --> Display

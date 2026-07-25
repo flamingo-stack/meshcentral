@@ -1,0 +1,15 @@
+flowchart LR
+    Key["Raw AES Key"] --> Init["Import CTR + CBC Keys"]
+    Init --> CMACInit["Generate CMAC Subkeys"]
+
+    Nonce["Nonce"] --> NCMAC["CMAC(Nonce)"]
+    Data["Plaintext"] --> CTR["AES-CTR Encrypt"]
+    NCMAC --> CTR
+
+    CTR --> ENC["Encrypted Data"]
+    ENC --> MACCalc["CMAC(Encrypted)"]
+    AD["Additional Data"] --> ADCMAC["CMAC(AD)"]
+
+    MACCalc --> FinalMAC["Combine MACs"]
+    ADCMAC --> FinalMAC
+    NCMAC --> FinalMAC

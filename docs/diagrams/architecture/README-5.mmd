@@ -1,0 +1,11 @@
+flowchart TD
+    RdpCore["RDP Core"]
+    ChannelManager["Virtual Channel Manager"]
+    Cliprdr["Cliprdr Client"]
+    Transport["Transport Layer"]
+    AppLayer["Application Layer"]
+
+    RdpCore --> ChannelManager
+    ChannelManager --> Cliprdr
+    Cliprdr --> Transport
+    Cliprdr --> AppLayer

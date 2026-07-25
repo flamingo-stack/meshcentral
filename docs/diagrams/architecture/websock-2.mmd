@@ -1,0 +1,8 @@
+flowchart LR
+    RawChannel["WebSocket / RTCDataChannel"] --> RecvHandler["_recvMessage()"]
+    RecvHandler --> RQ["Receive Queue (Uint8Array)"]
+    RQ --> Parser["RFB Binary Parser"]
+
+    RFBWriter["RFB Outgoing Messages"] --> SQ["Send Queue (Uint8Array)"]
+    SQ --> Flush["flush()"]
+    Flush --> RawChannel

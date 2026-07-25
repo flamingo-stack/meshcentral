@@ -1,0 +1,15 @@
+flowchart LR
+    SocketBytes["Socket Bytes"]
+    RFB["RFB Parser"]
+    Decoder["Encoding Decoder"]
+    RGBA["RGBA Buffer"]
+    Display["Display Backbuffer"]
+    Flip["flip()"]
+    Canvas["Visible Canvas"]
+
+    SocketBytes --> RFB
+    RFB --> Decoder
+    Decoder --> RGBA
+    RGBA --> Display
+    Display --> Flip
+    Flip --> Canvas

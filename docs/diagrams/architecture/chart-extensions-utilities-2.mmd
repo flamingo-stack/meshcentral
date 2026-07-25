@@ -1,0 +1,15 @@
+flowchart TD
+    Registry["Component Registry (tn)"]
+    Runtime["Chart Runtime (wo)"]
+
+    Registry --> Controllers["Controllers"]
+    Registry --> Scales["Scales"]
+    Registry --> Elements["Elements"]
+    Registry --> Plugins["Plugins"]
+
+    Runtime --> Animation["Animation Engine"]
+    Runtime --> Layout["Layout Engine"]
+    Runtime --> Interaction["Interaction Engine"]
+
+    Controllers --> Animation
+    Layout --> Canvas["Canvas Context"]

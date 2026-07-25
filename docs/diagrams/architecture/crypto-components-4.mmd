@@ -1,0 +1,6 @@
+flowchart LR
+    APriv["Private Key A"] --> ACalc["g^a mod p"]
+    BPriv["Private Key B"] --> BCalc["g^b mod p"]
+
+    ACalc --> SharedA["(g^b)^a mod p"]
+    BCalc --> SharedB["(g^a)^b mod p"]

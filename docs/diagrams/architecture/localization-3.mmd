@@ -1,0 +1,6 @@
+flowchart TD
+    Setup["setup()"] --> CheckLang["language != en?"]
+    CheckLang -->|"No"| Skip["Skip dictionary"]
+    CheckLang -->|"Yes"| Fetch["fetch(language.json)"]
+    Fetch --> Parse["response.json()"]
+    Parse --> Store["_dictionary = JSON"]
