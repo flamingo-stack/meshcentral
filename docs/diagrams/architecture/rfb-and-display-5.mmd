@@ -1,5 +1,0 @@
-flowchart LR
-    Decoder["Decoder"] --> Backbuffer["Offscreen Canvas"]
-    Backbuffer --> Damage["Damage Tracking"]
-    Damage --> Flip["Flip to Visible Canvas"]
-    Flip --> Visible["Visible Canvas"]
