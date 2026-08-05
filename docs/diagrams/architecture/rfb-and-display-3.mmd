@@ -1,0 +1,7 @@
+flowchart TD
+    Version["ProtocolVersion"] --> Security["Security"]
+    Security --> Authentication["Authentication"]
+    Authentication --> SecurityResult["SecurityResult"]
+    SecurityResult --> ClientInit["ClientInitialisation"]
+    ClientInit --> ServerInit["ServerInitialisation"]
+    ServerInit --> Connected["connected"]

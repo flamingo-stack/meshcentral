@@ -1,0 +1,8 @@
+flowchart TD
+    ZData["Read Zlib Block"] --> Inflate["Inflate Data"]
+    Inflate --> TileLoop["Iterate Tiles 64x64"]
+    TileLoop --> SubType["Read Subencoding"]
+    SubType --> RawTile["Raw"]
+    SubType --> SolidTile["Solid"]
+    SubType --> PaletteTile["Palette"]
+    SubType --> RLETile["RLE"]

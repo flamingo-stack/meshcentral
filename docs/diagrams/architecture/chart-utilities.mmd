@@ -1,0 +1,6 @@
+flowchart TD
+    UI["UI Layer"] --> ChartCore["Chart Core"]
+    ChartCore --> ChartUtilities["Chart Utilities"]
+    ChartUtilities --> CoreLayer["Utilities Core"]
+    ChartUtilities --> ExtensionLayer["Utilities Extensions"]
+    ExtensionLayer --> Runtime["Chart.js Runtime"]

@@ -1,0 +1,13 @@
+flowchart TD
+    RFB["RFB Protocol Layer"] --> Legacy["LegacyCrypto Interface"]
+
+    Legacy --> AES["AES Ciphers"]
+    Legacy --> DES["DES Ciphers"]
+    Legacy --> RSA["RSA Cipher"]
+    Legacy --> DH["Diffie-Hellman Cipher"]
+    Legacy --> MD5["MD5 Digest"]
+
+    AES --> Subtle["Web Crypto API"]
+    RSA --> Subtle
+    DH --> BigInt["BigInt Utilities"]
+    RSA --> BigInt

@@ -1,0 +1,6 @@
+flowchart TD
+    UpdateCall["update()"] --> ParseData["Parse Dataset"]
+    ParseData --> ComputeTotal["Calculate Total"]
+    ComputeTotal --> ComputeAngles["Compute Start/End Angles"]
+    ComputeAngles --> UpdateElements["Update Arc Elements"]
+    UpdateElements --> DrawPhase["Draw Arcs"]

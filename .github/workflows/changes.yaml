@@ -49,9 +49,14 @@ jobs:
               "name": "meshcentral",
               "paths": [
                 "./docker/**",
+                "./.dockerignore",
                 "./package.json",
-                "./translate/**",
+                "./package-lock.json",
                 "./*.js",
+                "./plugins/**",
+                "./agents/**",
+                "./emails/**",
+                "./translate/**",
                 "./views/**",
                 "./public/**"
               ]

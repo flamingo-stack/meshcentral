@@ -1,0 +1,7 @@
+flowchart TD
+    RawData["Raw Dataset"] --> Parse["Controller parse()"]
+    Parse --> Limits["Scale determineDataLimits()"]
+    Limits --> Ticks["Tick Generation"]
+    Ticks --> Map["Value to Pixel Mapping"]
+    Map --> Elements["Visual Elements"]
+    Elements --> Draw["Canvas Draw"]

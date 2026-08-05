@@ -1,0 +1,13 @@
+sequenceDiagram
+    participant App as Application Code
+    participant Chart as Chart Instance
+    participant Registry as Registry
+    participant Controller as Dataset Controller
+    participant Canvas as Canvas
+
+    App->>Chart: new Chart(config)
+    Chart->>Registry: Resolve Components
+    Chart->>Controller: Initialize Datasets
+    Controller->>Controller: Parse Data
+    Chart->>Chart: Compute Layout
+    Chart->>Canvas: Render Elements

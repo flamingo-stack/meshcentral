@@ -1,0 +1,11 @@
+flowchart TD
+    CustomController["Custom Controller"]
+    CustomPlugin["Custom Plugin"]
+    Extensions["Chart Extensions"]
+    Core["Chart Extensions Core"]
+    Runtime["Chart Runtime"]
+
+    CustomController --> Extensions
+    CustomPlugin --> Extensions
+    Extensions --> Core
+    Core --> Runtime

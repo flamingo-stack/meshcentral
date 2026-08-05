@@ -1,0 +1,6 @@
+flowchart TD
+    User["User Interaction"] --> BrowserEvents["Browser Events<br/>touchstart, keydown"]
+    BrowserEvents --> InputHandlers["Input Handlers Module"]
+    InputHandlers --> RFB["RFB Layer"]
+    RFB --> Websock["Websock Transport"]
+    Websock --> RemoteServer["Remote Server"]

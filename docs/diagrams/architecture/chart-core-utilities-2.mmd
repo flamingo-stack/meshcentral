@@ -1,0 +1,13 @@
+sequenceDiagram
+    participant Controller
+    participant Animations
+    participant Cs
+    participant Animator
+
+    Controller->>Animations: update(target, newValues)
+    Animations->>Cs: create animation instance
+    Cs->>Animator: register
+    Animator->>Cs: tick(timestamp)
+    Cs->>Cs: interpolate value
+    Cs->>Target: update property
+    Animator-->>Cs: complete

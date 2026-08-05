@@ -1,0 +1,4 @@
+flowchart TD
+    RawEvent["WebSocket Event"] --> WebsockHandler["Internal Handler"]
+    WebsockHandler --> Dispatch["_eventHandlers[event]"]
+    Dispatch --> RFBConsumer["RFB Layer"]

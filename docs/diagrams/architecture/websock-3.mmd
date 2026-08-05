@@ -1,0 +1,7 @@
+flowchart TD
+    MessageEvent["onmessage Event"] --> Convert["Uint8Array(e.data)"]
+    Convert --> CheckSpace{"Enough Space?"}
+    CheckSpace -->|"No"| Expand["_expandCompactRQ()"]
+    CheckSpace -->|"Yes"| Write
+    Expand --> Write["Append to rQ"]
+    Write --> Notify["Trigger message handler"]

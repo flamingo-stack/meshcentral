@@ -1,0 +1,5 @@
+flowchart TD
+    RFB["RFB Core"] -->|"uses"| Cursor["Cursor"]
+    RFB -->|"extends with"| EventMixin["EventTargetMixin"]
+    Display["Display"] -->|"interacts with"| Cursor
+    InputHandlers["Input Handlers"] -->|"emit events via"| EventMixin

@@ -1,0 +1,9 @@
+flowchart TD
+    App["Application Layer"] --> Core["Chart Core"]
+    Core --> Controllers["Dataset Controllers (Ns)"]
+    Core --> Scales["Scales (Js, Lo)"]
+    Core --> Runtime["Runtime Orchestrator (On)"]
+    Runtime --> Animation["Animation Engine (Os)"]
+    Runtime --> Registry["Runtime Registry (Qs)"]
+    Controllers --> Canvas["Canvas Rendering"]
+    Scales --> Controllers

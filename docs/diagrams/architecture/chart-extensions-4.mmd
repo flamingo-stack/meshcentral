@@ -1,0 +1,7 @@
+flowchart TD
+    RawData["Raw Dataset"] --> Normalize["Normalize Config"]
+    Normalize --> Parse["Controller Parse"]
+    Parse --> Scale["Scale Mapping"]
+    Scale --> Geometry["Element Geometry"]
+    Geometry --> Animate["Animation Engine"]
+    Animate --> Draw["Canvas Draw"]

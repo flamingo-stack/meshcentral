@@ -1,0 +1,6 @@
+flowchart LR
+    Message["FramebufferUpdate"] --> RectHeader["Rectangle Header"]
+    RectHeader --> EncodingCheck["Encoding Type"]
+    EncodingCheck --> Decoder["Specific Decoder"]
+    Decoder --> DisplayRender["Display Rendering"]
+    DisplayRender --> Flip["Display.flip()"]
