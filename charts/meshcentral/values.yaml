@@ -138,6 +138,12 @@ resources:
     memory: "512Mi"
     cpu: "300m"
 
+serviceAccount:
+  create: true
+  # Overrides the generated name ({{ .Chart.Name }})
+  name: ""
+  annotations: {}
+
 podSecurityContext:
   runAsNonRoot: true
   runAsUser: 1000

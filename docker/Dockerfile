@@ -19,7 +19,8 @@ FROM alpine:3.24
 
 ARG MESH_INSTALL_DIR=/opt/meshcentral
 ARG MESH_DIR=/opt/mesh
-ARG MESH_TEMP_DIR=/tmp/mesh
+# Not /tmp: an emptyDir mounted there would shadow the plugins baked into this layer.
+ARG MESH_TEMP_DIR=/opt/openframe
 
 ENV MESH_INSTALL_DIR=${MESH_INSTALL_DIR}
 ENV MESH_DIR=${MESH_DIR}

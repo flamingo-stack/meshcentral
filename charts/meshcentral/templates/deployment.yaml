@@ -29,6 +29,9 @@ spec:
         {{- include "meshcentral.selectorLabels" . | nindent 8 }}
 
     spec:
+      serviceAccountName: {{ include "meshcentral.serviceAccountName" . }}
+      automountServiceAccountToken: false
+
       {{- with .Values.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
