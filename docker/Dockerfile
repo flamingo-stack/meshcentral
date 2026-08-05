@@ -26,9 +26,9 @@ ENV MESH_INSTALL_DIR=${MESH_INSTALL_DIR}
 ENV MESH_DIR=${MESH_DIR}
 ENV MESH_TEMP_DIR=${MESH_TEMP_DIR}
 
-# bash is required by the chart's init container; mongodb-tools only by autobackup.
+# bash is required by the chart's init container.
 RUN apk upgrade --no-cache && \
-    apk add --no-cache bash nodejs mongodb-tools && \
+    apk add --no-cache bash nodejs && \
     addgroup -g 1000 node && \
     adduser -D -u 1000 -G node node && \
     install -d -o node -g node ${MESH_INSTALL_DIR} ${MESH_DIR} ${MESH_TEMP_DIR}
