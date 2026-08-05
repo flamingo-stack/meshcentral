@@ -54,6 +54,11 @@ spec:
           env:
             - name: MC_MONGO_URI
               value: "mongodb://$(MC_MONGO_USER):$(MC_MONGO_PASSWORD)@$(MC_MONGO_HOSTS)/$(MC_MONGO_DATABASE)?replicaSet=$(MC_MONGO_REPLICA_SET)&authSource=$(MC_MONGO_AUTH_SOURCE)$(MC_MONGO_URI_OPTIONS)"
+            - name: HOME
+              value: /tmp/mongosh
+          volumeMounts:
+            - name: mongosh
+              mountPath: /tmp/mongosh
 
         - name: meshcentral-init
           image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -199,4 +204,6 @@ spec:
         - name: data
           emptyDir: {}
         - name: work
+          emptyDir: {}
+        - name: mongosh
           emptyDir: {}
