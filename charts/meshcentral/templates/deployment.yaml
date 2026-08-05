@@ -154,8 +154,6 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.credentials.existingSecret | default (printf "%s-credentials" .Chart.Name) }}
                   key: {{ .Values.credentials.meshConfigKeyKey }}
-            # multiparty writes uploads to os.tmpdir(); /tmp itself carries the
-            # image's plugins and the config secret, so use a subdirectory.
             - name: TMPDIR
               value: /tmp/work
 
