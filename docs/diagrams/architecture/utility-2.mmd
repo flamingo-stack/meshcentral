@@ -1,0 +1,5 @@
+flowchart TD
+    Start["Cursor Change Requested"] --> Check["Supports Cursor URI?"]
+    Check -->|"Yes"| Native["Set CSS cursor: url(data)"]
+    Check -->|"No or Touch"| Fallback["Render Canvas Overlay"]
+    Fallback --> Attach["Attach Canvas to document.body"]

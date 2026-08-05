@@ -1,0 +1,12 @@
+flowchart TD
+    ChartCore["Chart Core"] --> ChartCoreLogic["Chart Core Logic"]
+    ChartCore --> ChartCoreExtensions["Chart Core Extensions"]
+    ChartCore --> ChartCoreUtilities["Chart Core Utilities"]
+
+    ChartCoreUtilities --> AnimationPrimitive["Cs - Animation"]
+    ChartCoreUtilities --> TooltipEngine["Fa - Tooltip"]
+    ChartCoreUtilities --> DoughnutController["Hn - Doughnut Controller"]
+    ChartCoreUtilities --> BaseElement["Hs - Base Element"]
+
+    BaseElement --> CanvasAPI["Canvas Rendering Context"]
+    AnimationPrimitive --> Animator["Global Animator (xt)"]

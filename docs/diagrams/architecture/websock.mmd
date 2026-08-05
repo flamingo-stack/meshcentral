@@ -1,0 +1,5 @@
+flowchart TD
+    Browser["Browser WebSocket API"] --> Websock["Websock"]
+    Websock --> RFB["RFB Protocol Engine"]
+    RFB --> Display["Display Renderer"]
+    RFB --> Decoders["Encoding Decoders"]

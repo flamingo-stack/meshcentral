@@ -1,0 +1,13 @@
+flowchart TD
+    RawData["Raw Dataset"]
+    Parse["Controller.parse()"]
+    ScaleMap["Scale.getPixelForValue()"]
+    Geometry["Element Geometry"]
+    Animate["Animation Layer"]
+    Draw["Element.draw()"]
+
+    RawData --> Parse
+    Parse --> ScaleMap
+    ScaleMap --> Geometry
+    Geometry --> Animate
+    Animate --> Draw

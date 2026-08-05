@@ -1,0 +1,5 @@
+flowchart TD
+    UserConfig["User Configuration"] --> ExtensionsCore["Extensions Core"]
+    ExtensionsCore --> ExtensionsLogic["Extensions Logic"]
+    ExtensionsLogic --> Runtime["Chart.js Runtime"]
+    Auxiliary["Extensions Auxiliary"] --> Runtime

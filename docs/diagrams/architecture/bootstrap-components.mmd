@@ -1,0 +1,19 @@
+flowchart TD
+    A["DOM Elements"] --> B["Data API (data-bs-*)"]
+    B --> C["BaseComponent"]
+    C --> D["EventHandler"]
+    C --> E["Config"]
+    C --> F["Data Store"]
+
+    C --> G["Interactive Components"]
+    G --> H["Modal"]
+    G --> I["Dropdown"]
+    G --> J["Tooltip / Popover"]
+    G --> K["Carousel"]
+    G --> L["Toast"]
+
+    I --> M["Popper Engine"]
+    J --> M
+
+    H --> N["Backdrop"]
+    H --> O["FocusTrap"]

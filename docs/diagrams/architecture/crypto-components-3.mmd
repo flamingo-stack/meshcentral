@@ -1,0 +1,5 @@
+flowchart TD
+    Msg["Message"] --> Pad["PKCS1 v1.5 Padding"]
+    Pad --> ToInt["Convert to BigInt"]
+    ToInt --> ModExp["c = m^e mod n"]
+    ModExp --> Bytes["BigInt to Byte Array"]
