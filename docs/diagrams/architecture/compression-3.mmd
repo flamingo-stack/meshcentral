@@ -1,7 +1,0 @@
-flowchart TD
-    Input["Compressed Uint8Array"] --> SetInput["Set ZStream input fields"]
-    SetInput --> Resize["Resize output buffer if needed"]
-    Resize --> InflateCall["Call inflate()"]
-    InflateCall --> Validate["next_out equals expected?"]
-    Validate -->|"No"| ErrorNode["Throw error"]
-    Validate -->|"Yes"| ReturnNode["Return decompressed Uint8Array"]

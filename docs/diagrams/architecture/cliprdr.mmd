@@ -1,6 +1,0 @@
-flowchart LR
-    RdpTransport["RDP Transport"] --> CliprdrClient["Cliprdr Client"]
-    CliprdrClient --> PduParser["Clipboard PDU Parser"]
-    CliprdrClient --> PduBuilder["Clipboard PDU Builder"]
-    CliprdrClient --> EventEmitter["EventEmitter"]
-    EventEmitter --> AppLayer["Application Layer"]

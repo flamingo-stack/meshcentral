@@ -1,8 +1,0 @@
-flowchart TD
-    Start["Browser Languages"] --> Perfect["Perfect Match (lang + region)"]
-    Perfect -->|"Found"| Select1["Set Language"]
-    Perfect -->|"Not Found"| EnglishCheck["Is English?"]
-    EnglishCheck -->|"Yes"| DefaultEN["Keep en"]
-    EnglishCheck -->|"No"| Partial["Language Only Match"]
-    Partial -->|"Found"| Select2["Set Language"]
-    Partial -->|"Not Found"| Fallback["Fallback to en"]

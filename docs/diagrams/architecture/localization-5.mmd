@@ -1,7 +1,0 @@
-flowchart TD
-    Body["document.body"] --> Process["process(element, enabled)"]
-    Process --> CheckAttr["Check translate attribute"]
-    Process --> Attributes["Translate attributes"]
-    Process --> Children["Iterate childNodes"]
-    Children -->|"ELEMENT_NODE"| Recurse["process(child)"]
-    Children -->|"TEXT_NODE"| TranslateText["Translate text"]

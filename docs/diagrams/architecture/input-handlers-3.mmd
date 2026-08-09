@@ -1,6 +1,0 @@
-flowchart TD
-    KeyDown["keydown"] --> GetCode["Resolve Key Code"]
-    GetCode --> GetKeysym["Map to Keysym"]
-    GetKeysym --> PlatformFix["Apply Platform Fixes"]
-    PlatformFix --> SendEvent["Send Key Event"]
-    SendEvent --> RFB["Forward to RFB"]

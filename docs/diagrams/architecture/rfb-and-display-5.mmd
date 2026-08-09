@@ -1,5 +1,0 @@
-flowchart TD
-    DecoderOutput["Decoded Pixel Data"] --> Backbuffer["Hidden Canvas"]
-    Backbuffer --> Damage["Damage Tracking"]
-    Damage --> Flip["flip()"]
-    Flip --> Visible["Visible Canvas"]
