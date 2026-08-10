@@ -1,214 +1,173 @@
-# Quick Start Guide
+# Quick Start
 
-Get MeshCentral running in under 5 minutes.
+Get MeshCentral running locally in under 5 minutes using npm.
 
 ---
 
-## TL;DR — Fastest Path to Running MeshCentral
-
-### Step 1: Install via npm (Recommended)
-
-MeshCentral is published as an npm package. Install it globally:
+## TL;DR
 
 ```bash
+# 1. Install MeshCentral globally via npm
 npm install -g meshcentral
-```
 
-Or install locally in a project directory:
-
-```bash
-mkdir meshcentral-server && cd meshcentral-server
-npm install meshcentral
-```
-
-### Step 2: Start the Server
-
-```bash
-node node_modules/meshcentral
-```
-
-Or, if installed globally:
-
-```bash
+# 2. Start the server (generates self-signed TLS on first run)
 meshcentral
+
+# 3. Open your browser and create your admin account
+#    https://localhost:4430
 ```
 
-On first launch, MeshCentral will:
-
-1. Generate self-signed TLS certificates
-2. Initialize the embedded NeDB database
-3. Create the default directory structure
-4. Start listening on port 443 (HTTPS) and port 80 (HTTP redirect)
-
-### Step 3: Open the Web Interface
-
-Open your browser and navigate to:
-
-```text
-https://localhost/
-```
-
-> **Self-signed certificate warning:** Your browser will show a TLS warning on first launch because MeshCentral uses a self-signed certificate by default. Click "Advanced" and "Proceed" to continue. For production, configure Let's Encrypt (see configuration notes below).
-
-### Step 4: Create the First Admin Account
-
-On your first visit, MeshCentral will prompt you to create an administrator account. Fill in:
-
-- **Username** — Your admin username
-- **Password** — A strong password (at least 8 characters)
-- **Email** — Your email address (used for 2FA and notifications)
-
-Click **Create Account**. You will be logged in as the server administrator.
+> On first launch, MeshCentral automatically generates self-signed TLS certificates, creates a `meshcentral-data/` directory for persistent data, and starts listening on port 4430 (HTTP on 4430, redirect on 4431 by default when not root).
 
 ---
 
-## Install from Source
+## Installation from Source
 
-If you want to run directly from the source code:
-
-**Step 1: Clone the repository**
+If you are working with the Flamingo fork directly:
 
 ```bash
+# Clone the repository
 git clone https://github.com/flamingo-stack/meshcentral.git
 cd meshcentral
-```
 
-**Step 2: Install dependencies**
-
-```bash
+# Install dependencies
 npm install
-```
 
-**Step 3: Start the server**
-
-```bash
+# Start the server
 node meshcentral.js
 ```
 
 ---
 
-## Data Directory Structure
+## First Launch Walkthrough
 
-After first launch, MeshCentral creates these directories:
+### Step 1 — Start the Server
 
-```text
-meshcentral-data/         ← Configuration and certificates
-  config.json             ← Server configuration file
-  webserver-cert-public.crt
-  webserver-cert-private.key
-
-meshcentral-files/        ← User file storage
-  tmp/                    ← Temporary upload directory
-
-meshcentral-backup/       ← Automated backup storage
-meshcentral-recordings/   ← Session recordings
+```bash
+node meshcentral.js
 ```
 
-> The data directory location depends on how MeshCentral is launched. When installed via npm, it defaults to `~/meshcentral-data`. When run from source, it is relative to the working directory.
+You will see output similar to:
+
+```text
+MeshCentral HTTP redirect server running on port 4431.
+MeshCentral HTTPS server running on port 4430.
+MeshCentral Intel AMT server running on port 4433.
+Server started, login at https://localhost:4430
+```
+
+### Step 2 — Open the Web UI
+
+Navigate to `https://localhost:4430` in your browser. Since MeshCentral uses a self-signed certificate on first run, your browser will show a security warning — proceed by accepting the certificate for local development.
+
+### Step 3 — Create Your Admin Account
+
+On first access you will be prompted to create the initial administrator account. Fill in a username and password. This becomes the server's primary admin user.
+
+> **Important:** There are no default credentials. You define the admin username and password during first-run setup.
+
+### Step 4 — Add a Device Group
+
+After logging in:
+
+1. Click **My Devices** in the navigation
+2. Click **Add Device Group**
+3. Give the group a name (e.g., `My Servers`)
+4. Click **OK**
+
+### Step 5 — Install a MeshAgent
+
+From the Device Group, click **Add Agent** to download a MeshAgent installer for your target OS. Run the installer on a managed device to connect it to MeshCentral.
 
 ---
 
-## Minimal Configuration Example
+## Minimal Configuration File
 
-After the first run, edit `meshcentral-data/config.json` for basic customization:
+MeshCentral reads `meshcentral-data/config.json`. A minimal production configuration looks like:
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/Ylianst/MeshCentral/master/meshcentral-config-schema.json",
   "settings": {
+    "cert": "mesh.yourdomain.com",
     "port": 443,
-    "redirPort": 80,
-    "sessionKey": "CHANGE_THIS_TO_A_RANDOM_SECRET"
+    "redirPort": 80
   },
   "domains": {
     "": {
       "title": "My MeshCentral",
-      "title2": "Remote Management"
+      "newAccounts": false
     }
   }
 }
 ```
 
-Restart the server after editing config:
+Place this file at `meshcentral-data/config.json` and restart the server.
+
+---
+
+## Running with a Custom Domain and Let's Encrypt
+
+```json
+{
+  "settings": {
+    "cert": "mesh.yourdomain.com",
+    "port": 443,
+    "redirPort": 80
+  },
+  "domains": {
+    "": {
+      "title": "My MeshCentral",
+      "newAccounts": false
+    }
+  },
+  "letsencrypt": {
+    "email": "admin@yourdomain.com",
+    "names": "mesh.yourdomain.com",
+    "production": true
+  }
+}
+```
+
+> Ensure your server is reachable on port 80 for the ACME HTTP-01 challenge before enabling `"production": true`.
+
+---
+
+## Using meshctrl — the CLI Control Tool
+
+MeshCentral includes a built-in CLI tool (`meshctrl.js`) for scripted administration:
 
 ```bash
-node meshcentral.js
+# List all devices
+node meshctrl.js listdevices \
+  --url wss://localhost:4430 \
+  --loginuser admin \
+  --loginpass yourpassword
+
+# Run a remote command
+node meshctrl.js runcommand \
+  --url wss://localhost:4430 \
+  --loginuser admin \
+  --loginpass yourpassword \
+  --id '//domain/device/nodeid' \
+  --run "uptime"
 ```
 
 ---
 
-## Connect Your First Device
+## Expected Outcome
 
-1. In the web interface, go to **My Devices** → **Add Device Group**
-2. Create a device group (e.g., "Workstations")
-3. Click on the group → **Add Agent** → select your OS
-4. Download and run the agent installer on the remote device
-5. The device will appear in your dashboard within seconds
+After completing these steps you should have:
 
----
-
-## Expected Output on Startup
-
-When MeshCentral starts successfully, you should see output similar to:
-
-```text
-MeshCentral HTTP redirect server running on port 80.
-MeshCentral HTTPS server running on port 443.
-MeshCentral Intel(R) AMT server running on port 4433.
-```
-
-If you see port binding errors, another process may be using those ports. Check with:
-
-```bash
-# Linux
-ss -tlnp | grep -E '80|443|4433'
-
-# Windows
-netstat -an | findstr "80 443 4433"
-```
+- MeshCentral server running and accessible in a browser
+- An admin account created
+- At least one device group configured
+- MeshAgents installable from the web UI
+- TLS working (self-signed for dev, Let's Encrypt for production)
 
 ---
 
-## Running as a Service
+## Next Steps
 
-### Linux (systemd)
-
-Create a service file at `/etc/systemd/system/meshcentral.service`:
-
-```text
-[Unit]
-Description=MeshCentral Server
-After=network.target
-
-[Service]
-Type=simple
-WorkingDirectory=/opt/meshcentral
-ExecStart=/usr/bin/node /opt/meshcentral/meshcentral.js
-Restart=on-failure
-RestartSec=10
-User=meshcentral
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
-
-```bash
-systemctl enable meshcentral
-systemctl start meshcentral
-systemctl status meshcentral
-```
-
-### Windows
-
-MeshCentral includes built-in Windows service integration via `node-windows`. Run:
-
-```bash
-node meshcentral.js --install
-```
-
----
-
-## What's Next?
-
-Once MeshCentral is running, explore what to do first in the [First Steps Guide](first-steps.md).
+- **[First Steps](first-steps.md)** — Explore the top 5 things to do after your first deployment
+- **[Prerequisites](prerequisites.md)** — Verify all environment requirements are met

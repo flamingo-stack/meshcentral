@@ -1,304 +1,294 @@
-# Security Best Practices
+# Security Guide
 
-This guide covers the security architecture, authentication mechanisms, encryption patterns, and development best practices for MeshCentral.
+This document covers the security architecture, patterns, and best practices for MeshCentral development and deployment. Understanding these patterns is essential when contributing code or configuring MeshCentral for production.
 
 ---
 
-## Security Architecture Overview
+## Authentication Architecture
 
-MeshCentral is built with security as a first-class concern. Its security stack spans TLS transport, multi-factor authentication, bitmask access control lists, and multiple cryptographic protocols for both modern and legacy VNC security schemes.
+### User Authentication Flow
 
-```mermaid
-flowchart TD
-    TLS["TLS Transport (node-forge / Let's Encrypt)"]
-    Sessions["Session Layer (cookie-session, encrypted)"]
-    Auth["Authentication (password + MFA)"]
-    TOTP["TOTP (otplib)"]
-    WebAuthn["WebAuthn/FIDO2 (webauthn.js)"]
-    ACL["Access Control (Mesh Rights + Site Rights)"]
-    CryptoRFB["RFB Crypto (AES-EAX, DES, RSA, DH)"]
-    AgentAuth["Agent Authentication (certificate hash)"]
-    InputVal["Input Validation (path traversal, CORS)"]
+MeshCentral supports multiple authentication mechanisms:
 
-    TLS --> Sessions
-    Sessions --> Auth
-    Auth --> TOTP
-    Auth --> WebAuthn
-    Auth --> ACL
-    TLS --> CryptoRFB
-    TLS --> AgentAuth
-    ACL --> InputVal
+| Method | Implementation | Module |
+|---|---|---|
+| Username + Password | PBKDF2/SHA-384 with random salt (12,000 iterations) | `pass.js` |
+| TOTP (Authenticator Apps) | RFC 6238 TOTP via `otplib` | `webserver.js` |
+| FIDO2/WebAuthn | `none`, `fido-u2f`, `packed` attestation formats | `webauthn.js` |
+| Login Key | Hex or file-based pre-shared key | `meshctrl.js` |
+| Windows SSPI/Kerberos | Optional domain auth, per-domain config | `webserver.js` |
+
+### Password Hashing
+
+All passwords are hashed using PBKDF2 with SHA-384 and a random 128-byte salt:
+
+```javascript
+// From pass.js
+const pass = require('./pass');
+
+// Hash a new password (auto-generates salt)
+pass.hash('userPassword', function(err, salt, hash) {
+    // Store salt and hash in database
+});
+
+// Verify a password against stored salt
+pass.hash('userPassword', storedSalt, function(err, hash) {
+    const isValid = (hash === storedHash);
+});
+```
+
+> **Security Note:** PBKDF2 with 12,000 SHA-384 iterations takes approximately 300ms per operation. This is intentional to slow brute-force attacks.
+
+### WebAuthn / FIDO2
+
+The `webauthn.js` module handles hardware key registration and login:
+
+```javascript
+const { CreateWebAuthnModule } = require('./webauthn');
+const webauthn = CreateWebAuthnModule();
+
+// Registration: generate challenge for the browser
+const challenge = webauthn.generateRegistrationChallenge('AppName', {
+    id: 'user-123', name: 'alice', displayName: 'Alice'
+});
+
+// Registration: verify attestation from browser
+const regResult = webauthn.verifyAuthenticatorAttestationResponse(attestationResponse);
+if (regResult.verified) {
+    // Store regResult.authrInfo: { fmt, publicKey, counter, keyId }
+}
+
+// Authentication: verify assertion and update counter
+const authResult = webauthn.verifyAuthenticatorAssertionResponse(assertionResponse, storedAuthr);
+if (authResult.verified) {
+    // Always update stored counter to prevent replay attacks
+    storedAuthr.counter = authResult.counter;
+}
 ```
 
 ---
 
-## Transport Security (TLS)
+## TLS and Certificate Management
 
-MeshCentral enforces TLS for all communications. Never run in production without a valid TLS certificate.
+### Automatic TLS (Let's Encrypt)
 
-### Certificate Options
-
-| Method | Configuration | Recommended For |
-|--------|-------------|----------------|
-| Self-signed (auto) | No config required | Development only |
-| Let's Encrypt (auto) | `letsencrypt` block in `config.json` | Public-facing deployments |
-| Custom certificate | Manual paths in `config.json` | Enterprise PKI |
-
-### Let's Encrypt Configuration
+MeshCentral can automatically obtain and renew TLS certificates via the ACME protocol:
 
 ```json
 {
   "letsencrypt": {
     "email": "admin@yourdomain.com",
+    "names": "mesh.yourdomain.com",
     "production": true,
-    "rsakeysize": 3072,
-    "names": ["mesh.yourdomain.com"]
+    "rsakeysize": 2048
   }
 }
 ```
 
-> **Do not use `"production": false`** (staging mode) in production — staging certificates are not browser-trusted.
+- Certificates are renewed automatically when fewer than 45 days remain
+- HTTP-01 challenges require port 80 to be accessible
+- Certificates are stored in `meshcentral-data/letsencrypt-certs/`
 
-### Agent Certificate Authentication
+### Certificate Security for Intel AMT
 
-Agents authenticate to the server by validating the server's TLS certificate SHA hash. The server computes and caches SHA-384 hashes of its certificates (`webserver.js`). This prevents man-in-the-middle attacks against agent connections.
+Intel AMT ACM (Admin Control Mode) certificate operations use SHA-256 hash verification for chain matching. Wildcard certificates are supported. See [`certoperations.js`](https://github.com/flamingo-stack/meshcentral/blob/main/certoperations.js).
 
----
+### MPS Server TLS
 
-## Authentication and Multi-Factor Authentication
+The Intel AMT CIRA server (MPS) supports two security modes:
 
-### Password Hashing
+| Mode | Config | TLS Versions |
+|---|---|---|
+| High Security | `mpshighsecurity: true` | TLS 1.2 and 1.3 only |
+| Legacy | `mpshighsecurity: false` | TLS 1.0+ |
 
-User passwords are hashed using a strong cryptographic hash. Never store or log plaintext passwords.
-
-### TOTP (Time-Based One-Time Password)
-
-MeshCentral uses the `otplib` library for TOTP-based 2FA:
-
-- Generates standard RFC 6238 TOTP codes
-- Compatible with Google Authenticator, Authy, and any TOTP app
-- 30-second token window
-
-**Enforce MFA for all users** by adding to `config.json`:
-
-```json
-{
-  "domains": {
-    "": {
-      "require2factor": true
-    }
-  }
-}
-```
-
-### WebAuthn / FIDO2 (Hardware Security Keys)
-
-The `webauthn.js` module implements FIDO2 WebAuthn:
-
-- Supports `none`, `fido-u2f`, and `packed` attestation formats
-- Validates authenticator data, signatures, and counters to prevent replay attacks
-- Uses 64-byte random challenges generated via `crypto.randomBytes(64)`
-
-**Always update the stored counter** after a successful assertion to prevent replay attacks:
-
-```javascript
-// After successful assertion:
-// authResult.counter must be greater than storedAuthr.counter
-if (authResult.verified && authResult.counter > storedAuthr.counter) {
-    // Update stored counter
-    updateUserCredentialCounter(keyId, authResult.counter);
-}
-```
+For production, always enable high-security mode.
 
 ---
 
-## Access Control: Mesh Rights and Site Rights
+## Authorization and Access Control
 
-MeshCentral uses bitmask integers for efficient, per-user, per-device-group permissions.
+### Mesh Rights (Device Groups)
 
-### Mesh Rights (per device group)
+Per-user permissions on device groups are controlled by bitmask flags (`MESHRIGHT_*`) in `webserver.js`:
 
-| Constant | Meaning |
-|----------|---------|
-| `MESHRIGHT_EDITGROUP` | Edit device group settings |
-| `MESHRIGHT_REMOTECONTROL` | Remote control access |
-| `MESHRIGHT_AGENTCONSOLE` | Agent console access |
-| `MESHRIGHT_SERVERFILES` | Server file access |
-| `MESHRIGHT_WAKEDEVICE` | Wake-on-LAN |
-| `MESHRIGHT_NOTERMINAL` | Deny terminal access |
-| `MESHRIGHT_NODESKTOP` | Deny remote desktop |
-| `MESHRIGHT_NOFILES` | Deny file access |
-| `MESHRIGHT_RELAY` | Relay protocol access |
+| Right | Bitmask | Description |
+|---|---|---|
+| `MESHRIGHT_EDITGROUP` | `0x0001` | Edit group settings |
+| `MESHRIGHT_REMOTECONTROL` | `0x0002` | Remote control access |
+| `MESHRIGHT_AGENTCONSOLE` | `0x0004` | Agent console access |
+| `MESHRIGHT_SERVERFILES` | `0x0008` | Server file access |
+| `MESHRIGHT_WAKEDEVICE` | `0x0010` | Wake-on-LAN |
+| `MESHRIGHT_SETNOTES` | `0x0020` | Set device notes |
+| `MESHRIGHT_DESKTOP` | `0x0200` | Remote desktop |
+| `MESHRIGHT_NODESKTOP` | `0x0400` | Deny desktop |
+| `MESHRIGHT_RELAY` | `0x1000` | Relay access |
 
-### Site Rights (server-wide privileges)
+### Site Rights (Server-Level)
 
-| Constant | Meaning |
-|----------|---------|
-| `SITERIGHT_SERVERBACKUP` | Backup the server |
-| `SITERIGHT_MANAGEUSERS` | Manage all users |
-| `SITERIGHT_SERVERRESTORE` | Restore server from backup |
-| `SITERIGHT_FILEACCESS` | Access server files |
-| `SITERIGHT_SERVERUPDATE` | Update the server |
+Server-level admin privileges are controlled by `SITERIGHT_*` bitmasks:
+
+| Right | Description |
+|---|---|
+| `SITERIGHT_BACKUP` | Server backup |
+| `SITERIGHT_MANAGEUSERS` | User management |
 | `SITERIGHT_RECORDINGS` | Access session recordings |
 | `SITERIGHT_LOCKSETTINGS` | Lock server settings |
-| `SITERIGHT_ALLEVENTS` | View all server events |
+
+### Tenant Isolation (OpenFrame Plugin)
+
+The OpenFrame plugin enforces strict per-tenant domain isolation:
+
+- The `/api/deviceStatus` route returns `404` (not `403`) for cross-tenant node IDs to avoid acting as an oracle for device enumeration
+- The `deriveTenantDomain` helper isolates database access by tenant domain key
 
 ---
 
-## Input Validation and Injection Prevention
+## Input Validation and Sanitization
 
-### Path Traversal Prevention
+### HTML Escaping
 
-`webserver.js` includes `resolveSafeUploadTempPath()` — a security utility that validates all upload temp paths are confined to allowed root directories. Never bypass this check when handling file uploads.
-
-**Pattern used internally:**
+All user-supplied data rendered in HTML must go through the `common.js` escaping utilities:
 
 ```javascript
-// Validates that resolved path stays within allowed roots
-function resolveSafeUploadTempPath(filePath, allowedRoots) {
-    const resolved = path.resolve(filePath);
-    return allowedRoots.some(root => resolved.startsWith(path.resolve(root)));
+const common = require('./common');
+
+// Escape user-supplied strings for HTML output
+const safe = common.escapeHtml('<script>alert("xss")</script>');
+// → '&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;'
+
+// Escape with line break preservation
+const safeBreaks = common.escapeHtmlBreaks(userInput);
+```
+
+> **Rule:** Never interpolate raw user input into HTML templates or HTTP responses. Always use `common.escapeHtml()`.
+
+### File Path Validation
+
+Upload paths are validated against allowed roots to prevent path traversal attacks. The `resolveSafeUploadTempPath` function in `webserver.js` validates that resolved paths remain within the permitted directory tree.
+
+```javascript
+// Internal webserver.js check (simplified pattern)
+const resolved = path.resolve(uploadTempDir, userSuppliedFilename);
+if (!resolved.startsWith(allowedRoot)) {
+    return res.status(400).send('Invalid path');
 }
 ```
 
-### Cross-Origin Requests (CORS)
+### Filename Validation
 
-The OpenFrame plugin applies CORS headers explicitly. When implementing new routes or plugins, always define explicit CORS policies — do not rely on implicit browser restrictions.
-
-### Multi-Tenant Isolation
-
-The OpenFrame plugin's `deviceStatus` route returns `404` (not `403`) for cross-tenant node IDs to prevent acting as a device enumeration oracle. Apply the same pattern in any custom plugins:
+Use `common.IsFilenameValid()` to check filenames before creating or accessing files:
 
 ```javascript
-// Return 404, not 403, for cross-tenant resources
-if (nodeId.split('/')[1] !== tenantDomain) {
-    return res.status(404).json({ error: 'Not found' });
+const common = require('./common');
+
+if (!common.IsFilenameValid(userFilename)) {
+    return res.status(400).send('Invalid filename');
 }
 ```
 
----
+### Database Field Escaping
 
-## Cryptography
-
-### RFB / VNC Protocol Cryptography
-
-The noVNC RFB engine supports multiple security schemes negotiated during connection:
-
-| Scheme | Algorithm | Use Case |
-|--------|-----------|---------|
-| None | — | Unauthenticated (development only) |
-| VNC Auth | DES challenge-response | Classic VNC compatibility |
-| VeNCrypt (Plain) | TLS + plaintext | Standard TLS-wrapped auth |
-| Apple Remote Desktop | DH + AES | ARD compatibility |
-| RA2ne | RSA + AES-EAX | Strongly authenticated sessions |
-| MSLogonII | MS-specific auth | Windows VNC servers |
-
-### AES-EAX (Preferred Modern Mode)
-
-`AESEAXCipher` provides authenticated encryption:
-
-- Combines AES-CTR (encryption) + AES-CMAC (authentication)
-- Appends a 16-byte authentication tag
-- Returns `null` and aborts on MAC verification failure — **always check for null**:
+MongoDB/NeDB field names with special characters (dots, `$`) must be escaped:
 
 ```javascript
-const plaintext = await cipher.decrypt(ciphertext, nonce, additionalData);
-if (plaintext === null) {
-    // Authentication failed — terminate the connection
-    throw new Error('Authentication tag verification failed');
-}
+const common = require('./common');
+
+// Before storing to DB
+const escaped = common.escapeLinksFieldName(doc);
+
+// After reading from DB
+const restored = common.unEscapeLinksFieldName(escaped);
 ```
-
-### DES (Legacy Compatibility Only)
-
-DES is retained **only** for classic VNC challenge-response authentication. Do not use DES for any new functionality.
 
 ---
 
 ## Secrets Management
 
-### Environment Variables
+### Session Keys
 
-Sensitive values should never be hardcoded. Use environment variables for:
+The session key protects cookie sessions. Always set a strong, random value:
 
-| Secret | Environment Variable | Notes |
-|--------|---------------------|-------|
-| Session encryption key | `MESHCENTRAL_SESSIONKEY` | Must be a long random string |
-| MongoDB connection URL | `MESHCENTRAL_MONGODBURL` | Includes credentials |
-| SMTP credentials | Config file (encrypted fields) | Use Let's Encrypt for TLS |
-
-**Generate a strong session key:**
-
-```bash
-node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
+```json
+{
+  "settings": {
+    "sessionKey": "change-this-to-a-long-random-string"
+  }
+}
 ```
 
-### Configuration File Security
+> **Never** use the example values from `sample-config.json` in production.
 
-The `config.json` file may contain sensitive values. Secure it appropriately:
+### MQTT Authentication
 
-```bash
-# Linux: restrict config file access to the service user
-chmod 600 meshcentral-data/config.json
-chown meshcentral:meshcentral meshcentral-data/config.json
+MQTT clients authenticate using signed credentials generated by `mqttbroker.js`:
+
+```javascript
+const login = mqttBroker.generateLogin(meshid, nodeid);
+// login.user and login.pass are HMAC-SHA-384 signed
+// Broker verifies signature on connect; short TTL is enforced
 ```
 
-> **Never commit `config.json` to version control.** Add it to `.gitignore`.
+### Multi-Server Peer Authentication
 
----
+Peer server connections use mutual TLS certificate fingerprinting (SHA-384) via `node-forge`. The 4-bit state machine in `multiserver.js` ensures both sides are fully authenticated before any data flows.
 
-## Session Security
+### Environment Variable Override
 
-MeshCentral uses `cookie-session` for session management:
-
-- Sessions are signed and encrypted using the `sessionKey` from config
-- Set `sessionKey` to a securely generated random value (minimum 32 bytes, recommended 48+ bytes)
-- Session cookies are `httpOnly` and `secure` (HTTPS-only)
-
-**Rotate the session key** to invalidate all existing sessions (e.g., after a security incident):
+Configuration values can be set via environment variables (`MESHCENTRAL_*` prefix) to avoid storing secrets in files:
 
 ```bash
-node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
-# Update "sessionKey" in config.json and restart the server
+export MESHCENTRAL_SESSIONKEY="long-random-secret"
 ```
 
----
-
-## Security Testing Checklist
-
-Before submitting a pull request or deploying a change, verify:
-
-- [ ] No hardcoded secrets, passwords, or API keys in code
-- [ ] All file path operations use safe path resolution (no traversal)
-- [ ] CORS headers are explicitly set on new routes
-- [ ] Cross-tenant isolation: tenant domain validated before returning data
-- [ ] WebAuthn counter updated after successful assertion
-- [ ] AES-EAX decryption: null return checked and connection terminated
-- [ ] All user input is validated before use in database queries or file operations
-- [ ] New plugins follow the `404` (not `403`) pattern for cross-tenant resources
-- [ ] TLS enforced for all new server endpoints
-- [ ] `config.json` is not committed and is protected with appropriate file permissions
+> **Production Rule:** Never commit `config.json` files containing real passwords, session keys, or API credentials to version control.
 
 ---
 
-## Common Vulnerabilities to Avoid
+## Common Security Vulnerabilities and Mitigations
 
-| Vulnerability | Prevention |
-|--------------|-----------|
-| Path traversal | Use `resolveSafeUploadTempPath()` for all upload paths |
-| Session fixation | Regenerate session on privilege escalation |
-| CSRF | Validate `Origin` header or use CSRF tokens for state-changing routes |
-| Replay attacks (WebAuthn) | Always increment and validate the authenticator counter |
-| Unauthenticated WebSocket | All relay sessions validate `user`, `ruserid`, or `nouser` flag |
-| Cross-tenant data leakage | Validate tenant domain on all data access; return `404` for mismatches |
-| Weak ciphers | Never use DES or AES-ECB for new features; use AES-EAX |
-| Exposed stack traces | Never return full error stack traces to clients in production |
+| Vulnerability | Mitigation |
+|---|---|
+| XSS | `common.escapeHtml()` on all user data in HTML output |
+| Path Traversal | `resolveSafeUploadTempPath()` validates all upload/download paths |
+| CSRF | Cookie-based session with `cookie-session` and `SameSite` policies |
+| Replay Attacks | WebAuthn counter validation; MQTT credential TTL |
+| Brute Force | PBKDF2 (300ms/hash) slows password guessing; TOTP adds second factor |
+| Cross-Tenant Enumeration | OpenFrame plugin returns `404` (not `403`) for foreign tenant node IDs |
+| Weak TLS | `mpshighsecurity: true` enforces TLS 1.2+ for Intel AMT CIRA |
+| Unvalidated Plugins | `pluginHandler.js` validates `config.json` before installation; warns users about untrusted sources |
 
 ---
 
-## Reporting Security Issues
+## Security Testing and Code Review
 
-Security issues should be reported via the OpenMSP Slack community rather than GitHub Issues:
+### Review Checklist
 
-- **OpenMSP Slack:** [https://www.openmsp.ai/](https://www.openmsp.ai/)
-- **Join:** [https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA](https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA)
+Before submitting a PR with security-relevant changes:
+
+- [ ] All user input rendered in HTML goes through `common.escapeHtml()`
+- [ ] File paths from user input are validated with `resolveSafeUploadTempPath()` or path prefix checks
+- [ ] Database field names from user input use `common.escapeFieldName()`
+- [ ] New authentication paths check both authentication AND authorization (mesh/site rights)
+- [ ] Secrets (keys, passwords) are not logged or included in error messages returned to clients
+- [ ] WebAuthn counter is updated after every successful assertion
+- [ ] New API endpoints enforce tenant domain isolation in multi-tenant deployments
+- [ ] New relay protocol types define appropriate `MESHRIGHT_*` checks
+
+### Monitoring Security Events
+
+The Prometheus metrics endpoint exposes security-relevant counters:
+
+| Metric | Description |
+|---|---|
+| `meshcentral_badsignature` | Invalid agent signature attempts |
+| `meshcentral_duplicateagent` | Duplicate agent connection attempts |
+| `meshcentral_relayerrors` | Relay session errors |
+
+Enable the Prometheus endpoint by adding `"prometheus": 9464` to `settings` in `config.json`.
+
+---
+
+## Community
+
+Report security concerns through the [OpenMSP Slack community](https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA). The project does not use GitHub Issues.

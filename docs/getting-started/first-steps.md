@@ -1,199 +1,169 @@
 # First Steps
 
-You've installed MeshCentral and logged in. Here are the first five things to do to get the most out of your setup.
+After your MeshCentral server is up and running, here are the first five things to do to get the most out of the platform.
 
 ---
 
-## 1. Configure Your Server Domain
+## 1. Secure Your Server Configuration
 
-After the first launch, open `meshcentral-data/config.json` and customize the domain settings:
+Before adding devices, lock down the server settings:
+
+**Disable open account registration** (production):
 
 ```json
 {
-  "settings": {
-    "port": 443,
-    "redirPort": 80,
-    "sessionKey": "replace-with-a-long-random-string"
-  },
   "domains": {
     "": {
-      "title": "Acme IT",
-      "title2": "Remote Management Portal",
-      "newAccounts": false,
-      "newAccountsEmailVerified": true
+      "newAccounts": false
     }
   }
 }
 ```
 
-> **Security tip:** Set `"newAccounts": false` after creating your admin account to prevent unauthorized self-registration. Set `"sessionKey"` to a securely generated random string.
+**Set a strong session key** to protect session cookies:
 
-Restart MeshCentral after editing the config:
+```json
+{
+  "settings": {
+    "sessionKey": "a-long-random-string-change-this"
+  }
+}
+```
+
+**Enable HTTPS** by configuring your domain and TLS:
+
+```json
+{
+  "settings": {
+    "cert": "mesh.yourdomain.com",
+    "port": 443,
+    "redirPort": 80
+  }
+}
+```
+
+Restart MeshCentral after any `config.json` changes:
 
 ```bash
 node meshcentral.js
 ```
 
----
-
-## 2. Set Up TLS with Let's Encrypt
-
-For production deployments with a public domain, enable automatic TLS certificates:
-
-```json
-{
-  "settings": {
-    "port": 443,
-    "redirPort": 80
-  },
-  "letsencrypt": {
-    "email": "admin@yourdomain.com",
-    "production": true,
-    "names": ["mesh.yourdomain.com"]
-  }
-}
-```
-
-**Requirements:**
-- Port 80 must be publicly reachable for HTTP-01 challenge validation
-- `mesh.yourdomain.com` must resolve to your server's public IP
-- MeshCentral checks renewal every 24 hours and renews when fewer than 45 days remain
+> Configuration file reference: [`sample-config.json`](https://github.com/flamingo-stack/meshcentral/blob/main/sample-config.json) and `sample-config-advanced.json` are included in the repository with annotated examples.
 
 ---
 
-## 3. Create Device Groups and Enroll Devices
+## 2. Enable Multi-Factor Authentication
 
-Device groups let you organize and manage permissions across your device fleet.
+MeshCentral supports both TOTP (authenticator apps) and FIDO2/WebAuthn hardware keys.
+
+To enable MFA for your admin account:
+
+1. Log in to the web UI
+2. Click your account name (top-right) → **My Account**
+3. Under **Two-Factor Authentication**, click **Add Authenticator**
+4. Scan the QR code with your authenticator app (Google Authenticator, Authy, etc.)
+5. Enter the verification code to confirm
+
+For FIDO2/WebAuthn (hardware security keys):
+
+1. In **My Account** → **Two-Factor Authentication**, click **Add Security Key**
+2. Follow the browser prompt to register your hardware key (YubiKey, passkeys, etc.)
+
+> The WebAuthn module supports `none`, `fido-u2f`, and `packed` attestation formats. See [`webauthn.js`](https://github.com/flamingo-stack/meshcentral/blob/main/webauthn.js) for implementation details.
+
+---
+
+## 3. Create Your First Device Group and Install an Agent
+
+A **Device Group** (Mesh) is the organizational unit for managed devices.
 
 **Create a device group:**
 
-1. Log in to the web interface at `https://your-server/`
-2. Click **My Devices** in the left sidebar
-3. Click **Add Device Group**
-4. Choose **Managed using MeshAgent** (for full agent management)
-5. Name the group (e.g., "Workstations", "Servers", "Client-Acme")
+1. Navigate to **My Devices**
+2. Click **Add Device Group**
+3. Choose a type: **Managed using a software agent** (most common)
+4. Name your group and click **OK**
 
-**Enroll a device:**
+**Install a MeshAgent on a device:**
 
-1. Click on the new device group
-2. Click **Add Agent** → select the target operating system
-3. Download the installer package
-4. Run the installer on the remote device
-5. The device will appear under the group within a few seconds
+1. Click the device group you created
+2. Click **Add Agent**
+3. Select the target operating system
+4. Download the installer and run it on the managed device
 
-> **For Linux devices**, the installer is a shell script. Run it with elevated privileges:
+The device will appear in your group within seconds of the agent connecting.
+
+**Alternatively, use meshctrl** to add a local device:
 
 ```bash
-sudo bash meshagent-linux.sh
+node meshctrl.js addlocaldevice \
+  --url wss://mesh.yourdomain.com \
+  --loginuser admin \
+  --loginpass yourpassword \
+  --meshname "My Servers" \
+  --hostname "mydevice.local"
 ```
 
 ---
 
-## 4. Configure Multi-Factor Authentication
+## 4. Try Remote Desktop, Terminal, and File Access
 
-MeshCentral supports multiple MFA methods. Enable them in your account settings:
+Once a device is connected, click on it to open the device panel:
 
-**TOTP (Time-based OTP):**
+| Feature | How to Access |
+|---|---|
+| **Remote Desktop** | Click **Desktop** — launches browser-based VNC/KVM session |
+| **Terminal** | Click **Terminal** — opens Xterm.js SSH/shell session |
+| **Files** | Click **Files** — browser-based file manager |
+| **Send Message** | Click **Msg** — push a toast notification to the device |
+| **Power Control** | Click **Power** — wake, sleep, restart, shutdown |
 
-1. Click your username in the top right → **My Account**
-2. Scroll to **Two-Factor Authentication**
-3. Click **Enable** next to **Authenticator App (TOTP)**
-4. Scan the QR code with Google Authenticator, Authy, or any TOTP app
-5. Enter the 6-digit code to confirm
-
-**WebAuthn / FIDO2 Hardware Key:**
-
-1. Go to **My Account** → **Two-Factor Authentication**
-2. Click **Enable** next to **Security Key**
-3. Insert your hardware key and follow browser prompts (Chrome/Edge recommended)
-
-> **Server-level enforcement:** To require MFA for all users, add `"require2factor": true` to the domain config block in `config.json`.
+> Remote Desktop uses the full noVNC RFB implementation supporting Raw, Tight, ZRLE, and Hextile encodings. The terminal supports SIXEL and OSC 1337 image rendering via the Xterm Addon Image.
 
 ---
 
-## 5. Explore Key Features
+## 5. Explore the meshctrl Command-Line Tool
 
-Once a device is enrolled, explore the core capabilities:
+`meshctrl.js` is a powerful CLI tool that connects to MeshCentral via WebSocket and provides 50+ administrative commands. It's useful for scripting and automation.
 
-### Remote Desktop
+```bash
+# List all connected devices
+node meshctrl.js listdevices \
+  --url wss://mesh.yourdomain.com \
+  --loginuser admin \
+  --loginpass yourpassword
 
-Click any enrolled device → **Remote Desktop**. This opens a full browser-based KVM session using the noVNC (VNC/RFB) engine with:
+# Upload a file to a remote device
+node meshctrl.js upload \
+  --url wss://mesh.yourdomain.com \
+  --loginuser admin \
+  --loginpass yourpassword \
+  --id '//domain/device/nodeid' \
+  --localfile ./script.sh \
+  --remotefile /tmp/script.sh
 
-- Hardware-accelerated canvas rendering
-- Clipboard synchronization
-- Dynamic desktop resizing
-- Multi-encoding support (Raw, Tight, ZRLE, JPEG)
-
-### Remote Terminal
-
-Click any device → **Remote Terminal**. This launches a full Xterm.js terminal session with:
-
-- ANSI/VT100 compatibility
-- Inline image rendering (SIXEL / OSC 1337)
-- Tab completion and scrollback
-- Copy/paste support
-
-### File Manager
-
-Click any device → **Files**. Browse, upload, and download files directly on the remote device.
-
-### Device Monitoring Dashboard
-
-The **My Devices** view provides live connectivity status. Click any device to see:
-
-- Hardware information (via SMBIOS)
-- Network interfaces
-- OS and platform details
-- Power state (for Intel AMT devices)
-
----
-
-## Key Configuration Reference
-
-Here are the most common `config.json` options for initial setup:
-
-```json
-{
-  "settings": {
-    "port": 443,
-    "redirPort": 80,
-    "sessionKey": "your-random-session-key",
-    "agentIdleTimeout": 300,
-    "allowLoginToken": true
-  },
-  "domains": {
-    "": {
-      "title": "My MSP",
-      "title2": "Remote Management",
-      "newAccounts": false,
-      "newAccountsEmailVerified": true,
-      "newAccountsEmailDomain": "yourdomain.com",
-      "require2factor": false,
-      "agentInviteCodes": true,
-      "sessionRecording": {
-        "desktop": false,
-        "terminal": false
-      }
-    }
-  }
-}
+# Monitor live events
+node meshctrl.js showevents \
+  --url wss://mesh.yourdomain.com \
+  --loginuser admin \
+  --loginpass yourpassword
 ```
+
+Available command categories:
+
+| Category | Commands |
+|---|---|
+| User Management | `adduser`, `edituser`, `removeuser`, `listusers` |
+| Device Management | `listdevices`, `deviceinfo`, `editdevice`, `removedevice` |
+| Remote Operations | `shell`, `runcommand`, `upload`, `download` |
+| Notifications | `devicetoast`, `broadcast` |
+| Reporting | `report`, `listevents`, `showevents` |
 
 ---
 
 ## Where to Get Help
 
-- **OpenMSP Community (Slack):** [https://www.openmsp.ai/](https://www.openmsp.ai/)
-- **Join Slack:** [https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA](https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA)
-- **Source code & issues:** [https://github.com/flamingo-stack/meshcentral](https://github.com/flamingo-stack/meshcentral)
-- **Flamingo platform:** [https://flamingo.run](https://flamingo.run)
-
----
-
-## Reference Documentation
-
-For deeper technical details, the generated reference documentation covers all major subsystems:
-
-- [Architecture Overview](../development/architecture/README.md)
-- [Development Environment Setup](../development/setup/environment.md)
-- [Security Best Practices](../development/security/README.md)
+- **Community:** Join the [OpenMSP Slack](https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA) for questions, support, and discussion
+- **Platform:** Learn about the full [OpenFrame](https://openframe.ai) MSP platform at [https://flamingo.run](https://flamingo.run)
+- **Source Code:** Browse the repository at [https://github.com/flamingo-stack/meshcentral](https://github.com/flamingo-stack/meshcentral)
+- **Sample Config:** See [`sample-config-advanced.json`](https://github.com/flamingo-stack/meshcentral/blob/main/sample-config-advanced.json) for a fully annotated configuration reference

@@ -1,154 +1,147 @@
 # Prerequisites
 
-Before installing and running MeshCentral, ensure your environment meets the following requirements.
+Before installing and running MeshCentral, ensure your environment meets the requirements listed below.
 
 ---
 
 ## Required Software
 
 | Software | Minimum Version | Notes |
-|----------|----------------|-------|
-| **Node.js** | 16.0.0+ | LTS releases recommended (18.x, 20.x, 22.x) |
-| **npm** | Bundled with Node.js | Used for installing dependencies |
-| **Git** | Any recent version | For cloning the repository |
+|---|---|---|
+| **Node.js** | 16.0.0 | LTS release recommended; v18 or v20 preferred |
+| **npm** | Bundled with Node.js | Used to install dependencies |
+| **Git** | Any recent version | To clone the repository |
+| **OpenSSL** | System-provided | Required for TLS certificate operations |
 
-> **Why Node.js 16+?** MeshCentral uses ES6 features, `async/await`, and WebSocket APIs that require Node.js 16 or later. The `package.json` `engines` field enforces this constraint.
+> **Node.js version:** The `package.json` engine constraint is `>=16.0.0`. Running on Node.js 18 LTS or 20 LTS is strongly recommended for production deployments.
 
 ---
 
 ## System Requirements
 
-| Resource | Minimum | Recommended |
-|----------|---------|-------------|
-| CPU | 1 core | 2+ cores |
-| RAM | 512 MB | 1 GB+ |
-| Disk | 1 GB free | 5 GB+ (for recordings and uploads) |
-| OS | Linux, Windows, macOS | Linux (Ubuntu 20.04+ / Debian 11+) |
-| Network | Outbound TCP/UDP | Open ports 80, 443, 4433 (AMT CIRA) |
+### Minimum (Lab / Development)
 
-### Supported Operating Systems
+| Resource | Requirement |
+|---|---|
+| CPU | 1 core |
+| RAM | 512 MB |
+| Disk | 2 GB (data, logs, agent binaries) |
+| OS | Linux, Windows, or macOS |
 
-- **Linux:** Ubuntu 20.04+, Debian 11+, CentOS/RHEL 8+, Alpine Linux
-- **Windows:** Windows Server 2016+, Windows 10+
-- **macOS:** macOS 12+ (Monterey or later)
+### Recommended (Production)
+
+| Resource | Requirement |
+|---|---|
+| CPU | 2+ cores |
+| RAM | 2 GB+ |
+| Disk | 20 GB+ (scales with recording and agent binary storage) |
+| OS | Linux (Ubuntu 20.04+, Debian 11+, RHEL 8+) |
+| Network | Stable public IP or DNS name for TLS certificate provisioning |
+
+---
+
+## Operating System Support
+
+MeshCentral runs on any platform that supports Node.js:
+
+- **Linux** — Ubuntu, Debian, CentOS/RHEL, Alpine (primary recommended platform)
+- **Windows** — Windows Server 2016+, Windows 10/11 (includes optional Windows Service integration)
+- **macOS** — Development and testing use
 
 ---
 
 ## Network Requirements
 
-MeshCentral listens on several ports by default:
-
 | Port | Protocol | Purpose |
-|------|----------|---------|
-| `443` | HTTPS/WSS | Main web interface and agent WebSocket connections |
-| `80` | HTTP | Let's Encrypt HTTP-01 challenge redirect |
-| `4433` | TLS | Intel AMT CIRA (Management Presence Server) |
+|---|---|---|
+| 443 | HTTPS/WSS | Primary web server and agent connections |
+| 80 | HTTP | Redirect server and ACME HTTP-01 challenge |
+| 4433 | TCP/TLS | Intel AMT CIRA (MPS Server) |
+| 1883 | TCP | MQTT broker (optional) |
+| 9464 | HTTP | Prometheus metrics endpoint (optional) |
 
-> **Firewall:** Ensure port 443 is accessible from agent machines and port 80 is accessible if you plan to use Let's Encrypt for automatic TLS certificates.
-
----
-
-## Optional Software
-
-| Software | Purpose |
-|----------|---------|
-| **MongoDB** | Production-grade database (replaces default NeDB) |
-| **PostgreSQL / MariaDB / MySQL** | Alternative relational database backends |
-| **SQLite3** | Lightweight alternative to NeDB for small deployments |
-| **OpenSSL** | For manual TLS certificate management |
+> Ports 443 and 80 require either `root`/Administrator privileges or Linux `CAP_NET_BIND_SERVICE` capability. Alternatively, configure MeshCentral to run on high ports (e.g., 4443) behind a reverse proxy.
 
 ---
 
-## Database Backend Options
+## Database Requirements
 
-MeshCentral ships with **NeDB** as the default embedded database (no additional installation needed). For production deployments, you may configure:
+MeshCentral ships with **NeDB** (embedded, file-based) as the default database — no external database installation is required for getting started.
 
-| Backend | Package Required | Best For |
-|---------|-----------------|---------|
-| NeDB | None (bundled via `@seald-io/nedb`) | Development, small deployments |
-| MongoDB | `mongodb` npm package | Production, large device fleets |
-| MariaDB | `mariadb` npm package | Production, SQL preference |
-| MySQL | `mysql2` npm package | Production, SQL preference |
-| PostgreSQL | `pg` npm package | Production, enterprise SQL |
-| SQLite | `better-sqlite3` or `sqlite3` npm package | Medium-scale deployments |
-| AceBase | `acebase` npm package | Alternative NoSQL |
+For production scale, the following external databases are supported:
+
+| Database | Package Required |
+|---|---|
+| MongoDB | `mongodb` npm package |
+| MariaDB / MySQL | `mariadb` npm package |
+| PostgreSQL | `pg` npm package |
+| SQLite3 | `better-sqlite3` npm package |
+| AceBase | `acebase` npm package |
+
+Install the appropriate npm package when configuring an external backend.
+
+---
+
+## Account and Access Requirements
+
+- **Server access:** SSH or console access to the target host
+- **DNS:** A public DNS A record pointing to your server's IP address (required for Let's Encrypt TLS)
+- **Firewall:** Inbound access on ports 443 and 80 (and 4433 for Intel AMT)
+- **OpenFrame integration:** Flamingo tenant credentials (if deploying as part of the OpenFrame platform)
 
 ---
 
 ## Environment Variables
 
-MeshCentral supports overriding configuration values via environment variables prefixed with `MESHCENTRAL_`:
+MeshCentral reads configuration from `config.json` by default. Any configuration key can also be set via environment variables using the `MESHCENTRAL_` prefix convention (e.g., `MESHCENTRAL_SESSIONKEY`).
 
-| Variable | Description |
-|----------|-------------|
-| `MESHCENTRAL_PORT` | Override the HTTPS listening port |
-| `MESHCENTRAL_REDIRPORT` | Override the HTTP redirect port |
-| `MESHCENTRAL_SESSIONKEY` | Override the session encryption key |
-| `MESHCENTRAL_MONGODBURL` | Override the MongoDB connection URL |
+For the **OpenFrame plugin**, two additional environment variables are recognized:
 
-For the OpenFrame plugin specifically:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
+| Variable | Default | Purpose |
+|---|---|---|
 | `MESH_DIR` | `/opt/mesh` | Directory containing `mesh_id` and `mesh_server_id` files |
-| `MESH_DEVICE_GROUP` | _(empty)_ | Device group name written into generated `.msh` files |
+| `MESH_DEVICE_GROUP` | `''` | Device group name written into generated MSH agent config files |
 
 ---
 
 ## Verification Commands
 
-Run these commands to verify your environment is ready:
-
-**Check Node.js version:**
+Run these commands to confirm your environment is ready before proceeding:
 
 ```bash
+# Check Node.js version (must be ≥ 16.0.0)
 node --version
-# Expected: v16.0.0 or higher (e.g., v20.11.0)
-```
 
-**Check npm version:**
-
-```bash
+# Check npm is available
 npm --version
-# Expected: 8.0.0 or higher
-```
 
-**Check Git:**
-
-```bash
+# Check Git is available
 git --version
-# Expected: git version 2.x.x
+
+# Check OpenSSL is available
+openssl version
+
+# Verify outbound HTTPS connectivity (optional, for Let's Encrypt)
+curl -I https://acme-v02.api.letsencrypt.org/directory
 ```
 
-**Verify port availability (Linux):**
+Expected output examples:
 
-```bash
-ss -tlnp | grep -E '80|443|4433'
-# Should return nothing if ports are free
-```
-
-**Verify port availability (Windows):**
-
-```bash
-netstat -an | findstr "80 443 4433"
+```text
+v20.11.0          ← Node.js version (must be 16+)
+10.2.4            ← npm version
+git version 2.43.0
+OpenSSL 3.0.2 ...
 ```
 
 ---
 
-## TLS Certificate Options
+## Summary Checklist
 
-MeshCentral can manage TLS certificates in three ways:
-
-| Method | Configuration | Best For |
-|--------|-------------|---------|
-| Self-signed (auto) | None required (default) | Development and internal use |
-| Let's Encrypt (auto) | `letsencrypt` config block in `config.json` | Public-facing deployments |
-| Custom certificate | `certificate` paths in `config.json` | Enterprise PKI environments |
-
-> **For Let's Encrypt:** Port 80 must be publicly accessible for HTTP-01 challenge validation. The domain must have a valid public DNS record pointing to your server.
-
----
-
-## What's Next?
-
-Once your environment meets these requirements, proceed to the [Quick Start Guide](quick-start.md) to install and launch your MeshCentral server.
+- [ ] Node.js 16+ installed and accessible in `$PATH`
+- [ ] npm available
+- [ ] Git installed
+- [ ] Target ports (443, 80) available or reverse proxy configured
+- [ ] DNS record pointing to your server (for Let's Encrypt TLS)
+- [ ] At least 512 MB RAM and 2 GB disk available
+- [ ] `MESH_DIR` and `MESH_DEVICE_GROUP` set (if using OpenFrame integration)

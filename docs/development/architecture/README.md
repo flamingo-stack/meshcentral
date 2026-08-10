@@ -1,6 +1,6 @@
 # Architecture Overview
 
-MeshCentral is a full-stack remote device management platform built on Node.js. Its architecture is layered and modular, cleanly separating transport, protocol, rendering, and UI concerns.
+MeshCentral follows a layered, modular architecture with a Node.js server at the centre, a rich browser-native frontend, and protocol-specific subsystems for remote access, device management, and communications.
 
 ---
 
@@ -8,261 +8,219 @@ MeshCentral is a full-stack remote device management platform built on Node.js. 
 
 ```mermaid
 flowchart TD
-    RemoteDevice["Remote Device (Agent / RDP / VNC)"]
-    MeshAgent["MeshAgent (WebSocket)"]
-    Server["MeshCentral Server (Node.js / Express)"]
-    WebServer["Web Server (webserver.js)"]
-    MeshRelay["Mesh Relay (meshrelay.js)"]
-    DB["Database Layer (db.js)"]
-    AMT["Intel AMT Manager"]
-    LE["Let's Encrypt (letsencrypt.js)"]
-    Plugins["Plugin Handler"]
-    Browser["Browser Client"]
-    noVNC["noVNC (RFB Engine)"]
-    Xterm["Xterm Terminal"]
-    UI["Web Admin UI"]
+    subgraph browser["Browser"]
+        WebUI["MeshCentral Web UI"]
+        noVNC["noVNC RFB Client"]
+        Xterm["Xterm.js Terminal"]
+        RDP["RDP Clipboard (Cliprdr)"]
+        Bootstrap["Bootstrap UI"]
+        Charts["Charts / Markdown"]
+    end
 
-    RemoteDevice -->|"WebSocket (TLS)"| MeshAgent
-    MeshAgent --> Server
-    Server --> WebServer
-    Server --> DB
-    Server --> AMT
-    Server --> LE
-    Server --> Plugins
+    subgraph server["MeshCentral Server (Node.js)"]
+        Main["meshcentral.js (Entry Point)"]
+        WebSrv["webserver.js (Express HTTPS)"]
+        MeshAgent["meshagent.js (Agent WS Handler)"]
+        Relay["meshrelay.js (Relay Sessions)"]
+        MPS["mpsserver.js (Intel AMT CIRA)"]
+        MQTT["mqttbroker.js (Aedes)"]
+        Multi["multiserver.js (Peer Cluster)"]
+        DB["db.js (Database Abstraction)"]
+        AMT["amtmanager.js (Intel AMT)"]
+        LE["letsencrypt.js (ACME)"]
+        Plugin["pluginHandler.js (Plugins)"]
+        Monitor["monitoring.js (Prometheus)"]
+    end
 
-    WebServer --> MeshRelay
-    MeshRelay -->|"WebSocket relay"| Browser
+    subgraph data["Data Layer"]
+        NeDB["NeDB (Default)"]
+        MongoDB["MongoDB"]
+        Postgres["PostgreSQL / MySQL / MariaDB"]
+        SQLite["SQLite3"]
+    end
 
-    Browser --> noVNC
-    Browser --> Xterm
-    Browser --> UI
+    subgraph agents["Managed Devices"]
+        Agent["MeshAgent"]
+        CIRA["Intel AMT CIRA"]
+    end
+
+    WebUI --> WebSrv
+    noVNC --> Relay
+    Xterm --> Relay
+    RDP --> Relay
+
+    Main --> WebSrv
+    Main --> MPS
+    Main --> MQTT
+    Main --> DB
+    Main --> AMT
+    Main --> LE
+    Main --> Plugin
+    Main --> Monitor
+    Main --> Multi
+
+    WebSrv --> MeshAgent
+    WebSrv --> Relay
+
+    MeshAgent --> DB
+    Relay --> DB
+    AMT --> MPS
+
+    DB --> NeDB
+    DB --> MongoDB
+    DB --> Postgres
+    DB --> SQLite
+
+    Agent --> MeshAgent
+    CIRA --> MPS
+    Agent --> MQTT
 ```
 
 ---
 
-## Core Server Components
+## Core Components
 
-| Component | File | Role |
-|-----------|------|------|
-| Main Server | `meshcentral.js` | Entry point; initializes and orchestrates all subsystems |
-| Web Server | `webserver.js` | Express HTTP/HTTPS server; session, routing, TLS, user/mesh management |
-| Mesh Agent Handler | `meshagent.js` | WebSocket handler for installed device agents |
-| Mesh Relay | `meshrelay.js` | Bidirectional relay between browser clients and remote devices |
-| Database Layer | `db.js` | Unified abstraction over 7 database backends |
-| Intel AMT Manager | `amtmanager.js` | Out-of-band Intel AMT device lifecycle management |
-| Certificate Ops | `certoperations.js` | TLS cert generation, ACM activation signing |
-| Let's Encrypt | `letsencrypt.js` | Automated ACME certificate provisioning and renewal |
-| WebAuthn | `webauthn.js` | FIDO2/WebAuthn registration and authentication |
-| Plugin Handler | `pluginHandler.js` | Hook-based extensible plugin loader |
-| Task Manager | `taskmanager.js` | Async task scheduling and limiting |
-
----
-
-## Frontend Runtime Architecture (noVNC Stack)
-
-The browser-based remote desktop is built on a modular noVNC-derived stack:
-
-```mermaid
-flowchart TD
-    Websock["Websock (Buffered WebSocket)"]
-    RFB["RFB Protocol Engine"]
-    Decoders["Framebuffer Decoders"]
-    Compression["Compression (zlib/pako)"]
-    Crypto["Crypto Components"]
-    Display["Display (HTML5 Canvas)"]
-    Input["Input Handlers"]
-    Utility["Utility Layer"]
-
-    Websock --> RFB
-    RFB --> Decoders
-    Decoders --> Compression
-    RFB --> Crypto
-    Decoders --> Display
-    Input --> RFB
-    Utility --> RFB
-    Utility --> Display
-```
-
-| Module | Responsibility |
-|--------|---------------|
-| **Websock** | Buffered WebSocket abstraction with binary framing |
-| **RFB** | Protocol state machine, authentication, framebuffer update parsing |
-| **Decoders** | Raw, CopyRect, RRE, Hextile, Tight, TightPNG, JPEG, ZRLE decoding |
-| **Compression** | Zlib deflate/inflate via pako |
-| **Crypto** | AES-EAX, AES-ECB, DES, RSA, Diffie-Hellman |
-| **Display** | Canvas rendering engine, backbuffer management |
-| **Input Handlers** | Keyboard normalization, gesture recognition |
-| **Utility** | Cursor management, event abstraction, browser detection |
+| Module | File | Responsibility |
+|---|---|---|
+| **Entry Point** | `meshcentral.js` | Server bootstrap, subsystem orchestration, task limiting |
+| **Web Server** | `webserver.js` | Express HTTPS, TLS, routing, user/mesh sessions, WebAuthn |
+| **Agent Handler** | `meshagent.js` | MeshAgent WebSocket sessions, meshcore updates, authentication |
+| **Relay** | `meshrelay.js` | Client↔agent relay tunnels, recording, access rights |
+| **MPS Server** | `mpsserver.js` | Intel AMT CIRA/APF over TLS, dual security modes |
+| **MQTT Broker** | `mqttbroker.js` | Aedes-based MQTT for device messaging and power control |
+| **Multi-Server** | `multiserver.js` | Peer cluster WebSocket links, mutual TLS auth, 4-bit state machine |
+| **Database** | `db.js` | Multi-backend abstraction (NeDB, MongoDB, PG, MySQL, SQLite, AceBase) |
+| **AMT Manager** | `amtmanager.js` | Intel AMT device lifecycle, WSMAN stack, 802.1x/Wi-Fi profiles |
+| **Let's Encrypt** | `letsencrypt.js` | ACME certificate acquisition and renewal |
+| **WebAuthn** | `webauthn.js` | FIDO2/WebAuthn registration and assertion |
+| **Plugin Handler** | `pluginHandler.js` | Plugin loading, hooks, browser-side injection, meshcore modules |
+| **Monitoring** | `monitoring.js` | Prometheus `/metrics` endpoint |
+| **meshctrl** | `meshctrl.js` | CLI admin tool (50+ commands via WebSocket) |
+| **Common Utils** | `common.js` | Binary encoding, HTML escaping, crypto helpers, DB field escaping |
+| **Password** | `pass.js` | PBKDF2/SHA-384 password hashing with salt |
+| **Cert Operations** | `certoperations.js` | Intel AMT ACM certificate chain building and signing |
 
 ---
 
-## Remote Desktop Rendering Pipeline
-
-```mermaid
-flowchart LR
-    SocketBytes["Socket Bytes"]
-    RFBParser["RFB Parser"]
-    Decoder["Encoding Decoder"]
-    RGBA["RGBA Buffer"]
-    Backbuffer["Display Backbuffer"]
-    Flip["flip()"]
-    Canvas["Visible Canvas"]
-
-    SocketBytes --> RFBParser
-    RFBParser --> Decoder
-    Decoder --> RGBA
-    RGBA --> Backbuffer
-    Backbuffer --> Flip
-    Flip --> Canvas
-```
-
-Supported framebuffer encodings:
-
-- Raw, CopyRect, RRE, Hextile, Tight, TightPNG, JPEG, ZRLE
-
----
-
-## Terminal Architecture (Xterm.js)
-
-```mermaid
-flowchart TD
-    UI["MeshCentral UI"]
-    TerminalAPI["Terminal API"]
-    CoreEngine["Core Terminal Engine"]
-    Buffer["Buffer Service"]
-    Parser["Escape Sequence Parser"]
-    Renderer["DOM Render Service"]
-    Addons["Addon System"]
-    ImageAddon["Image Addon (SIXEL / OSC 1337)"]
-
-    UI --> TerminalAPI
-    TerminalAPI --> CoreEngine
-    CoreEngine --> Buffer
-    CoreEngine --> Parser
-    CoreEngine --> Renderer
-    TerminalAPI --> Addons
-    Addons --> ImageAddon
-```
-
----
-
-## Agent Communication Flow
+## Remote Desktop Data Flow (RFB/VNC)
 
 ```mermaid
 sequenceDiagram
-    participant Device as Remote Device
-    participant Agent as MeshAgent (device)
-    participant Server as MeshCentral Server
-    participant DB as Database
-    participant Browser as Admin Browser
+    participant Browser
+    participant RFB as "RFB Client (noVNC)"
+    participant Websock as "Websock Transport"
+    participant Relay as "meshrelay.js"
+    participant Agent as "MeshAgent"
+    participant VNC as "VNC Server (Device)"
 
-    Device->>Agent: Start agent process
-    Agent->>Server: WebSocket upgrade (TLS)
-    Server->>DB: Lookup/register node
-    Server->>Agent: Send MeshCore update (if needed)
-    Agent-->>Server: Heartbeat / status messages
+    Browser->>RFB: Initiate Desktop Session
+    RFB->>Websock: Open WebSocket
+    Websock->>Relay: WSS Connection
+    Relay->>Agent: Tunnel Open
+    Agent->>VNC: RFB Handshake
+    VNC-->>Agent: Framebuffer Updates
+    Agent-->>Relay: Tunnel Data
+    Relay-->>Websock: Forward Bytes
+    Websock-->>RFB: Decode Frames
+    RFB->>Browser: Render Canvas
+    Browser->>RFB: Keyboard/Mouse Input
+    RFB->>VNC: Send Input Events
+```
 
-    Browser->>Server: Open relay session
-    Server->>Agent: Forward relay request
-    Agent-->>Server: Relay data (desktop/terminal/files)
-    Server-->>Browser: Relay data
+---
+
+## Agent Connection Flow
+
+```mermaid
+sequenceDiagram
+    participant Device as "Managed Device"
+    participant Agent as "MeshAgent"
+    participant WebSrv as "webserver.js"
+    participant Handler as "meshagent.js"
+    participant DB as "db.js"
+
+    Device->>Agent: Agent starts
+    Agent->>WebSrv: WebSocket Upgrade (wss://)
+    WebSrv->>Handler: CreateMeshAgent()
+    Handler->>DB: Lookup node by certificate
+    DB-->>Handler: Node record
+    Handler->>Handler: Authenticate agent
+    Handler-->>Agent: Authentication OK
+    Agent->>Handler: Send core hash (cmd 11)
+    Handler->>Handler: Compare meshcore hash
+    Handler-->>Agent: Push meshcore update (if needed)
+    Agent->>Handler: Command stream
+```
+
+---
+
+## Frontend Architecture
+
+```mermaid
+flowchart TD
+    WebUI["MeshCentral Web UI"]
+
+    WebUI --> Bootstrap["Bootstrap Components"]
+    WebUI --> UIComp["UI Components (ModernModal, ModernCard)"]
+    WebUI --> Charts["Charts Engine (Chart.js adapter)"]
+    WebUI --> Marked["Markdown (marked.js)"]
+    WebUI --> Localization["Localization Framework"]
+
+    WebUI --> RemoteDesktop["RFB Engine (noVNC)"]
+    WebUI --> Terminal["Terminal (Xterm.js)"]
+    WebUI --> Clipboard["RDP Clipboard (Cliprdr)"]
+
+    RemoteDesktop --> Decoders["Framebuffer Decoders (Raw, Tight, ZRLE, Hextile)"]
+    RemoteDesktop --> Websock["Websock Transport"]
+    RemoteDesktop --> Crypto["Crypto (AES, DES, RSA, DH)"]
+    RemoteDesktop --> Compression["Compression (Zlib inflate/deflate)"]
+    RemoteDesktop --> InputHandlers["Input Handlers (keyboard, mouse, gesture)"]
+
+    Terminal --> XtermImage["Xterm Addon Image (SIXEL/OSC 1337)"]
 ```
 
 ---
 
 ## Database Architecture
 
-MeshCentral abstracts over seven database backends through a single `db.js` module:
+The database abstraction layer (`db.js`) supports 7 backends behind a unified interface:
 
 ```mermaid
-flowchart TD
-    App["MeshCentral Server"]
-    DB["db.js (Abstraction Layer)"]
-    NeDB["NeDB (default)"]
-    MongoDB["MongoDB"]
-    MariaDB["MariaDB"]
-    MySQL["MySQL"]
-    PostgreSQL["PostgreSQL"]
-    SQLite["SQLite"]
-    AceBase["AceBase"]
+flowchart LR
+    App["MeshCentral Server"] --> DB["db.js (Abstraction)"]
 
-    App --> DB
-    DB --> NeDB
-    DB --> MongoDB
-    DB --> MariaDB
-    DB --> MySQL
-    DB --> PostgreSQL
-    DB --> SQLite
-    DB --> AceBase
+    DB --> NeDB["NeDB (default, file-based)"]
+    DB --> MongoDB["MongoDB"]
+    DB --> MariaDB["MariaDB"]
+    DB --> MySQL["MySQL"]
+    DB --> PostgreSQL["PostgreSQL"]
+    DB --> AceBase["AceBase"]
+    DB --> SQLite["SQLite3"]
 ```
 
----
-
-## Security Architecture
-
-```mermaid
-flowchart TD
-    TLS["TLS (node-forge / Let's Encrypt)"]
-    Sessions["Cookie Sessions (cookie-session)"]
-    Auth["Authentication Layer"]
-    TOTP["TOTP (otplib)"]
-    WebAuthn["WebAuthn/FIDO2 (webauthn.js)"]
-    MeshRights["Mesh Rights (bitmask ACL)"]
-    SiteRights["Site Rights (bitmask ACL)"]
-    CryptoLayer["Crypto (AES/DES/RSA/DH)"]
-
-    TLS --> Auth
-    Auth --> TOTP
-    Auth --> WebAuthn
-    Auth --> Sessions
-    Sessions --> MeshRights
-    Sessions --> SiteRights
-    CryptoLayer --> TLS
-```
-
----
-
-## Plugin Architecture
-
-The plugin system uses hooks that are called at defined points in the server lifecycle:
-
-| Hook | Trigger Point |
-|------|--------------|
-| `hook_setupHttpHandlers` | Express app route registration |
-| `hook_processAgentData` | Incoming agent data frame |
-| `hook_onNodeConnect` | Device connects |
-| `hook_onNodeDisconnect` | Device disconnects |
-
-The **OpenFrame plugin** (`plugins/openframe.js`) uses `hook_setupHttpHandlers` to register:
-
-- `GET /generate-msh` — MSH agent config file generator
-- `GET /api/deviceStatus` — Live device connectivity status
+The database stores:
+- Device (node) records
+- User accounts and groups
+- Device groups (meshes)
+- Events and power events
+- Server statistics
+- Plugin metadata
 
 ---
 
 ## Key Design Decisions
 
-| Decision | Rationale |
-|----------|-----------|
-| Single Node.js process | Simplifies deployment; no microservices coordination overhead |
-| NeDB as default DB | Zero-configuration embedded database for simple installs |
-| noVNC (browser-side RFB) | No plugins required; runs in any modern browser |
-| Express Handlebars | Server-side rendering for the admin UI without a frontend build step |
-| Bitmask ACL | Efficient per-user, per-device-group permission encoding |
-| WebSocket for everything | Single protocol for agent comms, relay, and real-time updates |
+1. **Strict protocol state machines** — RFB, RDP, APF, and multi-server peer auth all use explicit state machines for reliability
+2. **Streaming-safe binary processing** — All protocol parsers handle partial frames and buffered reads
+3. **Browser-native rendering** — Remote desktop and terminal use Canvas and DOM (no native plugins)
+4. **Transport abstraction** — `Websock` wraps both WebSocket and RTCDataChannel, enabling WebRTC relay paths
+5. **Multi-backend database** — NeDB works out of the box; production systems can switch to MongoDB or SQL with a config change
+6. **Plugin extensibility** — Plugins can inject both server-side hooks and browser-side JavaScript without modifying core
+7. **Backwards-compatible crypto** — `LegacyCrypto` abstraction maintains compatibility with older VNC security types alongside RA2ne (AES)
+8. **Accessibility-first terminal** — Xterm.js terminal mirrors viewport to an ARIA tree for screen reader support
 
 ---
 
 ## Reference Documentation
 
-The following auto-generated reference docs are available for each major subsystem:
-
-- [RFB and Display](../../reference/architecture/rfb-and-display/rfb-and-display.md)
-- [Crypto Components](../../reference/architecture/crypto-components/crypto-components.md)
-- [Xterm Terminal](../../reference/architecture/xterm/xterm.md)
-- [UI Components](../../reference/architecture/ui-components/ui-components.md)
-- [Input Handlers](../../reference/architecture/input-handlers/input-handlers.md)
-- [Decoders](../../reference/architecture/decoders/decoders.md)
-- [Compression](../../reference/architecture/compression/compression.md)
-- [Charts](../../reference/architecture/charts/charts.md)
-- [Localization](../../reference/architecture/localization/localization.md)
+For detailed per-module documentation, see the [Reference Architecture](../../reference/architecture/README.md).

@@ -1,62 +1,61 @@
 # Development Documentation
 
-Welcome to the MeshCentral development documentation. This section covers everything you need to contribute to, extend, and run MeshCentral in a development environment.
+Welcome to the MeshCentral development documentation for the [flamingo-stack/meshcentral](https://github.com/flamingo-stack/meshcentral) repository.
+
+This section covers everything you need to contribute to, extend, or operate MeshCentral in a development context.
 
 ---
 
-## Overview
-
-MeshCentral is a Node.js application using Express as its HTTP framework. The codebase is organized into:
-
-- **Server-side modules** — Express web server, database abstraction, agent handler, relay, AMT management, certificate operations, and plugin system
-- **Client-side assets** — noVNC (RFB/VNC), Xterm.js terminal, RDP virtual channels, Bootstrap UI, and custom JavaScript components
-- **Agent runtime** — MeshCore.js and companion modules that run on managed devices
-
----
-
-## Documentation Index
+## What's in This Section
 
 | Document | Description |
-|----------|-------------|
-| [Environment Setup](setup/environment.md) | IDE configuration, development tools, and editor extensions |
-| [Local Development](setup/local-development.md) | Cloning, running locally, debugging |
-| [Architecture Overview](architecture/README.md) | System design, component map, data flow |
-| [Security Guidelines](security/README.md) | Authentication, encryption, secrets management |
-| [Testing Guide](testing/README.md) | Running tests, test structure, coverage |
-| [Contributing Guidelines](contributing/guidelines.md) | Code style, PR process, commit conventions |
-
----
-
-## Technology Stack
-
-MeshCentral uses the following core technologies:
-
-| Layer | Technology |
-|-------|-----------|
-| Runtime | Node.js 16+ |
-| HTTP Framework | Express 4.x |
-| WebSockets | `ws` (server), `express-ws` (integration) |
-| Template Engine | Express Handlebars |
-| Default Database | NeDB (`@seald-io/nedb`) |
-| Cryptography | `node-forge`, `otplib`, native `crypto` module |
-| Remote Desktop (browser) | noVNC (RFB protocol, custom fork) |
-| Terminal (browser) | Xterm.js |
-| UI Framework | Bootstrap (bundled) |
-| Body Parsing | `body-parser`, `multiparty` |
-| Compression | `compression` (gzip middleware) |
-| Session Management | `cookie-session` |
+|---|---|
+| [Environment Setup](setup/environment.md) | IDE recommendations, editor plugins, and development tool configuration |
+| [Local Development](setup/local-development.md) | Clone, install, run locally, and debug MeshCentral |
+| [Architecture Overview](architecture/README.md) | High-level system design, core component map, and data flows |
+| [Security Guide](security/README.md) | Authentication, TLS, input validation, secrets management |
+| [Testing Overview](testing/README.md) | Test structure, running tests, and writing new tests |
+| [Contributing Guidelines](contributing/guidelines.md) | Code style, branch naming, PR process, and commit conventions |
 
 ---
 
 ## Quick Navigation
 
-**New to the codebase?** Start here:
+### I want to run MeshCentral locally
+→ Start with [Local Development](setup/local-development.md)
 
-1. Read the [Architecture Overview](architecture/README.md) to understand the system design
-2. Set up your [Development Environment](setup/environment.md)
-3. Follow the [Local Development Guide](setup/local-development.md) to run the server locally
-4. Review [Security Guidelines](security/README.md) before making changes
-5. Check the [Contributing Guidelines](contributing/guidelines.md) before submitting a PR
+### I want to understand the codebase
+→ Read the [Architecture Overview](architecture/README.md)
+
+### I want to contribute a fix or feature
+→ Follow [Contributing Guidelines](contributing/guidelines.md)
+
+### I want to understand security and authentication
+→ Read the [Security Guide](security/README.md)
+
+### I want to run the test suite
+→ See the [Testing Overview](testing/README.md)
+
+---
+
+## Technology Stack
+
+MeshCentral is a **Node.js** application:
+
+| Layer | Technology |
+|---|---|
+| **Server runtime** | Node.js 16+ |
+| **HTTP framework** | Express 4 (`express`, `express-ws`, `express-handlebars`) |
+| **WebSocket** | `ws` 8.x |
+| **Database (default)** | NeDB (`@seald-io/nedb`) |
+| **TLS/Crypto** | `node-forge` |
+| **TOTP/2FA** | `otplib` |
+| **Templating** | Handlebars (`express-handlebars`) |
+| **Frontend** | Vanilla JS + jQuery + Bootstrap + noVNC + Xterm.js |
+| **Remote Desktop** | noVNC (RFB/VNC) — `public/novnc/` |
+| **Terminal** | Xterm.js — `public/scripts/xterm*` |
+| **RDP** | Custom RDP stack — `rdp/` |
+| **MQTT** | Aedes broker — `mqttbroker.js` |
 
 ---
 
@@ -64,37 +63,42 @@ MeshCentral uses the following core technologies:
 
 ```text
 meshcentral/
-├── meshcentral.js           ← Main server entry point
-├── webserver.js             ← Express HTTP/HTTPS server
-├── meshagent.js             ← Agent WebSocket handler
-├── meshrelay.js             ← Client-device relay sessions
-├── db.js                    ← Database abstraction layer
-├── amtmanager.js            ← Intel AMT device manager
-├── webauthn.js              ← FIDO2/WebAuthn module
-├── letsencrypt.js           ← ACME/Let's Encrypt integration
-├── certoperations.js        ← TLS/AMT certificate operations
-├── package.json             ← Dependencies and entry point
-├── agents/                  ← Agent-side runtime modules
-│   ├── meshcore.js          ← Primary agent core
-│   ├── meshcmd.js           ← MeshCMD command-line tool
-│   └── modules_meshcore/    ← Agent extension modules
-├── amt/                     ← Intel AMT protocol modules
-├── rdp/                     ← RDP protocol implementation
-├── public/                  ← Browser-side assets
-│   ├── novnc/               ← noVNC (RFB/VNC client)
-│   ├── scripts/             ← Bundled JS libraries
-│   └── mstsc/               ← Microsoft RDP client assets
-├── plugins/                 ← Plugin system and OpenFrame plugin
-├── views/                   ← Handlebars templates
-└── translate/               ← i18n localization engine
+├── meshcentral.js          ← Main server entry point
+├── webserver.js            ← Express HTTP/HTTPS server
+├── meshagent.js            ← Agent WebSocket handler
+├── meshrelay.js            ← Relay session manager
+├── mpsserver.js            ← Intel AMT CIRA server
+├── mqttbroker.js           ← MQTT broker
+├── multiserver.js          ← Peer cluster / multi-server
+├── db.js                   ← Database abstraction layer
+├── amtmanager.js           ← Intel AMT lifecycle manager
+├── letsencrypt.js          ← ACME/Let's Encrypt integration
+├── webauthn.js             ← FIDO2/WebAuthn module
+├── pluginHandler.js        ← Plugin lifecycle manager
+├── monitoring.js           ← Prometheus metrics
+├── meshctrl.js             ← CLI admin tool
+├── common.js               ← Shared utilities
+├── pass.js                 ← Password hashing (PBKDF2)
+├── certoperations.js       ← Intel AMT ACM certs
+├── agents/                 ← MeshAgent and MeshCmd source
+├── amt/                    ← Intel AMT WSMAN stack
+├── plugins/                ← Server plugins (e.g., openframe.js)
+├── public/                 ← Browser-side assets
+│   ├── novnc/              ← noVNC RFB/VNC client
+│   ├── scripts/            ← xterm, bootstrap, charts, etc.
+│   └── js/                 ← UI components
+├── rdp/                    ← RDP protocol stack
+├── views/                  ← Handlebars templates
+├── translate/              ← Localization framework
+└── sample-config.json      ← Annotated configuration example
 ```
 
 ---
 
-## Community
+## Community and Support
 
-Development questions and discussions happen in the OpenMSP Slack community:
+All questions, bug reports, and discussions are handled through the **OpenMSP Slack community**:
 
-- **OpenMSP Community:** [https://www.openmsp.ai/](https://www.openmsp.ai/)
-- **Join Slack:** [https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA](https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA)
-- **GitHub:** [https://github.com/flamingo-stack/meshcentral](https://github.com/flamingo-stack/meshcentral)
+[Join OpenMSP Slack →](https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA)
+
+The project does not use GitHub Issues or GitHub Discussions.

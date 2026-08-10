@@ -1,77 +1,28 @@
 # Development Environment Setup
 
-This guide covers setting up a productive development environment for working on MeshCentral.
+This guide covers setting up an optimal development environment for working on MeshCentral.
 
 ---
 
-## Required Tools
+## Recommended IDE
 
-| Tool | Minimum Version | Install |
-|------|----------------|---------|
-| Node.js | 16.0.0+ | [nodejs.org](https://nodejs.org/) |
-| npm | 8.0.0+ | Bundled with Node.js |
-| Git | 2.x+ | [git-scm.com](https://git-scm.com/) |
+### Visual Studio Code
 
-### Install Node.js (Recommended: via nvm)
+VS Code is the recommended editor for MeshCentral development.
 
-Using **nvm** (Node Version Manager) is the recommended approach for managing Node.js versions on Linux/macOS:
+**Recommended Extensions:**
 
-```bash
-# Install nvm
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+| Extension | Purpose |
+|---|---|
+| `dbaeumer.vscode-eslint` | JavaScript linting |
+| `esbenp.prettier-vscode` | Code formatting |
+| `eamodio.gitlens` | Git history and blame |
+| `christian-kohler.npm-intellisense` | npm package auto-complete |
+| `ms-vscode.vscode-js-profile-flame` | Performance profiling |
+| `humao.rest-client` | Test HTTP/REST endpoints inline |
+| `redhat.vscode-yaml` | JSON/YAML schema validation |
 
-# Reload shell
-source ~/.bashrc
-
-# Install Node.js LTS
-nvm install --lts
-nvm use --lts
-
-# Verify
-node --version
-npm --version
-```
-
-On **Windows**, use [nvm-windows](https://github.com/coreybutler/nvm-windows) or download the installer from [nodejs.org](https://nodejs.org/).
-
----
-
-## Recommended IDE: Visual Studio Code
-
-VS Code is the recommended editor for MeshCentral development due to strong Node.js support and the ecosystem of JavaScript extensions.
-
-**Download:** [code.visualstudio.com](https://code.visualstudio.com/)
-
-### Recommended Extensions
-
-Install these extensions for the best experience:
-
-| Extension | ID | Purpose |
-|-----------|-----|---------|
-| ESLint | `dbaeumer.vscode-eslint` | JavaScript linting |
-| Prettier | `esbenp.prettier-vscode` | Code formatting |
-| GitLens | `eamodio.gitlens` | Enhanced Git history |
-| REST Client | `humao.rest-client` | Test HTTP/REST endpoints |
-| Node.js Extension Pack | `waderyan.nodejs-extension-pack` | Node.js tooling bundle |
-| Handlebars | `andrejunges.handlebars` | Template file syntax highlighting |
-| DotENV | `mikestead.dotenv` | `.env` file support |
-
-**Install all extensions at once:**
-
-```bash
-code --install-extension dbaeumer.vscode-eslint
-code --install-extension esbenp.prettier-vscode
-code --install-extension eamodio.gitlens
-code --install-extension humao.rest-client
-code --install-extension andrejunges.handlebars
-code --install-extension mikestead.dotenv
-```
-
----
-
-## VS Code Workspace Settings
-
-Create `.vscode/settings.json` in the repository root:
+**Workspace Settings** (`.vscode/settings.json`):
 
 ```json
 {
@@ -79,131 +30,169 @@ Create `.vscode/settings.json` in the repository root:
   "editor.insertSpaces": true,
   "editor.formatOnSave": false,
   "files.eol": "\n",
-  "files.encoding": "utf8",
-  "javascript.suggest.autoImports": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "[javascript]": {
-    "editor.formatOnSave": false
-  },
-  "eslint.enable": true
+  "javascript.validate.enable": false
 }
 ```
 
 ---
 
-## VS Code Debug Configuration
+## Node.js Version Management
 
-Create `.vscode/launch.json` to enable debug launches:
+MeshCentral requires Node.js 16 or higher. Use a version manager to keep multiple Node versions:
 
-```json
-{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "type": "node",
-      "request": "launch",
-      "name": "Launch MeshCentral",
-      "program": "${workspaceFolder}/meshcentral.js",
-      "args": [],
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**"]
-    },
-    {
-      "type": "node",
-      "request": "launch",
-      "name": "Launch MeshCentral (debug)",
-      "program": "${workspaceFolder}/meshcentral.js",
-      "args": ["--debug=1"],
-      "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal",
-      "skipFiles": ["<node_internals>/**"]
-    }
-  ]
-}
-```
-
-Press **F5** in VS Code to start MeshCentral with the debugger attached.
-
----
-
-## Alternative IDEs
-
-### JetBrains WebStorm
-
-WebStorm has excellent Node.js support out of the box:
-
-1. Open the project directory
-2. Go to **Preferences → Languages & Frameworks → Node.js**
-3. Set the Node.js interpreter to your installed version
-4. Run configurations are auto-detected from `package.json`
-
-### Neovim / Vim
-
-For terminal-based development, install:
+### Using nvm (Linux/macOS)
 
 ```bash
-# Node.js LSP support via nvim-lspconfig
-# Uses typescript-language-server or vscode-js-debug
+# Install nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 
-npm install -g typescript typescript-language-server
+# Install and use Node.js 20 LTS
+nvm install 20
+nvm use 20
+nvm alias default 20
+
+# Verify
+node --version
 ```
+
+### Using fnm (cross-platform, faster)
+
+```bash
+# Install fnm
+curl -fsSL https://fnm.vercel.app/install | bash
+
+# Install Node.js 20
+fnm install 20
+fnm use 20
+```
+
+### Windows: nvm-windows
+
+Download and install from [https://github.com/coreybutler/nvm-windows/releases](https://github.com/coreybutler/nvm-windows/releases), then:
+
+```bash
+nvm install 20.0.0
+nvm use 20.0.0
+```
+
+---
+
+## Required Development Tools
+
+| Tool | Install Command | Purpose |
+|---|---|---|
+| Node.js 16+ | See above | Runtime |
+| npm | Bundled with Node.js | Package management |
+| Git | `apt install git` / brew install git | Version control |
+| curl / wget | System default | Downloading dependencies |
 
 ---
 
 ## Environment Variables for Development
 
-Create a `.env` file at the repository root for local overrides (do **not** commit this file):
+MeshCentral reads configuration primarily from `meshcentral-data/config.json`. For development, you can override settings with environment variables prefixed with `MESHCENTRAL_`:
 
 ```bash
-# Development environment variables
-
-# Port overrides (avoids needing root for ports <1024)
-MESHCENTRAL_PORT=8443
-MESHCENTRAL_REDIRPORT=8080
+# Override the port (useful to avoid root privileges)
+export MESHCENTRAL_PORT=4443
+export MESHCENTRAL_REDIRPORT=4480
 
 # OpenFrame plugin settings
-MESH_DIR=/opt/mesh
-MESH_DEVICE_GROUP=dev-group
-
-# Debug output level (0-5)
-# Pass via CLI: node meshcentral.js --debug=3
+export MESH_DIR=/opt/mesh
+export MESH_DEVICE_GROUP="Development Devices"
 ```
 
-> **Note:** MeshCentral reads environment variables prefixed with `MESHCENTRAL_` automatically and maps them to their corresponding CLI argument names (e.g., `MESHCENTRAL_PORT` sets `--port`).
+You can set these in a `.env`-style shell script for convenience:
+
+```bash
+# dev-env.sh
+export MESHCENTRAL_PORT=4443
+export MESHCENTRAL_REDIRPORT=4480
+export MESH_DIR=/opt/mesh
+export MESH_DEVICE_GROUP="Dev"
+```
+
+Then source it before starting:
+
+```bash
+source ./dev-env.sh
+node meshcentral.js
+```
+
+> **Note:** Never commit files containing secrets or real credentials to the repository.
 
 ---
 
-## Running Without Root on Linux
+## Git Configuration
 
-MeshCentral defaults to ports 443 and 80, which require root privileges on Linux. For development, use higher ports:
-
-```bash
-# Using environment variables
-MESHCENTRAL_PORT=8443 MESHCENTRAL_REDIRPORT=8080 node meshcentral.js
-
-# Or pass as CLI arguments
-node meshcentral.js --port 8443 --redirport 8080
-```
-
-Or grant Node.js the capability to bind low ports without root:
+Configure your identity before making commits:
 
 ```bash
-sudo setcap 'cap_net_bind_service=+ep' $(which node)
+git config --global user.name "Your Name"
+git config --global user.email "you@example.com"
+git config --global core.autocrlf input   # Linux/macOS
+git config --global core.autocrlf true    # Windows
 ```
 
 ---
 
-## Checking Your Setup
+## Optional: Database Development Tools
 
-After completing the environment setup, verify everything works:
+When developing against a non-default database backend, install the appropriate admin tool:
+
+| Database | Tool |
+|---|---|
+| MongoDB | [MongoDB Compass](https://www.mongodb.com/products/tools/compass) or `mongosh` |
+| PostgreSQL | pgAdmin or `psql` CLI |
+| MySQL/MariaDB | DBeaver or `mysql` CLI |
+| SQLite | [DB Browser for SQLite](https://sqlitebrowser.org/) |
+
+For the default **NeDB** backend, data is stored as newline-delimited JSON files in `meshcentral-data/`. You can inspect them with any text editor.
+
+---
+
+## Optional: Prometheus and Monitoring
+
+MeshCentral can expose a Prometheus-compatible `/metrics` endpoint. To enable during development:
+
+1. Install the optional dependency:
 
 ```bash
-# In the cloned repository directory
-node --version   # Should print v16.0.0 or higher
-npm --version    # Should print 8.x or higher
-npm install      # Should complete without errors
-node meshcentral.js --help   # Should print MeshCentral usage info
+npm install prom-client
 ```
 
-Now continue to the [Local Development Guide](local-development.md) to run MeshCentral locally.
+2. Add to `meshcentral-data/config.json`:
+
+```json
+{
+  "settings": {
+    "prometheus": 9464
+  }
+}
+```
+
+3. Metrics will be available at `http://localhost:9464/metrics`.
+
+---
+
+## File Watcher Limits (Linux)
+
+For development, you may hit the default inotify limit. Increase it:
+
+```bash
+echo fs.inotify.max_user_watches=524288 | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+```
+
+---
+
+## Summary
+
+Once your environment is configured you should have:
+
+- Node.js 16+ (preferably 20 LTS) installed and in `$PATH`
+- VS Code (or equivalent) with recommended extensions
+- Git configured with your identity
+- MeshCentral dependencies installable via `npm install`
+
+Proceed to [Local Development](local-development.md) to clone and run the server.
