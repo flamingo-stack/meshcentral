@@ -18,7 +18,6 @@ Before starting work on a significant feature or bug fix, **discuss it on Slack 
 ## Getting Started
 
 1. Fork the repository: [https://github.com/flamingo-stack/meshcentral](https://github.com/flamingo-stack/meshcentral)
-
 2. Clone your fork:
 
 ```bash
@@ -38,7 +37,7 @@ git remote add upstream https://github.com/flamingo-stack/meshcentral.git
 npm install
 ```
 
-5. Create a feature branch (see branch naming below)
+5. Create a feature branch (see branch naming below).
 
 ---
 
@@ -135,7 +134,7 @@ Optional footer:
 Refs: #issue-number (if applicable)
 ```
 
-### Commit Types
+### Types
 
 | Type | When to Use |
 |------|------------|
@@ -213,7 +212,7 @@ git push origin feature/your-branch-name
 
 2. Open a Pull Request at: [https://github.com/flamingo-stack/meshcentral/pulls](https://github.com/flamingo-stack/meshcentral/pulls)
 
-3. Fill in the PR template:
+3. Fill in the PR description using this template:
 
 ```text
 ## Summary
@@ -236,7 +235,7 @@ Slack thread or discussion link (if applicable)
 
 ## Code Review Checklist
 
-Ensure your PR passes all of the following before requesting review:
+Reviewers will check the following. Ensure your PR passes before requesting review:
 
 ### Correctness
 - [ ] Logic is correct and handles edge cases
@@ -264,7 +263,7 @@ Ensure your PR passes all of the following before requesting review:
 - [ ] New functionality manually verified end-to-end
 
 ### Compatibility
-- [ ] Compatible with Node.js 16+ (no Node.js 18+ exclusive APIs without fallback)
+- [ ] Compatible with Node.js 16+ (no Node 18+ exclusive APIs without fallback)
 - [ ] No breaking changes to the `config.json` format without migration notes
 - [ ] Plugin hooks not broken for existing plugins
 - [ ] Database operations work with the default NeDB backend
@@ -273,18 +272,33 @@ Ensure your PR passes all of the following before requesting review:
 
 ## Running Tests
 
-MeshCentral's primary test infrastructure is a standalone diagnostic suite:
+MeshCentral's test infrastructure uses a standalone diagnostic suite:
 
 ```bash
+# Run the diagnostic test suite
 node agents/testsuite.js
+# Expected: exit code 2 (suite completed)
+# Failure: exit code 1 (a test case failed)
 ```
 
-> **Note:** Exit code `2` is expected and indicates the suite ran to completion. A non-`2` exit code indicates a test failure.
-
-For integration testing, run the server locally and verify endpoints manually:
+For integration testing, start the server in debug mode and verify endpoints manually:
 
 ```bash
 node meshcentral.js --port 8443 --redirport 8080 --debug 3
+```
+
+You can set up a pre-commit hook to run tests automatically:
+
+```bash
+# .git/hooks/pre-commit
+#!/bin/bash
+node agents/testsuite.js
+EXIT=$?
+if [ $EXIT -ne 2 ]; then
+  echo "Test suite failed with exit code $EXIT"
+  exit 1
+fi
+exit 0
 ```
 
 ---
@@ -303,10 +317,14 @@ If you are contributing a new plugin, follow the OpenFrame plugin (`plugins/open
 
 ## Security Issues
 
-Security issues should be reported via the OpenMSP Slack community rather than as GitHub Pull Requests or Issues.
+Report security concerns through the [OpenMSP Slack community](https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA). The project does not use GitHub Issues.
 
-- **OpenMSP Slack:** [https://www.openmsp.ai/](https://www.openmsp.ai/)
-- **Join Slack:** [https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA](https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA)
+Key security patterns to follow:
+
+- All user-supplied HTML output must use `common.escapeHtml()`
+- File paths from user input must be validated with `resolveSafeUploadTempPath()` or path prefix checks
+- Secrets must never be logged or returned in error messages
+- WebAuthn counter must be updated after every successful assertion
 
 ---
 

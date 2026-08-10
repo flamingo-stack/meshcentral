@@ -7,203 +7,279 @@
 </div>
 
 <p align="center">
-  <a href="LICENSE.md"><img alt="License" src="https://img.shields.io/badge/LICENSE-FLAMINGO%20AI%20Unified%20v1.0-%23FFC109?style=for-the-badge&labelColor=white"></a>
+  <a href="LICENSE.md"><img alt="License" src="https://img.shields.io/badge/LICENSE-Apache--2.0-%23FFC109?style=for-the-badge&labelColor=white"></a>
+  <a href="https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA"><img alt="OpenMSP Slack" src="https://img.shields.io/badge/Community-OpenMSP%20Slack-%234A154B?style=for-the-badge&logo=slack&labelColor=white"></a>
+  <a href="https://openframe.ai"><img alt="OpenFrame" src="https://img.shields.io/badge/Platform-OpenFrame-%23FFC109?style=for-the-badge&labelColor=white"></a>
 </p>
 
 # MeshCentral
 
-**MeshCentral** is an open-source, web-based remote device management platform that enables IT administrators and MSPs to securely monitor, access, and control devices anywhere in the world — all from a browser. As part of the [Flamingo](https://flamingo.run) / [OpenFrame](https://openframe.ai) ecosystem, this fork of MeshCentral is enhanced with multi-tenant support, OpenFrame plugin integration, and AI-driven MSP automation.
+**MeshCentral** is an open-source, web-based remote device management platform that gives Managed Service Providers (MSPs), IT administrators, and enterprises a unified control plane for managing, monitoring, and remotely accessing devices at scale.
 
-MeshCentral replaces expensive proprietary remote-access tools with a self-hosted, open-source solution built on Node.js, featuring a full browser-based VNC/RFB client, an advanced Xterm.js terminal engine, RDP clipboard synchronization, and modern UI infrastructure.
+Built on Node.js with an Express HTTPS backend and a rich browser-native frontend, MeshCentral replaces proprietary remote-management software with a self-hosted, fully open-source alternative — enhanced in this repository by Flamingo's AI-driven MSP platform, [OpenFrame](https://openframe.ai).
+
+> Deploy a single Node.js server, install lightweight agents on your managed devices, and get immediate browser-based remote desktop, terminal access, file management, Intel AMT out-of-band control, and real-time monitoring — all from a single web UI with no additional client software required.
 
 ---
 
 ## Features
 
-- **Remote Desktop (VNC/RFB)** — Browser-based KVM using the embedded noVNC client with hardware-accelerated canvas rendering and multi-encoding support (Raw, Tight, ZRLE, JPEG)
-- **Remote Terminal** — Full ANSI/VT100-compatible shell sessions over WebSocket via Xterm.js, with SIXEL/OSC 1337 inline image rendering
-- **File Management** — Upload, download, and browse files on remote devices directly from the browser
-- **Device Monitoring** — Real-time dashboards, charts, and live connectivity tracking across your device fleet
-- **RDP Clipboard Sync** — Virtual channel clipboard synchronization for RDP sessions via the `cliprdr` module
-- **Secure Transport** — TLS everywhere with Let's Encrypt/ACME certificate automation
-- **Multi-Database Support** — NeDB (default, zero-config), MongoDB, MariaDB, MySQL, PostgreSQL, SQLite, and AceBase
-- **Intel AMT Management** — Out-of-band management for Intel vPro devices (CIRA, WSMAN, ACM activation, 802.1x/Wi-Fi profiles)
-- **Multi-Factor Authentication** — TOTP (otplib), WebAuthn/FIDO2, and hardware security key support
-- **Multi-Tenant** — OpenFrame multi-tenant domain isolation for MSP use cases
-- **Session Recording** — Binary and text recording of terminal and desktop sessions
-- **Plugin Architecture** — Extensible hook-based plugin system, including the OpenFrame integration plugin
-- **MeshAgent Protocol** — WebSocket-based agent with binary protocol for full device communication
+| Feature | Description |
+|---|---|
+| **Browser-based Remote Desktop** | Full VNC/RFB client implementation via noVNC — no plugins required |
+| **Browser Terminal** | Xterm.js-powered SSH and shell terminal with image rendering (SIXEL/OSC 1337) |
+| **RDP Integration** | RDP clipboard (Cliprdr) virtual channel and client-side RDP stack |
+| **Intel AMT / Out-of-Band** | Full CIRA, WSMAN, and ACM support for Intel vPro device management |
+| **Multi-Database Support** | NeDB (default), MongoDB, MariaDB, MySQL, PostgreSQL, AceBase, SQLite3 |
+| **Automated TLS** | Built-in Let's Encrypt / ZeroSSL / custom ACME certificate management |
+| **Multi-Factor Authentication** | TOTP (OTP), FIDO2/WebAuthn hardware key support |
+| **Multi-Tenant / Multi-Server** | Peer server clustering and multi-domain tenant isolation |
+| **Plugin System** | Extensible plugin lifecycle with server-side hooks and browser-side injection |
+| **Prometheus Metrics** | Optional `/metrics` endpoint for observability integrations |
+| **OpenFrame Integration** | Flamingo AI-powered MSP overlay for multi-tenant device management |
+| **CLI Control Tool** | `meshctrl.js` with 50+ administrative commands via WebSocket API |
+| **MQTT Broker** | Embedded Aedes-based MQTT broker for device messaging |
+| **Session Recording** | Binary and text relay session recording for compliance |
 
 ---
 
 ## Architecture
 
-MeshCentral follows a layered architecture from remote device to browser, cleanly separating transport, protocol, rendering, input handling, and UI presentation.
+MeshCentral follows a layered architecture separating UI/presentation, remote interaction engines, transport and protocol layers, and crypto/compression subsystems.
 
 ```mermaid
 flowchart TD
-    RemoteDevice["Remote Device (Agent / RDP / VNC)"]
-    Server["MeshCentral Server (Node.js / Express)"]
-    WebSocket["WebSocket Transport"]
-    Protocol["Protocol Layer (RFB / RDP / Agent)"]
-    Decoders["Framebuffer Decoders"]
-    Display["Display Renderer (HTML5 Canvas)"]
-    Terminal["Xterm Terminal Engine"]
-    UI["Web Admin UI"]
-    DB["Database (NeDB / MongoDB / etc.)"]
+    subgraph browser["Browser"]
+        WebUI["MeshCentral Web UI"]
+        noVNC["noVNC RFB Client"]
+        Xterm["Xterm.js Terminal"]
+        RDP["RDP Clipboard (Cliprdr)"]
+        Bootstrap["Bootstrap UI"]
+    end
 
-    RemoteDevice --> Server
-    Server --> DB
-    Server --> WebSocket
-    WebSocket --> Protocol
-    Protocol --> Decoders
-    Decoders --> Display
-    Protocol --> Terminal
-    Terminal --> UI
-    Display --> UI
+    subgraph server["MeshCentral Server (Node.js)"]
+        Main["meshcentral.js (Entry Point)"]
+        WebSrv["webserver.js (Express HTTPS)"]
+        MeshAgent["meshagent.js (Agent WS Handler)"]
+        Relay["meshrelay.js (Relay Sessions)"]
+        MPS["mpsserver.js (Intel AMT CIRA)"]
+        MQTT["mqttbroker.js (Aedes)"]
+        DB["db.js (Database Abstraction)"]
+        Plugin["pluginHandler.js (Plugins)"]
+    end
+
+    subgraph data["Data Layer"]
+        NeDB["NeDB (Default)"]
+        MongoDB["MongoDB"]
+        Postgres["PostgreSQL / MySQL / MariaDB"]
+    end
+
+    subgraph agents["Managed Devices"]
+        Agent["MeshAgent"]
+        CIRA["Intel AMT CIRA"]
+    end
+
+    WebUI --> WebSrv
+    noVNC --> Relay
+    Xterm --> Relay
+    RDP --> Relay
+
+    Main --> WebSrv
+    Main --> MPS
+    Main --> MQTT
+    Main --> DB
+    Main --> Plugin
+
+    WebSrv --> MeshAgent
+    WebSrv --> Relay
+
+    DB --> NeDB
+    DB --> MongoDB
+    DB --> Postgres
+
+    Agent --> MeshAgent
+    CIRA --> MPS
+    Agent --> MQTT
 ```
 
-### Core Subsystems
+---
 
-| Subsystem | Role |
-|-----------|------|
-| **Web Server** | Express HTTPS server, session management, routing |
-| **MeshAgent Handler** | WebSocket communication with installed agents |
-| **MeshRelay** | Bidirectional WebSocket relay between clients and devices |
-| **Database Layer** | Unified abstraction over 7 database backends |
-| **Intel AMT Manager** | Out-of-band AMT device lifecycle management |
-| **Crypto Layer** | AES-EAX, DES, RSA, DH, FIDO2/WebAuthn |
-| **Let's Encrypt** | Automated TLS certificate provisioning via ACME |
-| **Plugin Handler** | Hook-based plugin loader, including OpenFrame integration |
+## Quick Start
+
+### Install via npm (fastest)
+
+```bash
+# 1. Install MeshCentral globally
+npm install -g meshcentral
+
+# 2. Start the server (auto-generates self-signed TLS on first run)
+meshcentral
+
+# 3. Open your browser and create your admin account
+#    https://localhost:4430
+```
+
+### Install from Source (Flamingo fork)
+
+```bash
+# Clone the repository
+git clone https://github.com/flamingo-stack/meshcentral.git
+cd meshcentral
+
+# Install dependencies
+npm install
+
+# Start the server
+node meshcentral.js
+```
+
+On first launch, MeshCentral automatically:
+- Creates a `meshcentral-data/` directory for persistent data
+- Generates self-signed TLS certificates
+- Starts the HTTPS server on port **4430** (non-root) or **443** (root/production)
+
+> There are no default credentials. You define your admin username and password during first-run setup at `https://localhost:4430`.
+
+### Minimal Production Configuration
+
+Place this file at `meshcentral-data/config.json`:
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/Ylianst/MeshCentral/master/meshcentral-config-schema.json",
+  "settings": {
+    "cert": "mesh.yourdomain.com",
+    "port": 443,
+    "redirPort": 80,
+    "sessionKey": "a-long-random-string-change-this"
+  },
+  "domains": {
+    "": {
+      "title": "My MeshCentral",
+      "newAccounts": false
+    }
+  },
+  "letsencrypt": {
+    "email": "admin@yourdomain.com",
+    "names": "mesh.yourdomain.com",
+    "production": true
+  }
+}
+```
+
+---
+
+## Prerequisites
+
+| Software | Minimum Version | Notes |
+|---|---|---|
+| **Node.js** | 16.0.0 | Node.js 18 or 20 LTS recommended |
+| **npm** | Bundled with Node.js | |
+| **Git** | Any recent version | |
+| **OpenSSL** | System-provided | Required for TLS operations |
+
+**System requirements (production):** 2+ CPU cores, 2 GB+ RAM, 20 GB+ disk, Linux (Ubuntu 20.04+, Debian 11+, RHEL 8+).
+
+```bash
+# Verify your environment
+node --version   # Must be ≥ 16.0.0
+npm --version
+git --version
+openssl version
+```
 
 ---
 
 ## Technology Stack
 
 | Layer | Technology |
-|-------|-----------|
-| Runtime | Node.js 16+ |
-| HTTP Framework | Express 4.x |
-| WebSockets | `ws` / `express-ws` |
-| Template Engine | Express Handlebars |
-| Default Database | NeDB (`@seald-io/nedb`) |
-| Cryptography | `node-forge`, `otplib`, native `crypto` module |
-| Remote Desktop (browser) | noVNC (RFB protocol) |
-| Terminal (browser) | Xterm.js |
-| UI Framework | Bootstrap (bundled) |
+|---|---|
+| **Server Runtime** | Node.js 16+ |
+| **HTTP Framework** | Express 4 (`express`, `express-ws`, `express-handlebars`) |
+| **WebSocket** | `ws` 8.x |
+| **Database (default)** | NeDB (`@seald-io/nedb`) — no external DB required |
+| **TLS/Crypto** | `node-forge` |
+| **2FA/TOTP** | `otplib` |
+| **Remote Desktop** | noVNC (RFB/VNC) — `public/novnc/` |
+| **Terminal** | Xterm.js — `public/scripts/xterm*` |
+| **RDP** | Custom RDP stack — `rdp/` |
+| **MQTT** | Aedes broker — `mqttbroker.js` |
+| **Frontend UI** | Vanilla JS + jQuery + Bootstrap + Chart.js |
 
 ---
 
-## Quick Start
+## CLI Tool — meshctrl
 
-### Option 1: Install via npm (Recommended)
-
-**Step 1: Install MeshCentral**
+`meshctrl.js` is a powerful CLI that connects to MeshCentral via WebSocket with 50+ administrative commands:
 
 ```bash
-npm install -g meshcentral
+# List all connected devices
+node meshctrl.js listdevices \
+  --url wss://mesh.yourdomain.com \
+  --loginuser admin \
+  --loginpass yourpassword
+
+# Run a remote command
+node meshctrl.js runcommand \
+  --url wss://mesh.yourdomain.com \
+  --loginuser admin \
+  --loginpass yourpassword \
+  --id '//domain/device/nodeid' \
+  --run "uptime"
+
+# Monitor live events
+node meshctrl.js showevents \
+  --url wss://mesh.yourdomain.com \
+  --loginuser admin \
+  --loginpass yourpassword
 ```
-
-**Step 2: Start the server**
-
-```bash
-meshcentral
-```
-
-**Step 3: Open the web interface**
-
-Navigate to `https://localhost/` and create your administrator account on the first visit.
-
----
-
-### Option 2: Run from Source
-
-**Step 1: Clone the repository**
-
-```bash
-git clone https://github.com/flamingo-stack/meshcentral.git
-cd meshcentral
-```
-
-**Step 2: Install dependencies**
-
-```bash
-npm install
-```
-
-**Step 3: Start the server**
-
-```bash
-node meshcentral.js
-```
-
-> **Self-signed certificate warning:** Your browser will show a TLS warning on first launch. Click "Advanced" → "Proceed" to continue. For production, configure Let's Encrypt in `meshcentral-data/config.json`.
-
----
-
-### System Requirements
-
-| Resource | Minimum | Recommended |
-|----------|---------|-------------|
-| Node.js | 16.0.0+ | 18.x or 20.x LTS |
-| RAM | 512 MB | 1 GB+ |
-| Disk | 1 GB free | 5 GB+ |
-| OS | Linux, Windows, macOS | Linux (Ubuntu 20.04+) |
-
-**Open ports:** 443 (HTTPS/WSS), 80 (Let's Encrypt redirect), 4433 (Intel AMT CIRA)
-
----
-
-### Connect Your First Device
-
-1. In the web interface, go to **My Devices** → **Add Device Group**
-2. Click on the group → **Add Agent** → select your OS
-3. Download and run the agent installer on the remote device
-4. The device appears in your dashboard within seconds
 
 ---
 
 ## OpenFrame Integration
 
-This repository includes the **OpenFrame plugin** (`plugins/openframe.js`) that powers the [OpenFrame AI platform](https://openframe.ai):
+This repository is the **MeshCentral** component of the [OpenFrame](https://openframe.ai) unified MSP platform. OpenFrame integrates MeshCentral with Flamingo's AI-powered toolchain:
 
-- `GET /generate-msh` — Generates `.msh` agent configuration files for device enrollment
-- `GET /api/deviceStatus` — Returns live device connectivity status with multi-tenant isolation
+- **Mingo AI** — AI-powered assistant for technicians
+- **Fae** — AI-powered client portal
+- **Multi-tenant isolation** — per-tenant domain routing via `plugins/openframe.js`
+- **Device status API** — real-time device connectivity queries for OpenFrame dashboards
 
-**Environment variables for the OpenFrame plugin:**
+OpenFrame plugin environment variables:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MESH_DIR` | `/opt/mesh` | Directory containing mesh ID files |
-| `MESH_DEVICE_GROUP` | _(empty)_ | Device group name for generated `.msh` files |
+| Variable | Default | Purpose |
+|---|---|---|
+| `MESH_DIR` | `/opt/mesh` | Directory for `mesh_id` and `mesh_server_id` files |
+| `MESH_DEVICE_GROUP` | `''` | Device group name in generated MSH agent config files |
 
 ---
 
 ## Documentation
 
-📚 See the [Documentation](./docs/README.md) for comprehensive guides including:
+📚 See the [Documentation](./docs/README.md) for comprehensive guides including architecture reference, development setup, security, and testing.
 
-- [Getting Started](./docs/getting-started/introduction.md) — Introduction and setup
-- [Quick Start Guide](./docs/getting-started/quick-start.md) — Up and running in minutes
-- [Architecture Overview](./docs/development/architecture/README.md) — System design and component map
-- [Development Setup](./docs/development/setup/environment.md) — Local development environment
-
----
-
-## Community & Support
-
-Development discussion, questions, and support happen on the **OpenMSP Slack** — not GitHub Issues or Discussions.
-
-- **OpenMSP Community:** [https://www.openmsp.ai/](https://www.openmsp.ai/)
-- **Join Slack:** [https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA](https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA)
-- **Flamingo Platform:** [https://flamingo.run](https://flamingo.run)
-- **OpenFrame:** [https://openframe.ai](https://openframe.ai)
+- [Introduction](./docs/getting-started/introduction.md) — Platform overview and key features
+- [Prerequisites](./docs/getting-started/prerequisites.md) — Environment requirements
+- [Quick Start](./docs/getting-started/quick-start.md) — Get running in under 5 minutes
+- [First Steps](./docs/getting-started/first-steps.md) — Post-deployment configuration
+- [Architecture Reference](./docs/reference/architecture/README.md) — Module-level technical docs
 
 ---
 
-## Contributing
+## Community
 
-Contributions are welcome! Please read the [Contributing Guidelines](./CONTRIBUTING.md) before submitting a pull request. Discuss significant features on Slack before starting work to align with the project roadmap.
+All questions, discussions, and support happen on the **OpenMSP Slack community**. We do not use GitHub Issues or GitHub Discussions.
+
+- 🌐 **Website:** [https://www.openmsp.ai/](https://www.openmsp.ai/)
+- 💬 **Join Slack:** [OpenMSP Slack](https://join.slack.com/t/openmsp/shared_invite/zt-36bl7mx0h-3~U2nFH6nqHqoTPXMaHEHA)
+- 🦩 **Platform:** [https://flamingo.run](https://flamingo.run)
+- 🔗 **OpenFrame:** [https://openframe.ai](https://openframe.ai)
+
+---
+
+## License
+
+Licensed under the **Apache-2.0** License. See [`LICENSE`](https://github.com/flamingo-stack/meshcentral/blob/main/LICENSE) for details.
 
 ---
 
