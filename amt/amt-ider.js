@@ -1,4 +1,4 @@
-﻿/*
+/*
 Copyright 2020-2021 Intel Corporation
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,6 +45,9 @@ module.exports.CreateAmtIderSession = function (parent, db, ws, req, args, domai
         if ((arg == 1) || (arg == null)) { try { ws.close(); parent.parent.debug(1, 'Soft disconnect'); } catch (e) { console.log(e); } } // Soft close, close the websocket
         if (arg == 2) { try { ws._socket._parent.end(); parent.parent.debug(1, 'Hard disconnect'); } catch (e) { console.log(e); } } // Hard close, close the TCP socket
     };
+
+    // HTML-escape helper to prevent XSS when inserting filenames into HTML
+    function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
     try {
 
@@ -95,14 +98,14 @@ module.exports.CreateAmtIderSession = function (parent, db, ws, req, args, domai
 
                         // Floppy image selection
                         xx = "<select style=width:240px id=xxFloppyImagesSelect><option value=''>None</option>";
-                        for (var i in floppyImages) { xx += "<option value='" + encodeURIComponent(floppyImages[i]) + "'" + (sel?" selected":"") + ">" + floppyImages[i] + "</option>"; sel = false; }
+                        for (var i in floppyImages) { xx += "<option value='" + encodeURIComponent(floppyImages[i]) + "'" + (sel?" selected":"") + ">" + escHtml(floppyImages[i]) + "</option>"; sel = false; }
                         xx += "</select>";
                         html += "<div style=margin:5px>" + addHtmlValue("Floppy Image", xx) + "</div>";
 
                         // CDROM image selection
                         sel = true;
                         xx = "<select style=width:240px id=xxCdromImagesSelect><option value=''>None</option>";
-                        for (var i in cdromImages) { xx += "<option value='" + encodeURIComponent(cdromImages[i]) + "'" + (sel ? " selected" : "") + ">" + cdromImages[i] + "</option>"; sel = false; }
+                        for (var i in cdromImages) { xx += "<option value='" + encodeURIComponent(cdromImages[i]) + "'" + (sel ? " selected" : "") + ">" + escHtml(cdromImages[i]) + "</option>"; sel = false; }
                         xx += "</select>";
                         html += "<div style=margin:5px>" + addHtmlValue("CDROM Image", xx) + "</div>";
 
@@ -126,16 +129,19 @@ module.exports.CreateAmtIderSession = function (parent, db, ws, req, args, domai
                     // Decode and validate file paths
                     if ((command.args.floppyPath != null) && (typeof command.args.floppyPath != 'string')) { command.args.floppyPath = null; } else { command.args.floppyPath = decodeURIComponent(command.args.floppyPath); }
                     if ((command.args.cdromPath != null) && (typeof command.args.cdromPath != 'string')) { command.args.cdromPath = null; } else { command.args.cdromPath = decodeURIComponent(command.args.cdromPath); }
-                    // TODO: Double check that "." or ".." are not used.
-                    if ((command.args.floppyPath != null) && (command.args.floppyPath.indexOf('..') >= 0)) { delete command.args.floppyPath; }
-                    if ((command.args.cdromPath != null) && (command.args.cdromPath.indexOf('..') >= 0)) { delete command.args.cdromPath; }
 
                     // Get the disk image paths
                     var domainx = 'domain' + ((domain.id == '') ? '' : ('-' + domain.id));
                     var useridx = user._id.split('/')[2];
+                    var userPath = parent.parent.path.join(parent.parent.filespath, domainx, 'user-' + useridx);
                     var floppyPath = null, cdromPath = null;
                     if (command.args.floppyPath) { floppyPath = parent.parent.path.join(parent.parent.filespath, domainx, 'user-' + useridx, command.args.floppyPath); }
                     if (command.args.cdromPath) { cdromPath = parent.parent.path.join(parent.parent.filespath, domainx, 'user-' + useridx, command.args.cdromPath); }
+
+                    // Verify resolved paths are contained within the user's directory (prevents path traversal)
+                    var normalizedUserPath = path.normalize(userPath) + path.sep;
+                    if (floppyPath && !path.normalize(floppyPath).startsWith(normalizedUserPath)) { try { ws.send(JSON.stringify({ action: 'error', code: -1 })); } catch (ex) { } break; }
+                    if (cdromPath && !path.normalize(cdromPath).startsWith(normalizedUserPath)) { try { ws.send(JSON.stringify({ action: 'error', code: -1 })); } catch (ex) { } break; }
 
                     // Setup the IDER session
                     obj.ider = amtMeshRedirModule.CreateAmtRedirect(amtMeshIderModule.CreateAmtRemoteIder(parent, parent.parent), domain, user, parent, parent.parent);
@@ -182,7 +188,12 @@ module.exports.CreateAmtIderSession = function (parent, db, ws, req, args, domai
     }
 
     // Recursivly read all of the files in a fonder
-    function readFsRec(dir, func) {
+    var MAX_DEPTH = 8;
+    var MAX_FILES = 1024;
+    function readFsRec(dir, func, depth, count) {
+        if (depth == null) depth = 0;
+        if (count == null) count = { val: 0 };
+        if (depth > MAX_DEPTH) return func(null, []);
         var results = [];
         fs.readdir(dir, function (err, list) {
             if (err) return func(err);
@@ -192,9 +203,17 @@ module.exports.CreateAmtIderSession = function (parent, db, ws, req, args, domai
                 file = path.resolve(dir, file);
                 fs.stat(file, function (err, stat) {
                     if (stat && stat.isDirectory()) {
-                        readFsRec(file, function (err, res) { results = results.concat(res); if (!--pending) func(null, results); });
+                        if (count.val >= MAX_FILES) { if (!--pending) func(null, results); return; }
+                        readFsRec(file, function (err, res) { results = results.concat(res); if (!--pending) func(null, results); }, depth + 1, count);
                     } else {
-                        results.push(file); if (!--pending) func(null, results);
+                        if (count.val < MAX_FILES) {
+                            // Only accumulate .img and .iso files to avoid building a full in-memory listing
+                            if (file.toLowerCase().endsWith('.img') || file.toLowerCase().endsWith('.iso')) {
+                                results.push(file);
+                                count.val++;
+                            }
+                        }
+                        if (!--pending) func(null, results);
                     }
                 });
             });
