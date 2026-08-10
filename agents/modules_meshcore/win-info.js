@@ -16,11 +16,18 @@ limitations under the License.
 
 var promise = require('promise');
 
+// Module-level constant: avoids recompilation on every av() call / loop iteration.
+// Used with String.prototype.replace (callback form) so no stateful lastIndex issues.
+var ENV_EXPAND_RE = /%([^%]+)%/g;
+
+// Allowlist of environment variable names that may be expanded in AV product paths.
+var SAFE_ENV_VARS = /^(ProgramFiles|ProgramFiles\(x86\)|SystemRoot|windir|COMMONPROGRAMFILES|TEMP|TMP)$/i;
+
 function qfe()
 {
     try {
         var tokens = require('win-wmi').query('ROOT\\CIMV2', 'SELECT * FROM Win32_QuickFixEngineering');
-        if (tokens[0]){
+        if (tokens.length > 0){
             for (var index = 0; index < tokens.length; index++) {
                 for (var key in tokens[index]) {
                     if (key.startsWith('__')) delete tokens[index][key];
@@ -43,17 +50,12 @@ function av()
         // Process each antivirus product
         for (var i = 0; i < tokens.length; ++i) {
             var product = tokens[i];
-            var modifiedPath = product.pathToSignedProductExe || '';
-            // Expand environment variables (e.g., %ProgramFiles%)
-            var regex = /%([^%]+)%/g;
-            var match;
-            while ((match = regex.exec(product.pathToSignedProductExe)) !== null) {
-                var envVar = match[1];
-                var envValue = process.env[envVar] || '';
-                if (envValue) {
-                    modifiedPath = modifiedPath.replace(match[0], envValue);
-                }
-            }
+            // Expand environment variables (e.g., %ProgramFiles%) using module-level regex
+            // and an allowlist to prevent exfiltration of sensitive env vars.
+            var modifiedPath = (product.pathToSignedProductExe || '').replace(ENV_EXPAND_RE, function(match, name) {
+                if (!SAFE_ENV_VARS.test(name)) { return match; }
+                return process.env[name] || match;
+            });
             // Check if the executable exists (unless it's Windows Defender pseudo-path)
             var flag = true;
             if (modifiedPath !== 'windowsdefender://') {
@@ -109,7 +111,8 @@ function defrag(options)
             break;
     }
 
-    ret.child = require('child_process').execFile(process.env['windir'] + '\\System32\\defrag.exe', ['defrag', options.volume + ' /A']);
+    if (!/^[A-Za-z]:$/.test(options.volume)) { ret._rej('Invalid volume: ' + options.volume); return ret; }
+    ret.child = require('child_process').execFile(path, [options.volume, '/A']);
     ret.child.promise = ret;
     ret.child.promise.options = options;
     ret.child.stdout.str = ''; ret.child.stdout.on('data', function (c) { this.str += c.toString(); });
@@ -164,7 +167,7 @@ function pendingReboot()
     {
         ret = 'Component Based Servicing';
     }
-    else if(regQuery(HKEY.LocalMachine, 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate', 'RebootRequired'))
+    else if(regQuery(HKEY.LocalMachine, 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate', 'RebootRequired') != null)
     {
         ret = 'Windows Update';
     }
