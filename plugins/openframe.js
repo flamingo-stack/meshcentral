@@ -3,13 +3,27 @@
 const fs = require('fs');
 const path = require('path');
 
-const MESH_DIR = process.env.MESH_DIR || '/opt/mesh';
+const MESH_DIR = (function () {
+  var d = path.resolve(process.env.MESH_DIR || '/opt/mesh');
+  if (!d.startsWith('/opt/')) throw new Error('MESH_DIR must be under /opt/');
+  return d;
+}());
 const MESH_DEVICE_GROUP = process.env.MESH_DEVICE_GROUP || '';
 
 // --- Helpers ---
 
-function corsHeaders(res) {
-  res.set('Access-Control-Allow-Origin', '*');
+function corsHeaders(res, req, allowedOrigins) {
+  var origin = req.headers.origin;
+  if (allowedOrigins && allowedOrigins.length > 0) {
+    if (allowedOrigins.includes(origin)) {
+      res.set('Access-Control-Allow-Origin', origin);
+      res.set('Vary', 'Origin');
+    }
+    // If origin is not in the allowlist, do not set Access-Control-Allow-Origin at all.
+  } else {
+    // No allowlist configured: fall back to same-origin (do not set wildcard).
+    // Browsers will block cross-origin requests; same-origin requests are unaffected.
+  }
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, X-MeshAuth');
 }
@@ -32,6 +46,34 @@ function deriveTenantDomain(domains) {
   return '';
 }
 
+// Build the list of allowed CORS origins from config domains.
+function buildAllowedOrigins(domains) {
+  var origins = [];
+  if (!domains) return origins;
+  for (var k in domains) {
+    var d = domains[k];
+    if (d && d.dns) origins.push('https://' + d.dns);
+    if (d && d.altnames) {
+      d.altnames.forEach(function (n) { origins.push('https://' + n); });
+    }
+  }
+  return origins;
+}
+
+// Validate the X-MeshAuth shared secret against the configured value.
+function checkAuth(req, meshAuthSecret) {
+  if (!meshAuthSecret) return false;
+  var provided = req.headers['x-meshauth'];
+  if (!provided) return false;
+  // Constant-time comparison to avoid timing attacks.
+  if (provided.length !== meshAuthSecret.length) return false;
+  var mismatch = 0;
+  for (var i = 0; i < meshAuthSecret.length; i++) {
+    mismatch |= provided.charCodeAt(i) ^ meshAuthSecret.charCodeAt(i);
+  }
+  return mismatch === 0;
+}
+
 // --- Plugin ---
 
 module.exports.openframe = function (pluginHandler) {
@@ -47,17 +89,29 @@ module.exports.openframe = function (pluginHandler) {
     // collection (cross-tenant disclosure). Empty string = legacy single-tenant (no scoping).
     var tenantDomain = deriveTenantDomain(parent.config && parent.config.domains);
 
+    var allowedOrigins = buildAllowedOrigins(parent.config && parent.config.domains);
+
+    // Shared secret for X-MeshAuth header validation. Set MESH_AUTH_SECRET in the environment.
+    var meshAuthSecret = process.env.MESH_AUTH_SECRET || '';
+
+    // Allowlist of permitted host values for /generate-msh (comma-separated, no protocol prefix).
+    var allowedHosts = (process.env.MESH_ALLOWED_HOSTS || '').split(',').map(function (h) { return h.trim(); }).filter(Boolean);
+
     log('Routes registered (tenant="' + tenantDomain + '")');
 
     // CORS preflight
     app.options(['/generate-msh', '/api/*'], function (req, res) {
-      corsHeaders(res);
+      corsHeaders(res, req, allowedOrigins);
       res.sendStatus(204);
     });
 
     // Route 1: GET /generate-msh?host=X - Generate custom MSH agent config
     app.get('/generate-msh', function (req, res) {
-      corsHeaders(res);
+      corsHeaders(res, req, allowedOrigins);
+
+      if (!checkAuth(req, meshAuthSecret)) {
+        return sendError(res, 401, 'Unauthorized');
+      }
 
       var host = req.query.host;
       if (!host) return sendError(res, 400, 'Missing required parameter: host');
@@ -74,6 +128,12 @@ module.exports.openframe = function (pluginHandler) {
 
       var protocol = host.startsWith('http://') ? 'ws' : 'wss';
       var cleanHost = host.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
+
+      // Validate cleanHost against the configured allowlist.
+      if (allowedHosts.length > 0 && !allowedHosts.includes(cleanHost)) {
+        return sendError(res, 400, 'Host not permitted');
+      }
+
       var meshServerUrl = protocol + '://' + cleanHost + '/ws/tools/agent/meshcentral-server/agent.ashx';
 
       var mshContent = [
@@ -95,7 +155,11 @@ module.exports.openframe = function (pluginHandler) {
     // Route 2: GET /api/deviceStatus?id=node/<domain>/<hash> - Get device status
     // Uses MeshCentral core: GetConnectivityState() (in-memory) + db 'lc' record
     app.get('/api/deviceStatus', function (req, res) {
-      corsHeaders(res);
+      corsHeaders(res, req, allowedOrigins);
+
+      if (!checkAuth(req, meshAuthSecret)) {
+        return sendError(res, 401, 'Unauthorized');
+      }
 
       var nodeId = req.query.id;
       if (!nodeId) return sendError(res, 400, 'Missing required parameter: id');
@@ -113,6 +177,7 @@ module.exports.openframe = function (pluginHandler) {
 
       // 1. Verify device exists in DB
       db.Get(nodeId, function (err, docs) {
+        if (err) return sendError(res, 500, 'Database error');
         if (docs == null || docs.length !== 1) return sendError(res, 404, 'Device not found');
 
         // 2. Live connectivity state from MeshCentral in-memory store
@@ -120,8 +185,9 @@ module.exports.openframe = function (pluginHandler) {
         var online = (state != null) && ((state.connectivity & 1) !== 0);
 
         // 3. Last connection record from DB
-        db.Get('lc' + nodeId, function (err, docs) {
-          var lc = (docs != null && docs.length === 1) ? docs[0] : null;
+        db.Get('lc' + nodeId, function (err2, docs2) {
+          if (err2) return sendError(res, 500, 'Database error');
+          var lc = (docs2 != null && docs2.length === 1) ? docs2[0] : null;
 
           res.json({
             nodeId: nodeId,
