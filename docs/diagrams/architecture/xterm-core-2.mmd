@@ -1,0 +1,11 @@
+sequenceDiagram
+    participant User
+    participant Terminal
+    participant CoreEngine
+    participant RenderService
+    participant DOM
+
+    User->>Terminal: keypress / paste
+    Terminal->>CoreEngine: process input
+    CoreEngine->>RenderService: refresh rows
+    RenderService->>DOM: update screen

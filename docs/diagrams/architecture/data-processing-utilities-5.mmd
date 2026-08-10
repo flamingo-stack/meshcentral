@@ -1,0 +1,12 @@
+flowchart TD
+    ChartCore["Chart Core"]
+    DataUtilities["Data Utilities"]
+    DataProcessing["Data Processing Utilities"]
+    DataTransformation["Data Transformation Utilities"]
+    Rendering["Rendering Engine"]
+
+    ChartCore --> DataUtilities
+    DataUtilities --> DataProcessing
+    DataUtilities --> DataTransformation
+    DataProcessing --> Rendering
+    DataTransformation --> Rendering

@@ -1,0 +1,4 @@
+flowchart TD
+    Params["g, p"] --> Private["Random Private Key"]
+    Private --> Public["g^private mod p"]
+    Public --> Export["DHPublicKey"]

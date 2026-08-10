@@ -1,0 +1,10 @@
+sequenceDiagram
+    participant Terminal
+    participant AccessibilityManager
+    participant RenderService
+    participant ScreenReader
+
+    Terminal->>AccessibilityManager: onRender(start, end)
+    AccessibilityManager->>RenderService: getDimensions()
+    AccessibilityManager->>AccessibilityManager: renderRows()
+    AccessibilityManager->>ScreenReader: update live region

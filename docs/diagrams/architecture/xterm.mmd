@@ -1,0 +1,12 @@
+flowchart TD
+    Xterm["Xterm Module"] --> Core["Xterm Core"]
+    Xterm --> Utilities["Xterm Utilities"]
+
+    Core --> Terminal["Terminal Runtime"]
+    Core --> Buffer["Buffer Management"]
+    Core --> Parser["Escape Sequence Parser"]
+
+    Utilities --> RenderCoordination["Render Coordination"]
+    Utilities --> Accessibility["Accessibility Manager"]
+    Utilities --> Linkifier["Linkifier"]
+    Utilities --> Selection["Selection & Clipboard"]

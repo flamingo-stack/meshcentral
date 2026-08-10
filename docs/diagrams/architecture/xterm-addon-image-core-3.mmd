@@ -1,0 +1,6 @@
+flowchart LR
+    Input["SIXEL Stream"] --> ModeCheck{"Mode"}
+    ModeCheck -->|"Banded"| BandMode["6-row band processing"]
+    ModeCheck -->|"Raster"| RasterMode["Full raster processing"]
+    BandMode --> CanvasBuffer["Uint32 Canvas Buffer"]
+    RasterMode --> CanvasBuffer

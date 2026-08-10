@@ -1,0 +1,9 @@
+flowchart TD
+    SelectFile["User Selects File"] --> LoadingState["Show Spinner + Disable Button"]
+    LoadingState --> AwaitUpload["Await onUpload() Promise"]
+
+    AwaitUpload -->|"Success"| SuccessState["Show Success + Update Preview"]
+    AwaitUpload -->|"Error"| ErrorState["Show Failed State"]
+
+    SuccessState --> ResetButton["Restore Button After Timeout"]
+    ErrorState --> ResetButton

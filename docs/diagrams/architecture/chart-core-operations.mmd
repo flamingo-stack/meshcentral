@@ -1,0 +1,8 @@
+flowchart TD
+    Config["Chart Configuration"] --> ChartEngine["On - Chart Engine"]
+    ChartEngine --> Registry["Qs - Registry"]
+    ChartEngine --> DatasetControllers["Ns - Dataset Controllers"]
+    DatasetControllers --> Animations["Os - Animation Resolver"]
+    DatasetControllers --> Canvas["Canvas Rendering Context"]
+    Animations --> Canvas
+    ChartEngine --> Plugins["Plugin Hooks"]

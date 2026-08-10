@@ -1,0 +1,6 @@
+flowchart TD
+    ParsedValues["Parsed Values"] --> StackCheck["Is Stacked?"]
+    StackCheck -->|Yes| ApplyStack["applyStack()"]
+    StackCheck -->|No| DirectValue["Direct Value"]
+    ApplyStack --> RangeUpdate["updateRangeFromParsed()"]
+    DirectValue --> RangeUpdate

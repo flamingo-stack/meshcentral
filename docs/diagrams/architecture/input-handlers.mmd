@@ -1,0 +1,6 @@
+flowchart LR
+    User["User"] --> Browser["Browser Event System"]
+    Browser --> InputHandlers["Input Handlers"]
+    InputHandlers --> RFB["RFB Client"]
+    RFB --> Network["Websock Transport"]
+    RFB --> Display["Display Renderer"]

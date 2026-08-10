@@ -1,0 +1,6 @@
+flowchart TD
+    Msg["FramebufferUpdate"] --> RectHeader["Read Rect Header"]
+    RectHeader --> DecoderSelect["Select Decoder"]
+    DecoderSelect --> Decode["decodeRect()"]
+    Decode --> Display
+    Display --> Flip

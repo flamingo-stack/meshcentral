@@ -1,0 +1,6 @@
+flowchart TD
+    Chart["Chart Instance"] --> Animations["Animations Manager"]
+    Animations --> Animation["Animation Instance"]
+    Animation --> Animator["Global Animator"]
+    Animator --> Frame["requestAnimationFrame"]
+    Frame --> Chart

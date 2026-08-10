@@ -1,0 +1,5 @@
+flowchart LR
+    Detect["Browser Capability Detection"] --> Decision{"Supports Cursor URIs?"}
+    Decision -->|"Yes"| Native["CSS Cursor URL Mode"]
+    Decision -->|"No"| Fallback["Canvas Overlay Mode"]
+    Fallback --> Events["Mouse Event Tracking"]

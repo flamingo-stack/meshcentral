@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant User
+    participant Canvas
+    participant Chart
+    participant Interaction
+    participant Tooltip
+
+    User->>Canvas: mousemove
+    Canvas->>Chart: dispatch event
+    Chart->>Interaction: resolve active elements
+    Interaction->>Tooltip: update model
+    Tooltip->>Canvas: redraw overlay

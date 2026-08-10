@@ -1,0 +1,5 @@
+flowchart TD
+    Create["Create Helper"] --> Register["Register Event Listeners"]
+    Register --> Active["Active Lifecycle"]
+    Active --> Dispose["Dispose"]
+    Dispose --> Cleanup["Remove Listeners and DOM"]

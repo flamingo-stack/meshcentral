@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant Terminal as Xterm
+    participant Parser as DCS Parser
+    participant Utilities as Image Utilities
+    participant Decoder as WASM Decoder
+    participant Storage as Image Storage
+
+    Terminal->>Parser: DCS q Sequence
+    Parser->>Utilities: hook()
+    Utilities->>Decoder: init()
+    Parser->>Utilities: put(data)
+    Utilities->>Decoder: decode(chunk)
+    Parser->>Utilities: unhook()
+    Utilities->>Storage: addImage()

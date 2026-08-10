@@ -1,0 +1,9 @@
+flowchart LR
+    Addon["ImageAddon"] --> Core["Core Components"]
+    Addon --> Utilities["Utilities Layer"]
+
+    Core --> Renderer["ImageRenderer"]
+    Core --> Storage["ImageStorage"]
+
+    Utilities --> CoreUtils["Core Utilities"]
+    Utilities --> AdvancedUtils["Advanced Utilities"]

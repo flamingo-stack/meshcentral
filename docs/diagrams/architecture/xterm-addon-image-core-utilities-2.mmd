@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant Terminal as "Xterm Terminal"
+    participant Parser as "DCS Parser"
+    participant SixelHandler as "Sixel Handler"
+    participant Decoder as "WASM Decoder"
+    participant Storage as "Image Storage"
+
+    Terminal->>Parser: Receive SIXEL DCS sequence
+    Parser->>SixelHandler: hook(params)
+    SixelHandler->>Decoder: init(palette, limits)
+    Parser->>SixelHandler: put(data chunks)
+    SixelHandler->>Decoder: decode(bytes)
+    Parser->>SixelHandler: unhook()
+    SixelHandler->>Storage: addImage(canvas)

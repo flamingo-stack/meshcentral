@@ -1,0 +1,6 @@
+flowchart LR
+    RawData["Raw Dataset"] --> Parsing["Parse & Normalize"]
+    Parsing --> Scales["Scale Mapping"]
+    Scales --> Elements["Element Geometry"]
+    Elements --> Animation["Animated Properties"]
+    Animation --> Canvas["Canvas Rendering"]

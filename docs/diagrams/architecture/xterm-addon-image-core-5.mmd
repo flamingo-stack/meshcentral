@@ -1,0 +1,5 @@
+flowchart TD
+    Image["Decoded Image"] --> TileSplit["Split into Tiles"]
+    TileSplit --> MapToCells["Write to Buffer Cells"]
+    MapToCells --> ExtendedAttrs["Extended Attributes"]
+    ExtendedAttrs --> RenderPhase["Render Visible Rows"]

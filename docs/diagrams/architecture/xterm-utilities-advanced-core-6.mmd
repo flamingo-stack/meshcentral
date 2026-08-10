@@ -1,0 +1,5 @@
+flowchart LR
+    Register["Register Decoration"] --> DecorationService
+    DecorationService --> Renderer["Buffer Decoration Renderer"]
+    Renderer --> Overlay["Decoration Layer"]
+    Overlay --> Screen

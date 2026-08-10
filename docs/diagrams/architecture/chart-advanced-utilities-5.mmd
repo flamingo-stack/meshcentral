@@ -1,0 +1,7 @@
+flowchart TD
+    Data["Dataset Input"] --> Controller["Dataset Controller"]
+    Controller --> Parser["Data Parsing"]
+    Parser --> Animator["Animation Engine"]
+    Animator --> Elements["Visual Elements"]
+    Elements --> Renderer["Canvas Rendering"]
+    Renderer --> Tooltip["Tooltip & Interaction"]

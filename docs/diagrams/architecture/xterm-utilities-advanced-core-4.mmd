@@ -1,0 +1,6 @@
+flowchart LR
+    MouseMove["Mouse Move"] --> Linkifier
+    BufferLine["Buffer Line"] --> Linkifier
+    Linkifier --> HoverState["Hover State"]
+    HoverState --> UnderlineEvent["Underline Event"]
+    HoverState --> Activation["Link Activation"]

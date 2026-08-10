@@ -1,0 +1,5 @@
+flowchart TD
+    PasteEvent["Clipboard Paste Event"] --> HandlePaste
+    HandlePaste --> PrepareText["Normalize Newlines"]
+    PrepareText --> BracketModeCheck["Bracketed Paste Mode?"]
+    BracketModeCheck --> TriggerDataEvent["Terminal Data Event"]

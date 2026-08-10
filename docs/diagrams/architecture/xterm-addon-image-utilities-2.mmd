@@ -1,0 +1,11 @@
+flowchart LR
+    Utilities["Xterm Addon Image Utilities"] --> CoreLayer["Core Utilities Layer"]
+    Utilities --> AdvancedLayer["Advanced Utilities Layer"]
+
+    CoreLayer --> Decode["Low-Level Decode"]
+    CoreLayer --> Parse["Header Parsing"]
+    CoreLayer --> Buffers["Pixel Buffers"]
+
+    AdvancedLayer --> IIP["OSC 1337 Handler"]
+    AdvancedLayer --> Sixel["SIXEL Handler"]
+    AdvancedLayer --> WASM["WASM Streaming Decoders"]

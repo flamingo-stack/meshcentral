@@ -1,0 +1,4 @@
+flowchart TD
+    Transport["RDP Transport"] --> CliprdrClient["Cliprdr Client"]
+    CliprdrClient --> StateMachine["Clipboard State Machine"]
+    StateMachine --> EventEmitter["Emit Clipboard Event"]

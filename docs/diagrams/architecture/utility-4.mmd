@@ -1,0 +1,5 @@
+flowchart TD
+    InputSystem["Input Handlers"] --> Dispatch["dispatchEvent()"]
+    Dispatch --> RFBClient["RFB Client"]
+    RFBClient --> Display
+    Display --> Cursor

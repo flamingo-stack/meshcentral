@@ -1,0 +1,12 @@
+flowchart TD
+    TerminalCore["Terminal Core"] --> AccessibilityManager["Accessibility Manager"]
+    TerminalCore --> Linkifier["Linkifier"]
+    TerminalCore --> RenderDebouncer["Render Debouncer"]
+
+    AccessibilityManager --> DOM["Accessibility DOM Tree"]
+    Linkifier --> DOM
+    RenderDebouncer --> RenderService["Render Service"]
+
+    Linkifier --> BufferService["Buffer Service"]
+    Linkifier --> MouseService["Mouse Service"]
+    AccessibilityManager --> RenderService

@@ -1,0 +1,13 @@
+flowchart TD
+    UI["Application UI"] --> Terminal["Terminal API"]
+    Terminal --> Core["Core Terminal Engine"]
+    Core --> AdvancedCore["Xterm Utilities Advanced Core"]
+    AdvancedCore --> RenderService["Render Service"]
+    AdvancedCore --> Viewport["Viewport"]
+    AdvancedCore --> Accessibility["Accessibility Manager"]
+    AdvancedCore --> Linkifier["Linkifier"]
+    AdvancedCore --> Selection["Selection Service"]
+    AdvancedCore --> Browser["Core Browser Service"]
+    RenderService --> DOM["DOM Renderer"]
+    Viewport --> DOM
+    Accessibility --> DOM

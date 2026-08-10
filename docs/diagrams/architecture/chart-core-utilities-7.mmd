@@ -1,0 +1,5 @@
+flowchart LR
+    ExternalData["External Data Source"] --> ChartConfig["Chart Configuration"]
+    ChartConfig --> ChartCore["Chart Core"]
+    ChartCore --> Utilities["Chart Core Utilities"]
+    Utilities --> CanvasOutput["Rendered Chart"]

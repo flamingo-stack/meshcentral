@@ -1,0 +1,5 @@
+flowchart TD
+    RenderEvent["onRender"] --> ClearLines["Clear Dirty Lines"]
+    ClearLines --> IterateCells["Scan Visible Cells"]
+    IterateCells --> DrawImage["Draw Tile"]
+    DrawImage --> Canvas["Canvas Layer"]

@@ -1,0 +1,13 @@
+sequenceDiagram
+    participant App
+    participant Hooks
+    participant Lexer
+    participant Parser
+
+    App->>Hooks: preprocess(markdown)
+    Hooks->>Lexer: provideLexer()
+    Lexer-->>Hooks: tokens
+    Hooks->>Hooks: processAllTokens(tokens)
+    Hooks->>Parser: provideParser()
+    Parser-->>Hooks: html
+    Hooks->>App: postprocess(html)

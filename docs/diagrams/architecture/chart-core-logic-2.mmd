@@ -1,0 +1,8 @@
+flowchart TD
+    Init["Initialize Chart"] --> BuildScales["Build or Update Scales"]
+    BuildScales --> ParseData["Parse Dataset Values"]
+    ParseData --> Layout["Compute Layout and Dimensions"]
+    Layout --> UpdateElements["Update Elements"]
+    UpdateElements --> Animate["Apply Animations"]
+    Animate --> Draw["Render to Canvas"]
+    Draw --> Events["Handle Interaction Events"]

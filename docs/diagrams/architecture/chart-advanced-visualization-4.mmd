@@ -1,0 +1,9 @@
+flowchart TD
+    Start["Property Change"] --> Resolve["Resolve Animation Config"]
+    Resolve --> Create["Create Animation Instance"]
+    Create --> Tick["Animation Tick"]
+    Tick --> Interpolate["Interpolate Values"]
+    Interpolate --> Apply["Apply to Element"]
+    Apply --> Complete{Finished?}
+    Complete -- No --> Tick
+    Complete -- Yes --> End["Notify Complete"]

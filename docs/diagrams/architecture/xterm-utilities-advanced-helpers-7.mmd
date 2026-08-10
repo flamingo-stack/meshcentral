@@ -1,0 +1,9 @@
+flowchart TD
+    Input["Keyboard or Paste Input"] --> InputHandler
+    InputHandler --> Buffer
+    Buffer --> RenderService
+    Buffer --> AccessibilityManager
+    Buffer --> SelectionService
+    Buffer --> Linkifier
+    RenderService --> Viewport
+    Viewport --> DOM

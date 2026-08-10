@@ -1,0 +1,6 @@
+flowchart TD
+    SetInput["setInput(data)"] --> Configure["Configure ZStream Input"]
+    Configure --> InflateCall["inflate()"]
+    InflateCall --> Validate{"Output == Expected?"}
+    Validate -->|No| Error["Throw Incomplete Block Error"]
+    Validate -->|Yes| Return["Return Uint8Array"]

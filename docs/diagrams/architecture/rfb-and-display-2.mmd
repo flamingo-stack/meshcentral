@@ -1,0 +1,6 @@
+flowchart TD
+    Init["Initial"] --> Connecting["connecting"]
+    Connecting --> Connected["connected"]
+    Connecting --> Disconnecting["disconnecting"]
+    Connected --> Disconnecting
+    Disconnecting --> Disconnected["disconnected"]

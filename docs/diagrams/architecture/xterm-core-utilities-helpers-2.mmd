@@ -1,0 +1,6 @@
+flowchart LR
+    Terminal["Terminal Buffer"] --> A11yManager["Accessibility Manager"]
+    A11yManager --> RowTree["ARIA Row Tree"]
+    A11yManager --> LiveRegion["ARIA Live Region"]
+    RowTree --> ScreenReader["Screen Reader"]
+    LiveRegion --> ScreenReader

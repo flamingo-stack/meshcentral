@@ -1,0 +1,5 @@
+flowchart TD
+    BufferChange["Buffer Change"] --> RenderDebouncer
+    RenderDebouncer --> RenderService
+    RenderService --> DomRenderer
+    DomRenderer --> ScreenUpdate["Screen Update"]

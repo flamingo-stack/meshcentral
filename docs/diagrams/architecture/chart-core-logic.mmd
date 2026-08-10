@@ -1,0 +1,9 @@
+flowchart TD
+    Config["Chart Configuration"] --> Chart["Chart Instance"]
+    Chart --> Scales["Scale System (Js / Lo)"]
+    Chart --> Datasets["Dataset Controllers"]
+    Chart --> Animations["Animation Engine"]
+    Chart --> Plugins["Plugin Pipeline"]
+    Scales --> Rendering["Canvas Rendering Context"]
+    Datasets --> Rendering
+    Animations --> Rendering

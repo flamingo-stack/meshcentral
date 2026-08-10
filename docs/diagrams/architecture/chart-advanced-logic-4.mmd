@@ -1,0 +1,4 @@
+flowchart TD
+    Value["Raw Value"] --> Log["Log10 Transform"]
+    Log --> Normalize["Normalize to Range"]
+    Normalize --> Pixel["Map to Pixel"]

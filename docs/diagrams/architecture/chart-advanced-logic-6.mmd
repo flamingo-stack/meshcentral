@@ -1,0 +1,10 @@
+sequenceDiagram
+    participant Chart
+    participant Plugin
+    participant Tooltip
+
+    Chart->>Plugin: beforeUpdate
+    Chart->>Plugin: beforeDraw
+    Chart->>Tooltip: Handle Event
+    Tooltip-->>Chart: Update state
+    Chart->>Plugin: afterDraw

@@ -1,0 +1,9 @@
+flowchart TD
+    Config["Chart Configuration"] --> CoreLogic["Chart Core Logic"]
+    CoreLogic --> CoreOps["Chart Core Operations"]
+    CoreOps --> CoreUtils["Chart Core Utilities"]
+    CoreUtils --> Canvas["HTML Canvas Rendering Context"]
+    CoreOps --> Registry["Typed Registry System"]
+    Registry --> Controllers["Dataset Controllers"]
+    Registry --> Elements["Chart Elements"]
+    Registry --> Scales["Scale Implementations"]

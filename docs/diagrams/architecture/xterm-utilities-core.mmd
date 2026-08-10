@@ -1,0 +1,10 @@
+flowchart TD
+    User["User Input"] --> TextArea["Hidden Textarea"]
+    TextArea --> TerminalCore["Terminal Core"]
+    TerminalCore --> RenderService["Render Service"]
+    RenderService --> DomRenderer["DOM Renderer"]
+    DomRenderer --> Screen["Terminal Screen"]
+
+    TerminalCore --> AccessibilityManager["Accessibility Manager"]
+    TerminalCore --> Linkifier["Linkifier"]
+    TerminalCore --> Viewport["Viewport"]

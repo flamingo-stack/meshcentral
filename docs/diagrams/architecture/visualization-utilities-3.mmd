@@ -1,0 +1,6 @@
+flowchart TD
+    Input["Raw Timestamp"] --> Parse["Adapter Parse"]
+    Parse --> Normalize["Normalize Range"]
+    Normalize --> TickUnit["Determine Unit"]
+    TickUnit --> BuildTicks["Generate Ticks"]
+    BuildTicks --> Format["Format Labels"]

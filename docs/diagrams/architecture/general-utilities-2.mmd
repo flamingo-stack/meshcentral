@@ -1,0 +1,5 @@
+flowchart LR
+    Defaults["Global Defaults"] --> Resolver["Option Resolver"]
+    Dataset["Dataset Options"] --> Resolver
+    Element["Element Options"] --> Resolver
+    Resolver --> Final["Resolved Runtime Options"]

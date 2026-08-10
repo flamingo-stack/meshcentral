@@ -1,0 +1,6 @@
+flowchart TD
+    Update["Chart.update()"] --> Parse["Parse Dataset"]
+    Parse --> Resolve["Resolve Options"]
+    Resolve --> Animate["Create Animations"]
+    Animate --> Interpolate["Interpolate Values"]
+    Interpolate --> Draw["Render Frame"]

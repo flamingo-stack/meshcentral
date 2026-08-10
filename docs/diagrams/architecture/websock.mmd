@@ -1,0 +1,17 @@
+flowchart LR
+    subgraph TransportLayer["Transport Layer"]
+        WS["WebSocket"]
+        DC["RTCDataChannel"]
+    end
+
+    WebsockCore["Websock"]
+
+    subgraph ProtocolLayer["Protocol Layer"]
+        RFB["RFB"]
+        Display["Display"]
+    end
+
+    WS -->|"binary frames"| WebsockCore
+    DC -->|"binary frames"| WebsockCore
+    WebsockCore -->|"buffered reads"| RFB
+    RFB -->|"frame updates"| Display

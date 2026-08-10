@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant Dataset
+    participant Processing as Data Processing
+    participant Transform as Data Transformation
+    participant Renderer
+
+    Dataset->>Processing: parse(rawValues)
+    Processing->>Processing: computeLimits()
+    Processing->>Processing: buildTicks()
+    Processing->>Transform: normalizedData
+    Transform->>Transform: resolveOptions()
+    Transform->>Transform: animateChanges()
+    Renderer->>Transform: requestFrame()
+    Transform-->>Renderer: interpolatedValues

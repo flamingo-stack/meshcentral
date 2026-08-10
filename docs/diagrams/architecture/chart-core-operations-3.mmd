@@ -1,0 +1,6 @@
+flowchart LR
+    RawData["Raw Dataset"] --> Parse["parse()"]
+    Parse --> ParsedCache["_parsed Cache"]
+    ParsedCache --> Stack["Stack Resolution"]
+    Stack --> Elements["Create / Update Elements"]
+    Elements --> Draw["draw()"]

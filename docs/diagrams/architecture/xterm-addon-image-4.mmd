@@ -1,0 +1,8 @@
+flowchart TD
+    Start["OSC 1337"] --> Parse["Parse Header"]
+    Parse --> Valid{"Valid Header?"}
+    Valid -->|No| Abort["Abort"]
+    Valid -->|Yes| Decode["Base64 Decode"]
+    Decode --> Detect["Detect Image Type"]
+    Detect --> Normalize["Normalize Buffer"]
+    Normalize --> Store["Store Image"]

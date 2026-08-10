@@ -1,0 +1,10 @@
+flowchart TD
+    Keyboard["Keyboard Input"] --> InputHandler["Input Handler"]
+    InputHandler --> Buffer
+    Buffer --> RenderService
+    Buffer --> Accessibility
+    Buffer --> Selection
+    RenderService --> DOM
+    DOM --> MouseEvents["Mouse Events"]
+    MouseEvents --> Selection
+    MouseEvents --> Linkifier

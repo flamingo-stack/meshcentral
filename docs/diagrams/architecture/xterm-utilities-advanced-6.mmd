@@ -1,0 +1,5 @@
+flowchart LR
+    Wheel["Wheel Event"] --> Viewport
+    Viewport --> BufferService["Buffer Service"]
+    BufferService --> RenderService
+    RenderService --> Viewport

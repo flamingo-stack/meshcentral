@@ -1,0 +1,15 @@
+flowchart LR
+    Chart["Chart Class"] --> Animator["Animator Engine"]
+    Chart --> Registry["Controller & Element Registry"]
+    Chart --> Layout["Layout Manager"]
+    Chart --> Plugins["Plugin Service"]
+
+    Animator --> Animations["Animation Instances"]
+    Registry --> Controllers["Dataset Controllers"]
+    Registry --> Elements["Visual Elements"]
+    Plugins --> Tooltip["Tooltip Plugin"]
+    Plugins --> Legend["Legend Plugin"]
+    Plugins --> Title["Title & Subtitle"]
+    Plugins --> Filler["Area Filler"]
+    Plugins --> Decimation["Dataset Decimation"]
+    Plugins --> Colors["Color Utilities"]

@@ -1,0 +1,5 @@
+flowchart TD
+    Start["Start Angle"] --> ComputeRadius["Compute Inner/Outer Radius"]
+    ComputeRadius --> Path["Construct Arc Path"]
+    Path --> Border["Stroke Border"]
+    Border --> Fill["Fill Background"]

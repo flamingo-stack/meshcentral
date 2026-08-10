@@ -1,0 +1,9 @@
+flowchart LR
+    Input["Markdown Input"] --> HooksPre["Preprocess Hooks"]
+    HooksPre --> Lexer["_Lexer"]
+    Lexer --> Tokens["Token Stream"]
+    Tokens --> Walk["walkTokens()"]
+    Walk --> Parser["_Parser"]
+    Parser --> Renderer["_Renderer"]
+    Renderer --> HooksPost["Postprocess Hooks"]
+    HooksPost --> Output["HTML Output"]

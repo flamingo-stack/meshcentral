@@ -1,0 +1,7 @@
+flowchart TD
+    UI["UI Layer"] --> RFB["RFB Client"]
+    RFB --> Display["Display"]
+    RFB --> Input["Input Handlers"]
+    Display --> Cursor["Cursor Utility"]
+    RFB --> EventMixin["EventTargetMixin"]
+    Input --> EventMixin

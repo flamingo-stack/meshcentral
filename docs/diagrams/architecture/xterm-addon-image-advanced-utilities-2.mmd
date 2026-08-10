@@ -1,0 +1,9 @@
+flowchart TD
+    Start["OSC 1337 Received"] --> HeaderParse["Header Parser"]
+    HeaderParse --> Validate["Validate Size and Inline Flag"]
+    Validate -->|Valid| Decode["Base64 Streaming Decoder"]
+    Validate -->|Invalid| Abort["Abort Processing"]
+
+    Decode --> ImageType["Detect PNG/JPEG/GIF"]
+    ImageType --> Resize["Apply Resize Rules"]
+    Resize --> Store["Add to Image Storage"]

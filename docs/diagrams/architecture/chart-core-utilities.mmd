@@ -1,0 +1,6 @@
+flowchart TD
+    RawData["Raw Dataset"] --> DataUtilities["Chart Core Utilities Data"]
+    DataUtilities --> Visualization["Chart Core Utilities Visualization"]
+    Visualization --> Canvas["HTML Canvas Context"]
+    LogicLayer["Chart Core Logic"] --> DataUtilities
+    LogicLayer --> Visualization

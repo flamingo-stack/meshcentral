@@ -1,0 +1,11 @@
+flowchart TD
+    XtermCore["Xterm Core"] --> CoreMain["Xterm Core Main"]
+    XtermCore --> CoreUtilities["Xterm Core Utilities"]
+
+    CoreMain --> Terminal["Terminal Class"]
+    CoreMain --> RenderService["Render Service"]
+    CoreMain --> InputHandling["Input Handling"]
+
+    CoreUtilities --> Accessibility["Accessibility Manager"]
+    CoreUtilities --> Linkifier["Linkifier"]
+    CoreUtilities --> RenderDebouncer["Render Debouncer"]

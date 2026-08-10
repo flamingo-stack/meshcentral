@@ -1,0 +1,4 @@
+flowchart LR
+    Input["Plaintext (16 byte blocks)"] --> Loop["Block Iteration"]
+    Loop --> Encrypt["AES-CBC with Zero IV"]
+    Encrypt --> Output["Ciphertext"]

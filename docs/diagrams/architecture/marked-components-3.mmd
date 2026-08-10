@@ -1,0 +1,5 @@
+flowchart TD
+    Source["Markdown Source"] --> BlockTokens["blockTokens()"]
+    BlockTokens --> InlineQueue["Inline Queue"]
+    InlineQueue --> InlineTokens["inlineTokens()"]
+    InlineTokens --> FinalTokens["Final Token List"]

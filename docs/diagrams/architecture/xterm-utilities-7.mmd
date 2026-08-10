@@ -1,0 +1,8 @@
+flowchart TD
+    Input["Incoming Data"] --> Parser["Parser"]
+    Parser --> Buffer["Buffer Update"]
+    Buffer --> Utilities["Xterm Utilities"]
+    Utilities --> Render
+    Utilities --> Accessibility
+    Utilities --> Selection
+    Utilities --> Viewport

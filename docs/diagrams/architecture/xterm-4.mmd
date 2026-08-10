@@ -1,0 +1,8 @@
+flowchart TD
+    KeyboardEvent["Keyboard Event"] --> Terminal
+    MouseEvent["Mouse Event"] --> Terminal
+    CompositionEvent["IME Event"] --> Terminal
+
+    Terminal --> BufferUpdate["Buffer Update"]
+    BufferUpdate --> Render
+    BufferUpdate --> Accessibility

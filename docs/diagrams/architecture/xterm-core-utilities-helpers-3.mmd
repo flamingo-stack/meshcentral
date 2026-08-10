@@ -1,0 +1,8 @@
+sequenceDiagram
+    participant Terminal
+    participant RenderService
+    participant Debouncer
+
+    Terminal->>RenderService: refresh(start, end)
+    RenderService->>Debouncer: refresh()
+    Debouncer-->>RenderService: batched render callback

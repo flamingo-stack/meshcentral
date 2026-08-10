@@ -1,0 +1,6 @@
+flowchart LR
+    DataMinMax["Determine Data Limits"] --> BuildTicks["Generate Ticks"]
+    BuildTicks --> LabelConversion["Convert Ticks to Labels"]
+    LabelConversion --> CalculateRotation["Calculate Label Rotation"]
+    CalculateRotation --> Fit["Fit Scale Dimensions"]
+    Fit --> DrawScale["Draw Grid, Labels, Border"]

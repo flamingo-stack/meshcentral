@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant User
+    participant Terminal
+    participant CoreTerminal
+    participant RenderService
+    participant DomRenderer
+
+    User->>Terminal: write(data)
+    Terminal->>CoreTerminal: write(data)
+    CoreTerminal->>RenderService: requestRefresh(start, end)
+    RenderService->>DomRenderer: renderRows(start, end)
+    DomRenderer-->>Terminal: DOM updated

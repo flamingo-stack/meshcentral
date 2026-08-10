@@ -1,0 +1,5 @@
+flowchart LR
+    UI["UI Component"] --> Markdown["Markdown String"]
+    Markdown --> Marked["Marked.parse()"]
+    Marked --> HTML["Rendered HTML"]
+    HTML --> DOM["Browser DOM"]

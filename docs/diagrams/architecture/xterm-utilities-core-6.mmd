@@ -1,0 +1,9 @@
+sequenceDiagram
+    participant User
+    participant Browser
+    participant Terminal
+
+    User->>Browser: Paste Event
+    Browser->>Terminal: Clipboard Data
+    Terminal->>Terminal: Apply Bracket Mode
+    Terminal->>Terminal: Inject Data

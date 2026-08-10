@@ -1,0 +1,13 @@
+flowchart TD
+    GU["General Utilities"] --> Config["Configuration Resolver"]
+    GU --> Anim["Animation Engine"]
+    GU --> Geometry["Geometry & Drawing Helpers"]
+    GU --> Color["Color Utilities"]
+    GU --> Parsing["Data Parsing Helpers"]
+    GU --> Scale["Scale & Axis Logic"]
+
+    Anim --> Animator["Global Animator"]
+    Scale --> Linear["Linear Scale"]
+    Scale --> Log["Logarithmic Scale"]
+    Scale --> Category["Category Scale"]
+    Scale --> Time["Time Scale"]

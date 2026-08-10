@@ -1,0 +1,6 @@
+flowchart TD
+    Event["Mouse / Touch Event"] --> ActiveElements["Resolve Active Elements"]
+    ActiveElements --> CreateItems["Create Tooltip Items"]
+    CreateItems --> Layout["Compute Size and Alignment"]
+    Layout --> Animate["Resolve Animation Target"]
+    Animate --> Draw["Draw Tooltip to Canvas"]

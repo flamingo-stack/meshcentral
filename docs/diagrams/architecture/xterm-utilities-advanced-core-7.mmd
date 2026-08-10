@@ -1,0 +1,5 @@
+flowchart TD
+    DOMMouse["DOM Mouse Event"] --> MouseService
+    MouseService --> CoreMouseService
+    CoreMouseService --> Encoding["Protocol Encoding"]
+    Encoding --> TerminalData["ESC Sequence Sent"]

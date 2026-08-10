@@ -1,0 +1,5 @@
+flowchart LR
+    DecodedImage["Decoded Image Data"] --> CanvasCreate["Create Canvas or Bitmap"]
+    CanvasCreate --> StorageAdd["Storage.addImage()"]
+    StorageAdd --> TileMapping["Map Tiles to Buffer Cells"]
+    TileMapping --> RenderPass["Renderer Draw Cycle"]

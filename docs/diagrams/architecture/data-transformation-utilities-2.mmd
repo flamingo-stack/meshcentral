@@ -1,0 +1,11 @@
+sequenceDiagram
+    participant Chart
+    participant Animator as Animation Orchestrator
+    participant Element
+
+    Chart->>Animator: add(animationItems)
+    Chart->>Animator: start(chart)
+    Animator->>Element: tick(time)
+    Animator->>Chart: notify(progress)
+    Animator->>Element: update properties
+    Animator->>Chart: notify(complete)

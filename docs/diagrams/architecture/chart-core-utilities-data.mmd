@@ -1,0 +1,6 @@
+flowchart TD
+    RawData["Raw Dataset Objects"] --> Controller["Hn - Data Controller Utilities"]
+    Controller --> Parser["Parsing & Normalization"]
+    Parser --> ScaleMapping["Scale Mapping"]
+    ScaleMapping --> Geometry["Hs - Base Element Abstraction"]
+    Geometry --> RenderLayer["Visualization & Rendering Layer"]

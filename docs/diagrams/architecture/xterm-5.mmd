@@ -1,0 +1,5 @@
+flowchart TD
+    Buffer["Terminal Buffer"] --> AccessibilityManager["Accessibility Manager"]
+    AccessibilityManager --> ARIATree["ARIA Row Tree"]
+    AccessibilityManager --> LiveRegion["Live Region"]
+    LiveRegion --> ScreenReader["Screen Reader"]

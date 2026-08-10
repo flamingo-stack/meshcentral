@@ -1,0 +1,7 @@
+flowchart LR
+    ClipboardEvent["Clipboard Event"] --> PasteHandler["Paste Helper"]
+    PasteHandler --> BracketMode{"Bracketed Mode?"}
+    BracketMode -->|Yes| WrapSequence["Wrap with ESC 200~ / 201~"]
+    BracketMode -->|No| DirectSend["Send Raw Data"]
+    WrapSequence --> TerminalInput
+    DirectSend --> TerminalInput

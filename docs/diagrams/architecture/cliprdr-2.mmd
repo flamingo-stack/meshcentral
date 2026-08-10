@@ -1,0 +1,8 @@
+flowchart TD
+    Start["Transport Connected"] --> MonitorReady["CB_MONITOR_READY"]
+    MonitorReady --> SendCaps["Send Clipboard Capabilities"]
+    SendCaps --> SendFormats["Send Format List"]
+    SendFormats --> WaitResponse["Wait Format List Response"]
+    WaitResponse --> RequestData["Send Format Data Request"]
+    RequestData --> WaitData["Wait Format Data Response"]
+    WaitData --> ClipboardUpdated["Emit Clipboard Event"]

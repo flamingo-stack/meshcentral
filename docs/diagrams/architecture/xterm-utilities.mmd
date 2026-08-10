@@ -1,0 +1,12 @@
+flowchart TD
+    UI["MeshCentral UI"] --> TerminalAPI["Terminal API"]
+    TerminalAPI --> CoreEngine["Xterm Core Engine"]
+    CoreEngine --> Utilities["Xterm Utilities"]
+    Utilities --> RenderService["Render Service"]
+    Utilities --> Accessibility["Accessibility Manager"]
+    Utilities --> Linkifier["Linkifier"]
+    Utilities --> Selection["Selection Service"]
+    Utilities --> Viewport["Viewport"]
+    RenderService --> DOM["DOM Renderer"]
+    Accessibility --> DOM
+    Viewport --> DOM

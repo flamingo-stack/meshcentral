@@ -1,0 +1,5 @@
+flowchart TD
+    MinMax["Min / Max"] --> StepCalc["Compute Step Size"]
+    StepCalc --> LimitCheck["Max Tick Limit"]
+    LimitCheck --> Precision["Precision Adjustment"]
+    Precision --> TickList["Final Tick List"]

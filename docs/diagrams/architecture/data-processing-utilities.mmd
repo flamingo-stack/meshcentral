@@ -1,0 +1,6 @@
+flowchart LR
+    RawData["Raw Dataset Values"] --> Parser["Parsing Logic"]
+    Parser --> Normalizer["Normalization & Bounds"]
+    Normalizer --> ScaleEngine["Linear Scale Engine"]
+    ScaleEngine --> PixelMapper["Value-to-Pixel Mapping"]
+    PixelMapper --> Renderer["Rendering Layer"]

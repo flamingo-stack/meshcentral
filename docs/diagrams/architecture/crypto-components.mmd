@@ -1,0 +1,15 @@
+flowchart TD
+    App["RFB / Authentication Layer"] --> Legacy["LegacyCrypto Interface"]
+
+    Legacy --> AES_ECB["AESECB Cipher"]
+    Legacy --> AES_EAX["AESEAX Cipher"]
+    Legacy --> DES_ECB["DESECB Cipher"]
+    Legacy --> DES_CBC["DESCBC Cipher"]
+    Legacy --> RSA["RSACipher"]
+    Legacy --> DH["DHCipher"]
+    Legacy --> MD5["MD5 Digest"]
+
+    AES_EAX --> Subtle["WebCrypto Subtle API"]
+    AES_ECB --> Subtle
+    RSA --> Subtle
+    DH --> Subtle

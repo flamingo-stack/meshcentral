@@ -1,0 +1,14 @@
+flowchart TD
+    Terminal["Xterm Terminal"] --> Parser["Escape Sequence Parser"]
+
+    Parser -->|DCS q| Sixel["SIXEL Handler"]
+    Parser -->|OSC 1337| IIP["Inline Image Handler"]
+
+    Sixel --> Decoder["WASM Decoder"]
+    IIP --> Base64["Base64 Decoder"]
+
+    Decoder --> Storage["Image Storage"]
+    Base64 --> Storage
+
+    Storage --> Renderer["Image Renderer"]
+    Renderer --> Canvas["Canvas Overlay Layer"]

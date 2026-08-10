@@ -1,0 +1,9 @@
+sequenceDiagram
+    participant Terminal
+    participant AccessibilityManager
+    participant LiveRegion
+
+    Terminal->>AccessibilityManager: onA11yChar(char)
+    AccessibilityManager->>LiveRegion: append character
+    Terminal->>AccessibilityManager: onResize(rows)
+    AccessibilityManager->>AccessibilityManager: rebuild tree

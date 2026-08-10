@@ -1,0 +1,6 @@
+flowchart TD
+    DataBounds["Dataset Min/Max"] --> RangeHandler["Range Adjustment"]
+    RangeHandler --> TickGenerator["Tick Generation"]
+    TickGenerator --> TickFormatter["Tick Formatting"]
+    TickGenerator --> PixelScaler["Scale Ratio Calculation"]
+    PixelScaler --> Mapping["Value ↔ Pixel Mapping"]

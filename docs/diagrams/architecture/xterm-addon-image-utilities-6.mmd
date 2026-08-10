@@ -1,0 +1,5 @@
+flowchart LR
+    Parser["Xterm Parser"] --> Utilities["Image Utilities"]
+    Utilities --> Storage["Image Storage"]
+    Storage --> Renderer["Image Renderer"]
+    Renderer --> Viewport["Terminal Viewport"]

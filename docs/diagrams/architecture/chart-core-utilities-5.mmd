@@ -1,0 +1,6 @@
+flowchart TD
+    Event["Pointer Event"] --> Resolve["Resolve Active Elements"]
+    Resolve --> CreateItems["Create Tooltip Items"]
+    CreateItems --> Layout["Compute Layout"]
+    Layout --> Animate["Apply Animation"]
+    Animate --> Draw["Draw Tooltip"]

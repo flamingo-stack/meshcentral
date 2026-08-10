@@ -1,0 +1,11 @@
+sequenceDiagram
+    participant Dataset
+    participant Processing as Data Processing
+    participant Transform as Data Transformation
+    participant Renderer
+
+    Dataset->>Processing: parse()
+    Processing->>Processing: computeLimits()
+    Processing->>Transform: normalizedData
+    Transform->>Transform: resolveOptions()
+    Transform->>Renderer: interpolatedValues

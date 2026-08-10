@@ -1,0 +1,8 @@
+flowchart TD
+    Init["Initialize Tile Grid"] --> LoopTiles["Iterate Tiles"]
+    LoopTiles --> ReadSub["Read Subencoding"]
+    ReadSub -->|"Raw"| RawTile["Read Pixel Data"]
+    ReadSub -->|"Subrect"| SubRects["Process Subrectangles"]
+    RawTile --> Blit["display.blitImage"]
+    SubRects --> Blit
+    Blit --> Continue["Next Tile"]

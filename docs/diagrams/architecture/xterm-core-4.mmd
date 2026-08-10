@@ -1,0 +1,7 @@
+flowchart TD
+    KeyboardEvent["Keyboard Event"] --> Terminal
+    MouseEvent["Mouse Event"] --> Terminal
+    CompositionEvent["IME Composition"] --> Terminal
+
+    Terminal --> CoreService["Core Service"]
+    CoreService --> BackendTransport["Backend Transport"]

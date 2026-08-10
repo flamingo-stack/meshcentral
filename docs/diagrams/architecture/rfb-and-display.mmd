@@ -1,0 +1,10 @@
+flowchart LR
+    User["User Input"] --> RFB["RFB Controller"]
+    RFB --> Websock["Websock Transport"]
+    Websock --> Server["VNC Server"]
+
+    Server --> Websock
+    Websock --> RFB
+    RFB --> Decoders["Framebuffer Decoders"]
+    Decoders --> Display["Display"]
+    Display --> Canvas["HTML5 Canvas"]

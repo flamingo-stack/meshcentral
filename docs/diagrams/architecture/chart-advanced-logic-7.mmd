@@ -1,0 +1,4 @@
+flowchart LR
+    StateA["Previous State"] --> Interpolator["Easing Function"]
+    Interpolator --> StateB["Target State"]
+    StateB --> Render["Canvas Draw"]

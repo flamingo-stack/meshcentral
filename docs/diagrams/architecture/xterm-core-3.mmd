@@ -1,0 +1,5 @@
+flowchart LR
+    BufferService["Buffer Service"] --> RenderService["Render Service"]
+    RenderService --> RenderDebouncer["Render Debouncer"]
+    RenderDebouncer --> DomRenderer["DOM Renderer"]
+    DomRenderer --> Viewport["Viewport"]

@@ -1,0 +1,7 @@
+flowchart LR
+    Init["Initialize Animation"] --> Active["Active State"]
+    Active --> Tick["tick(time)"]
+    Tick --> Update["Update Property Value"]
+    Update --> CompleteCheck{"Completed?"}
+    CompleteCheck -->|No| Active
+    CompleteCheck -->|Yes| Resolve["Resolve Promises"]

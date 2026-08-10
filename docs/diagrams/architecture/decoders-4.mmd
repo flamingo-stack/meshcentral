@@ -1,0 +1,16 @@
+flowchart LR
+    Tight["TightDecoder"] --> Control["Compression Control Byte"]
+    Control --> Reset["Optional Stream Reset"]
+    Control --> Filter["Select Filter"]
+
+    Filter --> Copy["Copy Filter"]
+    Filter --> Palette["Palette Filter"]
+    Filter --> Gradient["Gradient Filter"]
+    Filter --> JPEGSub["JPEG Subencoding"]
+
+    Copy --> Zlib["Inflator"]
+    Palette --> Zlib
+    Gradient --> Zlib
+
+    Zlib --> Display["Display"]
+    JPEGSub --> Display

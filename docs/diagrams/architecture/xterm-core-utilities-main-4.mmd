@@ -1,0 +1,4 @@
+flowchart TD
+    RefreshRequest["refresh(start, end)"] --> Debouncer
+    Debouncer --> AnimationFrame["requestAnimationFrame"]
+    AnimationFrame --> RenderCallback["renderRows(start, end)"]

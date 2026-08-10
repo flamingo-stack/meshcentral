@@ -1,0 +1,5 @@
+flowchart TD
+    RenderEvent["Render Event"] --> Dirty["Clear Dirty Rows"]
+    Dirty --> Scan["Scan Visible Cells"]
+    Scan --> Draw["Draw Image Tiles"]
+    Draw --> Canvas["Canvas Overlay"]

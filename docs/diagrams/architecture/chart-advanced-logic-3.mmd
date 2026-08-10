@@ -1,0 +1,11 @@
+sequenceDiagram
+    participant App as Application
+    participant Chart as Chart Instance
+    participant Registry as Registry
+    participant Controller as Dataset Controller
+
+    App->>Chart: new Chart(config)
+    Chart->>Registry: Resolve controller by type
+    Registry-->>Chart: Controller class
+    Chart->>Controller: Instantiate
+    Controller->>Chart: Register elements & scales

@@ -1,0 +1,7 @@
+flowchart TD
+    Core["Chart Core Components"] --> Data["Data Utilities"]
+    Data --> Viz["Visualization Utilities"]
+    Viz --> Canvas["Canvas Context"]
+
+    General["General Utilities"] --> Data
+    General --> Viz

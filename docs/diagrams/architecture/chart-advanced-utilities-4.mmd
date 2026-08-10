@@ -1,0 +1,9 @@
+sequenceDiagram
+    participant Chart
+    participant PluginService
+    participant Tooltip
+
+    Chart->>PluginService: beforeEvent()
+    PluginService->>Tooltip: handleEvent()
+    Tooltip-->>PluginService: update state
+    PluginService-->>Chart: request re-render

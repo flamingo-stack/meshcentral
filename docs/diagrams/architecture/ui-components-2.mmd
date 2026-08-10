@@ -1,0 +1,8 @@
+flowchart TD
+    Caller["Page Logic"] --> ShowMethod["ModernModal.show()"]
+    ShowMethod --> SetContent["setModalContent()"]
+    ShowMethod --> ShowModalCall["showModal()"]
+    ShowMethod --> OkBinding["Bind OK Callback"]
+
+    HideMethod["ModernModal.hide()"] --> BootstrapInstance["bootstrap.Modal.getInstance()"]
+    BootstrapInstance --> HideCall["modal.hide()"]

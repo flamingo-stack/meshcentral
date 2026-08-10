@@ -1,0 +1,6 @@
+flowchart TD
+    DataUtils["Chart Core Utilities Data"] --> Visualization
+    LogicLayer["Chart Core Logic"] --> Visualization
+    Visualization["Chart Core Utilities Visualization"] --> Canvas["HTML Canvas Context"]
+    Visualization --> Tooltip["Tooltip Engine"]
+    Visualization --> Animation["Animation Engine"]

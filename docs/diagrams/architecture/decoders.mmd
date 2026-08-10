@@ -1,0 +1,25 @@
+flowchart LR
+    RFB["RFB Protocol Handler"] -->|"FramebufferUpdate"| DecoderSelector["Decoder Selection"]
+    DecoderSelector --> Raw["RawDecoder"]
+    DecoderSelector --> Tight["TightDecoder"]
+    DecoderSelector --> ZRLE["ZRLEDecoder"]
+    DecoderSelector --> Hextile["HextileDecoder"]
+    DecoderSelector --> RRE["RREDecoder"]
+    DecoderSelector --> JPEG["JPEGDecoder"]
+    DecoderSelector --> CopyRect["CopyRectDecoder"]
+
+    Raw --> Display["Display"]
+    Tight --> Display
+    ZRLE --> Display
+    Hextile --> Display
+    RRE --> Display
+    JPEG --> Display
+    CopyRect --> Display
+
+    Websock["Websock"] -->|"Binary Data"| Raw
+    Websock --> Tight
+    Websock --> ZRLE
+    Websock --> Hextile
+    Websock --> RRE
+    Websock --> JPEG
+    Websock --> CopyRect

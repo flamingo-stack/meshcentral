@@ -1,0 +1,9 @@
+sequenceDiagram
+    participant User
+    participant Browser
+    participant Terminal
+
+    User->>Browser: Copy / Paste
+    Browser->>Terminal: Clipboard Data
+    Terminal->>Terminal: Normalize & Bracket Mode
+    Terminal->>Buffer: Inject Data

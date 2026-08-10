@@ -1,0 +1,11 @@
+flowchart TD
+    PageLogic["Page Logic"] --> CreateIcon["createIconUploadComponent()"]
+    CreateIcon --> RenderIcon["render()"]
+
+    RenderIcon --> UrlInput["handleUrlInput()"]
+    RenderIcon --> FileUpload["handleFileUpload()"]
+    RenderIcon --> RemoveIcon["removeIcon()"]
+
+    FileUpload --> UploadCallback["options.onUpload()"]
+    UrlInput --> UrlCallback["options.onUrlInput()"]
+    RemoveIcon --> RemoveCallback["options.onRemove()"]

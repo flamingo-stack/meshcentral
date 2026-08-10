@@ -1,0 +1,13 @@
+sequenceDiagram
+    participant Chart
+    participant Controller
+    participant Visualization
+    participant Plugin
+    participant Canvas
+
+    Chart->>Controller: update()
+    Controller->>Visualization: updateElements()
+    Visualization->>Plugin: beforeDraw
+    Visualization->>Canvas: draw datasets
+    Visualization->>Plugin: afterDraw
+    Visualization->>Canvas: draw overlays (tooltip, legend)

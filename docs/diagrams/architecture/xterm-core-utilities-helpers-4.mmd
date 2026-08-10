@@ -1,0 +1,6 @@
+flowchart TD
+    MouseMove["Mouse Move"] --> PositionResolver["Position From Mouse Event"]
+    PositionResolver --> LinkProviderService["Link Provider Service"]
+    LinkProviderService --> Linkifier["Linkifier"]
+    Linkifier --> HoverEvent["Underline + Pointer"]
+    Linkifier --> Activation["Link Activation"]

@@ -1,0 +1,4 @@
+flowchart TD
+    BrowserResize["Browser Resize"] --> UpdateClip
+    UpdateClip --> UpdateScale
+    UpdateScale --> RequestResize["Optional Remote Resize"]

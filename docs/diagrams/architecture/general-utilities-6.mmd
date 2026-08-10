@@ -1,0 +1,9 @@
+sequenceDiagram
+    participant Chart
+    participant Plugins
+    participant Controller
+
+    Chart->>Plugins: beforeUpdate()
+    Plugins-->>Chart: allow / cancel
+    Chart->>Controller: update()
+    Chart->>Plugins: afterUpdate()

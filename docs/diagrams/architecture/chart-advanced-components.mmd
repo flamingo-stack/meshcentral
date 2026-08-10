@@ -1,0 +1,14 @@
+flowchart TD
+    Config["Chart Configuration"] --> AdvancedLogic["Advanced Logic Layer"]
+    AdvancedLogic --> Controllers["Dataset Controllers"]
+    Controllers --> Visualization["Advanced Visualization Layer"]
+    Visualization --> Canvas["Canvas 2D Context"]
+
+    AdvancedLogic --> Plugins["Plugin System"]
+    Plugins --> Visualization
+
+    AdvancedLogic --> Scales["Advanced Scales"]
+    Scales --> Visualization
+
+    Utilities["Advanced Utilities"] --> AdvancedLogic
+    Utilities --> Visualization

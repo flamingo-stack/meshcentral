@@ -1,0 +1,8 @@
+flowchart TD
+    Input["Dataset + Config"] --> Parse["Controller Parsing"]
+    Parse --> Scale["Scale Mapping"]
+    Scale --> Layout["Layout Calculation"]
+    Layout --> Animate["Animation Engine"]
+    Animate --> Draw["Canvas Rendering"]
+    Draw --> Interaction["User Interaction"]
+    Interaction --> Animate

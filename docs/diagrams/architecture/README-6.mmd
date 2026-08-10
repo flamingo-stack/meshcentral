@@ -1,0 +1,12 @@
+flowchart TD
+    WebUI["MeshCentral UI"]
+    WebUI --> Bootstrap["Bootstrap Components"]
+    WebUI --> ModernUI["UI Components"]
+    WebUI --> Charts["Charts Engine"]
+    WebUI --> Markdown["Marked Components"]
+    WebUI --> LocalizationLayer["Localization"]
+
+    Bootstrap --> Modals["Modal / Dropdown / Tooltip"]
+    ModernUI --> Cards["ModernCard"]
+    ModernUI --> Modals2["ModernModal"]
+    ModernUI --> IconUpload["IconUploadComponent"]

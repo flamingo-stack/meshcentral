@@ -1,0 +1,5 @@
+flowchart TD
+    InputColor["Color Input"] --> ParseColor["Parse & Normalize"]
+    ParseColor --> RGBStore["Internal RGB Model"]
+    RGBStore --> Manipulation["Color Operations"]
+    Manipulation --> Output["Hex / RGB / HSL String"]

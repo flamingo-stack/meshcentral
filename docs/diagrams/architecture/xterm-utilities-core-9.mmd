@@ -1,0 +1,8 @@
+flowchart TD
+    KeyEvent["Key Event"] --> CoreService
+    CoreService --> InputHandler
+    InputHandler --> Buffer
+    Buffer --> RenderService
+    RenderService --> AccessibilityManager
+    RenderService --> DomRenderer
+    RenderService --> Viewport

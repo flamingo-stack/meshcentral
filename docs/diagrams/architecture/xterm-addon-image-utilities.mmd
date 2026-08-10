@@ -1,0 +1,11 @@
+flowchart TD
+    Terminal["Xterm Terminal"] --> Parser["Escape Sequence Parser"]
+    Parser --> Utilities["Xterm Addon Image Utilities"]
+
+    Utilities --> CoreUtils["Core Utilities"]
+    Utilities --> AdvancedUtils["Advanced Utilities"]
+
+    CoreUtils --> Storage["Image Storage"]
+    AdvancedUtils --> Storage
+
+    Storage --> Renderer["Image Renderer"]

@@ -1,0 +1,4 @@
+flowchart TD
+    Message["Plaintext"] --> Pad["PKCS1 v1.5 Padding"]
+    Pad --> ModExp["modPow(m, e, n)"]
+    ModExp --> Cipher["Ciphertext"]

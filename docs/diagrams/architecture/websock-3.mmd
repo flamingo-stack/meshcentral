@@ -1,0 +1,6 @@
+flowchart LR
+    Protocol["Protocol Layer"] --> Push["sQpush*()"]
+    Push --> Buffer["Send Queue"]
+    Buffer --> Flush{"readyState open?"}
+    Flush -->|"Yes"| Send["WebSocket.send()"]
+    Flush -->|"No"| Wait["Wait"]

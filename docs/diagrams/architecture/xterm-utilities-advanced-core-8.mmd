@@ -1,0 +1,13 @@
+flowchart TD
+    InputData["Incoming Data"] --> Parser
+    Parser --> Buffer
+    Buffer --> DirtyRows
+    DirtyRows --> RenderService
+    RenderService --> DOM
+
+    DOM --> MouseEvents
+    MouseEvents --> Selection
+    MouseEvents --> Linkifier
+
+    Buffer --> Accessibility
+    Accessibility --> LiveRegion

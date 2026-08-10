@@ -1,0 +1,12 @@
+flowchart TD
+    ReadLength["Read Zlib Length"] --> Inflate["Inflate Tile Data"]
+    Inflate --> TileLoop["Iterate 64x64 Tiles"]
+    TileLoop --> Subenc["Read Subencoding"]
+    Subenc -->|"Raw"| RawTile
+    Subenc -->|"Solid"| SolidTile
+    Subenc -->|"Palette"| PaletteTile
+    Subenc -->|"RLE"| RLETile
+    RawTile --> Render["display.blitImage"]
+    SolidTile --> Render
+    PaletteTile --> Render
+    RLETile --> Render

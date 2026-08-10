@@ -1,0 +1,7 @@
+flowchart TD
+    Interaction["User Interaction"] --> ActiveElements["Active Elements"]
+    ActiveElements --> TooltipModel["Tooltip Model"]
+    TooltipModel --> LayoutCalc["Size & Position"]
+    LayoutCalc --> BackgroundDraw
+    LayoutCalc --> TextDraw
+    LayoutCalc --> CaretDraw

@@ -1,0 +1,7 @@
+flowchart TD
+    TerminalAPI["Terminal API"] --> XtermCore["Xterm Core"]
+    XtermCore --> Utilities["Xterm Core Utilities"]
+    Utilities --> UtilitiesMain["Utilities Main"]
+    Utilities --> UtilitiesHelpers["Utilities Helpers"]
+    UtilitiesMain --> DOMLayer["Browser DOM Layer"]
+    UtilitiesHelpers --> DOMLayer

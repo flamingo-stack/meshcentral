@@ -1,0 +1,6 @@
+flowchart TD
+    BufferChange["Buffer Change"] --> DirtyRows["Dirty Row Tracking"]
+    DirtyRows --> Debouncer["Render Debouncer"]
+    Debouncer --> RenderService["Render Service"]
+    RenderService --> DOMRenderer["DOM Renderer"]
+    DOMRenderer --> Screen["Terminal Screen"]

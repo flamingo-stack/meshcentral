@@ -1,0 +1,6 @@
+flowchart TD
+    Request["Crypto Request"] --> CheckAlg["Validate Algorithm Name"]
+    CheckAlg --> Lookup["Lookup Cipher Class"]
+    Lookup --> KeyCheck["Validate Key Compatibility"]
+    KeyCheck --> Operation["Encrypt / Decrypt / Derive / Digest"]
+    Operation --> Result["Return Uint8Array or Promise"]

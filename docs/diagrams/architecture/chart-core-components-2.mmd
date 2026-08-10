@@ -1,0 +1,13 @@
+sequenceDiagram
+    participant App
+    participant Engine as On (Chart Engine)
+    participant Controller as Ns (Dataset Controller)
+    participant Utilities as Core Utilities
+    participant Canvas
+
+    App->>Engine: new Chart(config)
+    Engine->>Controller: build controllers
+    Controller->>Utilities: parse & normalize data
+    Utilities-->>Controller: structured model
+    Controller->>Engine: updated elements
+    Engine->>Canvas: render pass

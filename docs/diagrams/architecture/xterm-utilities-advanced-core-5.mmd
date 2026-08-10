@@ -1,0 +1,6 @@
+flowchart TD
+    MouseDown["Mouse Down"] --> SelectionService
+    MouseMove["Mouse Move"] --> SelectionService
+    SelectionService --> BufferSelection["Buffer Selection Model"]
+    BufferSelection --> RenderService
+    RenderService --> SelectionOverlay["Selection Overlay"]

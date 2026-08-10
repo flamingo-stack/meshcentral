@@ -1,0 +1,6 @@
+flowchart LR
+    DatasetMeta["Dataset Meta"] --> Controller
+    Controller --> ElementOptions["Resolved Options"]
+    ElementOptions --> Animations["Animation Engine"]
+    Animations --> ElementDraw["Element.draw()"]
+    ElementDraw --> Canvas

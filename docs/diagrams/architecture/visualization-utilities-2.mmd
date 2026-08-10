@@ -1,0 +1,6 @@
+flowchart LR
+    Data["Parsed Data"] --> Meta["Dataset Metadata"]
+    Meta --> Layout["Layout Engine"]
+    Layout --> Scales["Scale Computation"]
+    Scales --> Elements["Element Construction"]
+    Elements --> Draw["Canvas Rendering"]

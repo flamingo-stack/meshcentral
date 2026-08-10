@@ -1,0 +1,8 @@
+flowchart TD
+    CreateCard["createModernCard()"] --> Constructor["ModernCard Constructor"]
+    Constructor --> Render["render()"]
+    Render --> InjectHTML["container.innerHTML"]
+
+    UpdateStatus["updateStatus()"] --> RemoveClasses["Remove Old Classes"]
+    RemoveClasses --> AddClasses["Add New Status Classes"]
+    AddClasses --> UpdateIcon["Update Icon + Text"]

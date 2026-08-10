@@ -1,0 +1,7 @@
+flowchart TD
+    Init["init()"] --> Attach["attach(rawChannel)"]
+    Attach --> OpenEvt["onopen"]
+    OpenEvt --> Active["readyState = open"]
+    Active --> CloseCall["close()"]
+    CloseCall --> CloseEvt["onclose"]
+    CloseEvt --> Closed["readyState = closed"]

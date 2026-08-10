@@ -1,0 +1,9 @@
+flowchart TD
+    ImageAddon --> ParserHooks["Parser Hooks"]
+    ImageAddon --> RenderHook["Render Hook"]
+    ImageAddon --> ResizeHook["Resize Hook"]
+    ImageAddon --> BufferHook["Buffer Hook"]
+
+    ParserHooks --> Handlers["Image Handlers"]
+    Handlers --> Storage
+    Storage --> Renderer

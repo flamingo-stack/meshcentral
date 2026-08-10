@@ -1,0 +1,3 @@
+flowchart LR
+    Remote["Remote Public Key"] --> ModExp["modPow(remote, private, p)"]
+    ModExp --> Secret["Shared Secret Bytes"]

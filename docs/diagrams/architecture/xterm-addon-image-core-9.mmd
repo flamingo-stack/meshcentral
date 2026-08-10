@@ -1,0 +1,8 @@
+flowchart TD
+    ImageAddon --> ParserHooks
+    ImageAddon --> RenderHook
+    ImageAddon --> ResizeHook
+    ImageAddon --> BufferHook
+    ParserHooks --> Handlers
+    Handlers --> Storage
+    Storage --> Renderer

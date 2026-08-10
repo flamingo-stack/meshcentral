@@ -1,0 +1,8 @@
+flowchart LR
+    Input["Raw Data"] --> Detect["Type Detection"]
+    Detect --> Primitive["Primitive Parser"]
+    Detect --> Array["Array Parser"]
+    Detect --> Object["Object Parser"]
+    Primitive --> Parsed["Normalized Parsed Model"]
+    Array --> Parsed
+    Object --> Parsed

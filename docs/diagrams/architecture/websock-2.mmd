@@ -1,0 +1,7 @@
+flowchart TD
+    Start["Incoming ArrayBuffer"] --> Append["Append to rQ"]
+    Append --> CheckSpace{"Buffer Full?"}
+    CheckSpace -->|"Yes"| Expand["Expand or Compact"]
+    CheckSpace -->|"No"| Ready["Data Available"]
+    Expand --> Ready
+    Ready --> Notify["Trigger message handler"]

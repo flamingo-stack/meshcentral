@@ -1,0 +1,4 @@
+flowchart LR
+    Decoder["Decoder"] --> Backbuffer["Hidden Canvas"]
+    Backbuffer --> Flip["flip()"]
+    Flip --> Visible["Visible Canvas"]

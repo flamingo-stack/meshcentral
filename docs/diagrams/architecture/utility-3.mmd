@@ -1,0 +1,4 @@
+flowchart TD
+    Instance["EventTargetMixin Instance"] --> Map["Map<type, Set<callback>>"]
+    Map --> ListenerSet1["Set of Callbacks (type A)"]
+    Map --> ListenerSet2["Set of Callbacks (type B)"]

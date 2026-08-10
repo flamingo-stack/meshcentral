@@ -1,0 +1,10 @@
+flowchart TD
+    ChartArea["Chart Area"]
+    Title["Title Block"]
+    Legend["Legend Box"]
+    Scales["Scales"]
+
+    Title --> LayoutEngine["Layout Manager"]
+    Legend --> LayoutEngine
+    Scales --> LayoutEngine
+    LayoutEngine --> ChartArea

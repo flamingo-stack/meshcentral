@@ -1,0 +1,6 @@
+flowchart TD
+    Datasets["Datasets"] --> GenerateLabels["Generate Legend Labels"]
+    GenerateLabels --> LayoutCalc["Compute Layout"]
+    LayoutCalc --> HitBoxes["Register Hitboxes"]
+    HitBoxes --> RenderLegend["Draw Legend"]
+    RenderLegend --> Interaction["Hover & Click Handling"]

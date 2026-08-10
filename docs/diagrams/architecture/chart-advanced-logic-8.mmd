@@ -1,0 +1,5 @@
+flowchart TD
+    Event["Mouse / Touch Event"] --> HitTest["Interaction Mode"]
+    HitTest --> ActiveElements["Active Elements"]
+    ActiveElements --> TooltipUpdate["Tooltip Update"]
+    TooltipUpdate --> Render

@@ -1,0 +1,6 @@
+flowchart TD
+    Config["Chart Configuration"] --> ScopeBuilder["Scope Builder"]
+    ScopeBuilder --> Resolver["Option Resolver"]
+    Resolver --> DatasetOptions["Dataset Options"]
+    Resolver --> ScaleOptions["Scale Options"]
+    Resolver --> PluginOptions["Plugin Options"]

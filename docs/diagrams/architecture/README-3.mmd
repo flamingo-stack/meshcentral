@@ -1,0 +1,12 @@
+flowchart LR
+    Server["VNC Server"] --> Websock["Websock"]
+    Websock --> RFB["RFB Engine"]
+    RFB --> DecoderSelector["Decoder Selection"]
+    DecoderSelector --> Raw["RawDecoder"]
+    DecoderSelector --> Tight["TightDecoder"]
+    DecoderSelector --> ZRLE["ZRLEDecoder"]
+    DecoderSelector --> Hextile["HextileDecoder"]
+    Raw --> Display["Display Canvas"]
+    Tight --> Display
+    ZRLE --> Display
+    Hextile --> Display

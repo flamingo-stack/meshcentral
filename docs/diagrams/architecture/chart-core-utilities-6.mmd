@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant Chart
+    participant DataLayer as Data Utilities
+    participant VisualLayer as Visualization Utilities
+    participant Canvas
+
+    Chart->>DataLayer: parse & normalize data
+    DataLayer-->>Chart: structured model
+    Chart->>VisualLayer: update elements
+    VisualLayer->>Canvas: draw shapes
+    Chart->>VisualLayer: draw tooltip
+    VisualLayer->>Canvas: overlay tooltip

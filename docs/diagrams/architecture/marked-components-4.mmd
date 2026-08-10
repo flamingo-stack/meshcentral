@@ -1,0 +1,4 @@
+flowchart LR
+    Tokens["Token Stream"] --> Parser["_Parser.parse()"]
+    Parser --> Renderer["_Renderer"]
+    Renderer --> HTML["HTML Output"]

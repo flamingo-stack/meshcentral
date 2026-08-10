@@ -1,0 +1,10 @@
+sequenceDiagram
+    participant Terminal
+    participant Helpers
+
+    Terminal->>Helpers: initialize()
+    Helpers->>Helpers: register listeners
+    Terminal->>Helpers: onRender/onResize/onScroll
+    Helpers->>Helpers: update internal state
+    Terminal->>Helpers: dispose()
+    Helpers->>Helpers: remove DOM + listeners

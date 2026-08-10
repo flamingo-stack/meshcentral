@@ -1,0 +1,8 @@
+sequenceDiagram
+    participant Controller as Hn Controller
+    participant Element as Hs Element
+    participant Tooltip as Tooltip System
+
+    Controller->>Element: getParsed(index)
+    Element->>Tooltip: tooltipPosition()
+    Controller->>Tooltip: getLabelAndValue()

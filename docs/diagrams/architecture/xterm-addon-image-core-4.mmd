@@ -1,0 +1,8 @@
+flowchart TD
+    OSC["OSC 1337"] --> HeaderParser["HeaderParser"]
+    HeaderParser --> Validate{"Valid Header?"}
+    Validate -->|"No"| Abort["Abort"]
+    Validate -->|"Yes"| Base64Decode["Base64 Decoder"]
+    Base64Decode --> TypeDetect["imageType()"]
+    TypeDetect --> Resize["Resize Logic"]
+    Resize --> ImageStorage

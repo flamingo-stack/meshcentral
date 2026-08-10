@@ -1,0 +1,12 @@
+flowchart TD
+    Message["Plaintext"] --> CTR["AES-CTR Encryption"]
+    Nonce["Nonce"] --> CMAC_N["CMAC (prefix 0)"]
+    AD["Additional Data"] --> CMAC_A["CMAC (prefix 1)"]
+    CTR --> CMAC_M["CMAC (prefix 2)"]
+
+    CMAC_N --> MAC["XOR Combine"]
+    CMAC_A --> MAC
+    CMAC_M --> MAC
+
+    CTR --> Output["Ciphertext"]
+    MAC --> Output

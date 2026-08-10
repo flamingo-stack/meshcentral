@@ -1,0 +1,11 @@
+flowchart TD
+    Start["Touch Start"] --> Track["Track Touch Points"]
+    Track --> MoveCheck{"Movement > Threshold?"}
+    MoveCheck -->|No| TapCheck["Check Tap Timeout"]
+    MoveCheck -->|Yes| MultiTouch{"Multiple Touches?"}
+    MultiTouch -->|One| Drag["Drag"]
+    MultiTouch -->|Two| AngleCheck{"Angle Difference > Threshold?"}
+    AngleCheck -->|Yes| Pinch["Pinch"]
+    AngleCheck -->|No| TwoDrag["Two Drag"]
+    TapCheck --> Release{"All Released?"}
+    Release -->|Yes| Tap["Tap Detected"]

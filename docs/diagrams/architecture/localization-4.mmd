@@ -1,0 +1,10 @@
+flowchart TD
+    Root["document.body"] --> Process["process(element, enabled)"]
+    Process --> CheckAttr{{"Has translate attribute?"}}
+    CheckAttr --> UpdateState["Update enabled flag"]
+    UpdateState --> TranslateAttrs["Translate attributes"]
+    TranslateAttrs --> Iterate["Iterate childNodes"]
+    Iterate --> ElementNode["ELEMENT_NODE"]
+    Iterate --> TextNode["TEXT_NODE"]
+    ElementNode --> Process
+    TextNode --> TranslateText["Translate text node"]

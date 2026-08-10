@@ -1,0 +1,9 @@
+flowchart TD
+    Start["Start Setup"] --> Detect["Read navigator.languages"]
+    Detect --> Perfect{{"Perfect Match?"}}
+    Perfect -->|"Yes"| SetLang1["Set Language"]
+    Perfect -->|"No"| English{{"Is English?"}}
+    English -->|"Yes"| Default["Use Default en"]
+    English -->|"No"| Partial{{"Partial Match?"}}
+    Partial -->|"Yes"| SetLang2["Set Language"]
+    Partial -->|"No"| Default

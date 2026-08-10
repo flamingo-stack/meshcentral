@@ -1,0 +1,7 @@
+flowchart TD
+    Update["Chart Update"] --> BeforeUpdate
+    BeforeUpdate --> BeforeDraw
+    BeforeDraw --> DrawDatasets
+    DrawDatasets --> AfterDatasetsDraw
+    AfterDatasetsDraw --> AfterDraw
+    AfterDraw --> TooltipDraw

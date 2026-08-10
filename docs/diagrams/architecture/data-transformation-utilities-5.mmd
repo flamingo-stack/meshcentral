@@ -1,0 +1,5 @@
+flowchart LR
+    Input["#ff0000"] --> Parse["Parse to RGB"]
+    Parse --> Modify["Lighten(0.2)"]
+    Modify --> Blend["Mix with #0000ff"]
+    Blend --> Output["Final RGBA"]

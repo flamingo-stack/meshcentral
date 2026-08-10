@@ -1,0 +1,5 @@
+flowchart LR
+    Plain["Plaintext Block"] --> XOR["XOR with IV/Prev Block"]
+    XOR --> DES["DES Encrypt"]
+    DES --> Cipher["Ciphertext Block"]
+    Cipher --> Next["Next Iteration"]

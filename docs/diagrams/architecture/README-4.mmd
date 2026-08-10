@@ -1,0 +1,8 @@
+flowchart TD
+    User["User Input"] --> Xterm["Terminal Runtime"]
+    Xterm --> Buffer["Terminal Buffer"]
+    Buffer --> Renderer["DOM Renderer"]
+    Renderer --> Viewport["Viewport"]
+
+    Xterm --> ImageAddon["Xterm Addon Image"]
+    ImageAddon --> CanvasOverlay["Canvas Overlay Rendering"]

@@ -1,0 +1,21 @@
+flowchart TD
+    User["User Browser"] --> UI["Web UI Layer"]
+
+    UI --> Bootstrap["Bootstrap Components"]
+    UI --> UiComponents["UI Components"]
+    UI --> Charts["Charts Components"]
+    UI --> Marked["Marked Components"]
+    UI --> Localization["Localization"]
+
+    UI --> RemoteDesktop["RFB and Display"]
+    UI --> Terminal["Xterm"]
+    UI --> RDP["Cliprdr (RDP Clipboard)"]
+
+    RemoteDesktop --> Decoders["Framebuffer Decoders"]
+    RemoteDesktop --> Websock["Websock Transport"]
+    RemoteDesktop --> Compression["Compression"]
+    RemoteDesktop --> Crypto["Crypto Components"]
+    RemoteDesktop --> InputHandlers["Input Handlers"]
+    RemoteDesktop --> Utility["Utility"]
+
+    Terminal --> XtermAddonImage["Xterm Addon Image"]

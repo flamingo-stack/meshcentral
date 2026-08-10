@@ -1,0 +1,6 @@
+flowchart TD
+    Event["Mouse / Touch Event"] --> Position["Calculate Relative Position"]
+    Position --> Mode["Interaction Mode"]
+    Mode --> ActiveElements["Resolve Active Elements"]
+    ActiveElements --> Tooltip["Tooltip Update"]
+    ActiveElements --> HoverStyle["Apply Hover Styles"]

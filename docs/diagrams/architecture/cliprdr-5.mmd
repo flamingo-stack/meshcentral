@@ -1,0 +1,5 @@
+flowchart TD
+    SetData["setClipboardData()"] --> UpdateContent["Update internal content"]
+    UpdateContent --> SendFormats["Send Format List"]
+    SendFormats --> ServerRequests["Server Requests Data"]
+    ServerRequests --> SendResponse["Send Format Data Response"]

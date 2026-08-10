@@ -1,0 +1,8 @@
+flowchart TD
+    Input["Dataset + Config"] --> Parse["Dataset Parsing"]
+    Parse --> Normalize["Normalization & Resolution"]
+    Normalize --> Scale["Scale Computation"]
+    Scale --> Layout["Layout Calculation"]
+    Layout --> Animate["Animation Resolution"]
+    Animate --> Draw["Canvas Rendering"]
+    Draw --> Interaction["Event Handling"]

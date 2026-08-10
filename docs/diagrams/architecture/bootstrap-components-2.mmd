@@ -1,0 +1,6 @@
+flowchart LR
+    UserAction["User Action"] --> DOMEvent["DOM Event"]
+    DOMEvent --> EventHandler["Event Handler"]
+    EventHandler --> ComponentMethod["Component Method"]
+    ComponentMethod --> StateUpdate["State Update"]
+    StateUpdate --> DOMMutation["DOM Mutation"]

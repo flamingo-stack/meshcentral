@@ -1,0 +1,6 @@
+flowchart TD
+    UserOptions["User Options"] --> Merge["Deep Merge"]
+    Defaults["Chart Defaults"] --> Merge
+    Merge --> Resolver["Proxy Resolver"]
+    Resolver --> Scriptable["Scriptable Functions"]
+    Resolver --> FinalOptions["Resolved Options"]

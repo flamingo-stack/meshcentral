@@ -1,0 +1,11 @@
+sequenceDiagram
+    participant Dataset
+    participant LinearScale
+    participant Renderer
+
+    Dataset->>LinearScale: parse(value)
+    LinearScale->>LinearScale: determineDataLimits()
+    LinearScale->>LinearScale: buildTicks()
+    LinearScale->>LinearScale: configure()
+    Renderer->>LinearScale: getPixelForValue(value)
+    LinearScale-->>Renderer: pixelCoordinate

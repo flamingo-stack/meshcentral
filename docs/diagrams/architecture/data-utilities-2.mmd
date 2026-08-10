@@ -1,0 +1,11 @@
+flowchart LR
+    DataUtilities["Data Utilities"]
+
+    DataUtilities --> DP["Data Processing Utilities"]
+    DataUtilities --> DT["Data Transformation Utilities"]
+
+    DP --> Scale["Linear Scale (bo)"]
+    DP --> Resolver["Config Resolver (bn)"]
+
+    DT --> Animator["Animation Orchestrator (bt)"]
+    DT --> Defaults["Defaults Engine (de)"]

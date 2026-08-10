@@ -1,0 +1,5 @@
+flowchart TD
+    UpdateRequest["Chart.update()"] --> ResolveAnimations["Resolve Animations"]
+    ResolveAnimations --> Animator["Global Animator"]
+    Animator --> Tick["Animation Tick"]
+    Tick --> Redraw["Re-render Frame"]

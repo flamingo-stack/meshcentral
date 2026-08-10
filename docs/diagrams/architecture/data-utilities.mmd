@@ -1,0 +1,6 @@
+flowchart TD
+    RawData["Raw Dataset Input"] --> Processing["Data Processing Utilities"]
+    Processing --> Normalized["Normalized & Parsed Data"]
+    Normalized --> Transformation["Data Transformation Utilities"]
+    Transformation --> Elements["Chart Elements"]
+    Elements --> Rendering["Canvas Rendering"]

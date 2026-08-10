@@ -1,0 +1,8 @@
+flowchart TD
+    Input["Uint8Array Input"] --> ZStream["ZStream State"]
+    ZStream --> DeflateCall["deflate() with Z_FULL_FLUSH"]
+    DeflateCall --> ChunkCheck{"More input?"}
+    ChunkCheck -->|Yes| Allocate["Allocate New Chunk"]
+    Allocate --> DeflateCall
+    ChunkCheck -->|No| Combine["Combine Chunks"]
+    Combine --> Output["Compressed Uint8Array"]

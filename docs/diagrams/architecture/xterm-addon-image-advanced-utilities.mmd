@@ -1,0 +1,13 @@
+flowchart LR
+    Terminal["Xterm Terminal"] --> Parser["Escape Sequence Parser"]
+    Parser --> IIPHandler["IIP Handler"]
+    Parser --> SixelHandler["SIXEL Handler"]
+
+    IIPHandler --> Base64Decoder["WASM Base64 Decoder"]
+    SixelHandler --> SixelDecoder["SIXEL Decoder"]
+
+    Base64Decoder --> ImageValidation["Image Type Detection"]
+    SixelDecoder --> ImageValidation
+
+    ImageValidation --> ImageStorage["Image Storage"]
+    ImageStorage --> ImageRenderer["Image Renderer"]

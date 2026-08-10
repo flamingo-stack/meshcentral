@@ -1,0 +1,5 @@
+flowchart TD
+    MouseMove["Mouse Move"] --> Linkifier
+    Linkifier --> Provider["Link Provider"]
+    Provider --> LinkRanges["Detected Link Ranges"]
+    LinkRanges --> Activation["Link Activation"]

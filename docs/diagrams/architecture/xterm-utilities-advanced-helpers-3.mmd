@@ -1,0 +1,6 @@
+flowchart LR
+    MouseMove["Mouse Move"] --> PositionResolve["Resolve Buffer Position"]
+    PositionResolve --> ProviderQuery["Query Link Providers"]
+    ProviderQuery --> MatchCheck["Match Range"]
+    MatchCheck -->|Found| ActivateLink["Activate or Decorate Link"]
+    MatchCheck -->|Not Found| ClearLink["Clear Current Link"]

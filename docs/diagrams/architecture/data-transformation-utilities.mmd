@@ -1,0 +1,6 @@
+flowchart LR
+    RawData["Raw Dataset"] --> Processing["Data Processing Utilities"]
+    Processing --> Parsed["Parsed & Normalized Data"]
+    Parsed --> Transform["Data Transformation Utilities"]
+    Transform --> Elements["Chart Elements"]
+    Elements --> Render["Canvas Rendering"]

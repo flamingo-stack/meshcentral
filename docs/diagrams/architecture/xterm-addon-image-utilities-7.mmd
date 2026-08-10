@@ -1,0 +1,8 @@
+flowchart TD
+    Activate["Addon Activated"] --> Register["Register Handlers"]
+    Register --> Receive["Receive Image Sequence"]
+    Receive --> Process["Utilities Process Image"]
+    Process --> Store["Store Image"]
+    Store --> Render["Render to Viewport"]
+    Render --> Resize["Handle Resize"]
+    Resize --> Render

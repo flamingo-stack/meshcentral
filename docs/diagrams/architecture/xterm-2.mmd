@@ -1,0 +1,11 @@
+sequenceDiagram
+    participant User
+    participant Terminal
+    participant CoreEngine
+    participant Utilities
+    participant DOM
+
+    User->>Terminal: Keypress / Paste
+    Terminal->>CoreEngine: Process Input
+    CoreEngine->>Utilities: Buffer Updated
+    Utilities->>DOM: Render Changes

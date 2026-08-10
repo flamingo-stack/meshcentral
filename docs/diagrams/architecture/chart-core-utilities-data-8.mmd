@@ -1,0 +1,6 @@
+flowchart TD
+    DataSource["External Data Source"] --> ChartConfig["Chart Configuration"]
+    ChartConfig --> ChartCore["Chart Core"]
+    ChartCore --> UtilitiesData["Chart Core Utilities Data"]
+    UtilitiesData --> Visualization["Chart Core Utilities Visualization"]
+    Visualization --> Canvas["Canvas Rendering"]

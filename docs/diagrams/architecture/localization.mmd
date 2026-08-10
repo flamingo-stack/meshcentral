@@ -1,0 +1,9 @@
+flowchart TD
+    Browser["Browser Environment"] --> Navigator["navigator.languages"]
+    Navigator --> Localizer["Localizer"]
+    Localizer --> LanguageMatch["Language Selection Logic"]
+    Localizer --> Fetch["Fetch Translation JSON"]
+    Fetch --> Dictionary["Translation Dictionary"]
+    Dictionary --> GetMethod["get(id)"]
+    GetMethod --> DOMUpdate["translateDOM()"]
+    DOMUpdate --> UI["User Interface"]

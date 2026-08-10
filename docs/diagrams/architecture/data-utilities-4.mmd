@@ -1,0 +1,6 @@
+flowchart TD
+    UserOptions["User Options"] --> Merge["Deep Merge"]
+    Defaults["Global Defaults"] --> Merge
+    Merge --> Resolver["Scoped Resolver"]
+    Resolver --> Scriptable["Scriptable Evaluation"]
+    Resolver --> Final["Resolved Runtime Options"]

@@ -1,0 +1,6 @@
+flowchart LR
+    Request["get(id)"] --> HasDict{{"Dictionary Loaded?"}}
+    HasDict -->|"Yes"| Found{{"Key Exists?"}}
+    Found -->|"Yes"| ReturnTranslated["Return Translation"]
+    Found -->|"No"| ReturnId["Return id"]
+    HasDict -->|"No"| ReturnId

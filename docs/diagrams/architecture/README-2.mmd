@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant Browser
+    participant RFB as RFB Client
+    participant Websock
+    participant Server as Remote VNC Server
+
+    Browser->>RFB: Initiate Connection
+    RFB->>Websock: Open WebSocket
+    Websock->>Server: RFB Handshake
+    Server-->>RFB: Framebuffer Updates
+    RFB->>Decoders: Select Encoding Decoder
+    Decoders->>Display: Render Pixels
+    Browser->>RFB: Keyboard/Mouse Input
+    RFB->>Server: Send Input Events

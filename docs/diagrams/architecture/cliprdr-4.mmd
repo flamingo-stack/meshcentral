@@ -1,0 +1,4 @@
+flowchart LR
+    ServerData["CB_FORMAT_DATA_RESPONSE"] --> Decode["Decode UCS2 Text"]
+    Decode --> UpdateState["Update content"]
+    UpdateState --> EmitEvent["Emit clipboard event"]

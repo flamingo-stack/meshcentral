@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant Chart
+    participant AnimationEngine
+    participant Visualization
+    participant Canvas
+
+    Chart->>AnimationEngine: start animations
+    AnimationEngine-->>Chart: progress updates
+    Chart->>Visualization: update elements
+    Visualization->>Canvas: draw shapes
+    Chart->>Visualization: draw tooltip
+    Visualization->>Canvas: draw tooltip overlay

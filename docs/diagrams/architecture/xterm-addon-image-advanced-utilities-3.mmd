@@ -1,0 +1,6 @@
+flowchart TD
+    Init["Initialize Decoder"] --> Put["Put Chunk"]
+    Put -->|More Data| Put
+    Put --> End["Finalize Decoding"]
+    End --> DataReady["Decoded Uint8Array Ready"]
+    DataReady --> Release["Release or Reuse Memory"]

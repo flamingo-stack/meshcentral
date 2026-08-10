@@ -1,0 +1,8 @@
+flowchart TD
+    Input["Incoming Data"] --> Parser["Parser"]
+    Parser --> Buffer["Buffer Update"]
+    Buffer --> DirtyRows["Dirty Rows"]
+    DirtyRows --> RenderService["Render Service"]
+    RenderService --> Debouncer["Render Debouncer"]
+    Debouncer --> DOMRenderer["DOM Renderer"]
+    DOMRenderer --> Screen["Terminal Screen"]

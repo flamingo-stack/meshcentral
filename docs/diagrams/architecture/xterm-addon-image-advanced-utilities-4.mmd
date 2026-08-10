@@ -1,0 +1,10 @@
+sequenceDiagram
+    participant Terminal
+    participant Parser
+    participant SixelHandler
+    participant Storage
+
+    Terminal->>Parser: DCS q (SIXEL)
+    Parser->>SixelHandler: Hook + Data Chunks
+    SixelHandler->>SixelHandler: Decode (WASM)
+    SixelHandler->>Storage: addImage(canvas)

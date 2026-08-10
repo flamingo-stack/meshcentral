@@ -1,0 +1,6 @@
+flowchart LR
+    BufferService["Buffer Service"] --> DirtyTracking["Dirty Row Tracking"]
+    DirtyTracking --> Debouncer["Render Debouncer"]
+    Debouncer --> RenderService["Render Service"]
+    RenderService --> DomRenderer["DOM Renderer"]
+    DomRenderer --> Viewport["Viewport"]

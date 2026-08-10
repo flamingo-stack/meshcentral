@@ -1,0 +1,15 @@
+sequenceDiagram
+    participant App as Remote App
+    participant Terminal as Xterm
+    participant Addon as ImageAddon
+    participant Decoder as WASM Decoder
+    participant Storage as ImageStorage
+    participant Renderer as ImageRenderer
+
+    App->>Terminal: DCS q (SIXEL)
+    Terminal->>Addon: Hook handler
+    Addon->>Decoder: Decode stream
+    Decoder-->>Addon: RGBA buffer
+    Addon->>Storage: addImage()
+    Terminal->>Renderer: onRender()
+    Renderer->>Storage: render visible region

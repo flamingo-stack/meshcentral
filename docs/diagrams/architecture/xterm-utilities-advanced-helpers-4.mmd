@@ -1,0 +1,6 @@
+flowchart TD
+    InputHandler["Input Handler"] --> BufferUpdate["Buffer Update"]
+    BufferUpdate --> RenderService
+    RenderService --> RenderDebouncer
+    RenderDebouncer --> DomRenderer
+    DomRenderer --> Screen["Terminal Screen"]

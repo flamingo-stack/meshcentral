@@ -1,0 +1,6 @@
+flowchart TD
+    DOMEvent["Mouse / Touch Event"] --> ChartEngine["On._eventHandler()"]
+    ChartEngine --> Interaction["Interaction Modes"]
+    Interaction --> ActiveElements["Resolve Active Elements"]
+    ActiveElements --> Tooltip["Tooltip Plugin"]
+    ActiveElements --> HoverStyles["Apply Hover Styles"]

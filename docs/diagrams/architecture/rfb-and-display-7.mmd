@@ -1,0 +1,5 @@
+flowchart LR
+    Server --> Caps["Capabilities"]
+    Caps --> ClientNotify["Notify"]
+    ClientNotify --> Request["Request"]
+    Request --> Provide["Provide Compressed Data"]

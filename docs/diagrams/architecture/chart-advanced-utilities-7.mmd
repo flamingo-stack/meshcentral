@@ -1,0 +1,5 @@
+flowchart TD
+    Event["Mouse Event"] --> Active["Resolve Active Elements"]
+    Active --> Items["Build Tooltip Items"]
+    Items --> Layout["Measure & Position Tooltip"]
+    Layout --> Render["Draw Background & Text"]

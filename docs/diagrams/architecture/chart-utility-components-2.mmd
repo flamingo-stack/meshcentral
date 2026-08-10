@@ -1,0 +1,17 @@
+flowchart TD
+    CU["Chart Utility Components"]
+
+    CU --> Viz["Visualization Utilities"]
+    CU --> Data["Data Utilities"]
+    CU --> General["General Utilities"]
+
+    Viz --> Time["Wo - Time Scale"]
+    Viz --> Color["Zt - Color Engine"]
+    Viz --> Legend["ba - Legend Engine"]
+
+    Data --> Resolver["bn - Config Resolver"]
+    Data --> Linear["bo - Linear Scale"]
+    Data --> Animator["bt - Animation Manager"]
+    Data --> Defaults["de - Defaults Engine"]
+
+    General --> Shared["Shared Helpers & Infrastructure"]

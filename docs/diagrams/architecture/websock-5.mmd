@@ -1,0 +1,6 @@
+flowchart LR
+    Server["Remote Server"] -->|"RFB Frames"| Transport["WebSocket"]
+    Transport --> WebsockNode["Websock"]
+    WebsockNode --> RFBNode["RFB"]
+    RFBNode --> Decoder["Decoders"]
+    Decoder --> DisplayNode["Display"]

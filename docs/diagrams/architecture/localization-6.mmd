@@ -1,0 +1,13 @@
+sequenceDiagram
+    participant App as Application
+    participant Localizer as Localizer
+    participant Browser as Browser
+    participant Server as Translation Server
+
+    App->>Localizer: setup(supportedLanguages, baseURL)
+    Localizer->>Browser: Read navigator.languages
+    Localizer->>Localizer: Select best match
+    Localizer->>Server: Fetch language.json
+    Server-->>Localizer: JSON dictionary
+    App->>Localizer: translateDOM()
+    Localizer->>App: Updated DOM content

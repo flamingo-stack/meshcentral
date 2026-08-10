@@ -1,0 +1,6 @@
+flowchart LR
+    Websock["Websock Transport"] --> RFB["RFB Protocol Engine"]
+    RFB --> Decoders["Framebuffer Decoders"]
+    Decoders --> Inflate["Inflate"]
+    RFB --> Deflator["Deflator"]
+    Inflate --> Display["Display Renderer"]

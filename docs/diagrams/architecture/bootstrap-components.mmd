@@ -1,0 +1,50 @@
+flowchart TD
+    subgraph Infrastructure["Core Infrastructure"]
+        Data["Data Store"]
+        EventHandler["Event Handler"]
+        Config["Config"]
+        BaseComponent["Base Component"]
+        SelectorEngine["Selector Engine"]
+        Manipulator["DOM Manipulator"]
+    end
+
+    subgraph Utilities["UI Utilities"]
+        Backdrop["Backdrop"]
+        FocusTrap["Focus Trap"]
+        ScrollBarHelper["ScrollBar Helper"]
+        Swipe["Swipe"]
+        TemplateFactory["Template Factory"]
+    end
+
+    subgraph Components["Interactive Components"]
+        Alert["Alert"]
+        Button["Button"]
+        Carousel["Carousel"]
+        Collapse["Collapse"]
+        Dropdown["Dropdown"]
+        Modal["Modal"]
+        Offcanvas["Offcanvas"]
+        Tooltip["Tooltip"]
+        Popover["Popover"]
+        ScrollSpy["ScrollSpy"]
+        Tab["Tab"]
+        Toast["Toast"]
+    end
+
+    BaseComponent --> Data
+    BaseComponent --> EventHandler
+    BaseComponent --> Config
+    BaseComponent --> SelectorEngine
+    BaseComponent --> Manipulator
+
+    Modal --> Backdrop
+    Modal --> FocusTrap
+    Modal --> ScrollBarHelper
+
+    Offcanvas --> Backdrop
+    Offcanvas --> FocusTrap
+
+    Carousel --> Swipe
+
+    Tooltip --> TemplateFactory
+    Popover --> TemplateFactory

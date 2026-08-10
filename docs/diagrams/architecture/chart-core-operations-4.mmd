@@ -1,0 +1,5 @@
+flowchart TD
+    DatasetUpdate["Dataset Update"] --> ResolveAnim["Os._createAnimations()"]
+    ResolveAnim --> Animator["Global Animator"]
+    Animator --> Tick["Animation Frame Tick"]
+    Tick --> ElementUpdate["Element Property Update"]

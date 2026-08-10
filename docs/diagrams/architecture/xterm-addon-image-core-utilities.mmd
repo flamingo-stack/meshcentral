@@ -1,0 +1,6 @@
+flowchart TD
+    Addon["Xterm Addon Image"] --> Utilities["Xterm Addon Image Utilities"]
+    Utilities --> CoreUtils["Xterm Addon Image Core Utilities"]
+    Utilities --> AdvancedUtils["Xterm Addon Image Advanced Utilities"]
+    CoreUtils --> Renderer["Image Rendering Layer"]
+    CoreUtils --> Storage["Image Storage Layer"]

@@ -1,0 +1,10 @@
+flowchart TD
+    Parent["Parent Element"] --> TerminalRoot["div.terminal.xterm"]
+    TerminalRoot --> Viewport["div.xterm-viewport"]
+    Viewport --> ScrollArea["div.xterm-scroll-area"]
+    TerminalRoot --> Screen["div.xterm-screen"]
+    Screen --> Rows["div.xterm-rows"]
+    Screen --> Selection["div.xterm-selection"]
+    Screen --> Helpers["div.xterm-helpers"]
+    Helpers --> Textarea["textarea.xterm-helper-textarea"]
+    Helpers --> CompositionView["div.composition-view"]

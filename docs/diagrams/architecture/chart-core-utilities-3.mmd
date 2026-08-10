@@ -1,0 +1,6 @@
+flowchart TD
+    Dataset["Dataset Values"] --> Parse["parse()"]
+    Parse --> Total["calculateTotal()"]
+    Total --> Angle["calculateCircumference()"]
+    Angle --> UpdateElements["updateElements()"]
+    UpdateElements --> ArcElements["Arc Elements via Hs"]

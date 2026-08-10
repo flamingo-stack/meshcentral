@@ -1,0 +1,7 @@
+flowchart TD
+    Incoming["Incoming Image"] --> CheckSize["Check Size Limits"]
+    CheckSize --> CheckPixels["Check Pixel Limit"]
+    CheckPixels --> Decode["Decode Image"]
+    Decode --> MemoryCheck{"Within Storage Limit?"}
+    MemoryCheck -->|No| Evict["Evict Old Images"]
+    MemoryCheck -->|Yes| Store["Store Image"]

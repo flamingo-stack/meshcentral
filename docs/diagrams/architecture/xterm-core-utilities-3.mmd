@@ -1,0 +1,8 @@
+flowchart LR
+    Terminal["Terminal Core"] --> AccessibilityManager["Accessibility Manager"]
+    Terminal --> Linkifier["Linkifier"]
+    Terminal --> RenderDebouncer["Render Debouncer"]
+
+    AccessibilityManager --> ARIATree["ARIA Tree"]
+    Linkifier --> MouseService["Mouse Service"]
+    RenderDebouncer --> RenderService["Render Service"]

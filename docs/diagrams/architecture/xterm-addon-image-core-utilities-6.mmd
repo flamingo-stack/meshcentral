@@ -1,0 +1,8 @@
+flowchart TD
+    Activate["Addon Activated"] --> RegisterHandlers["Register CSI / DCS / OSC Handlers"]
+    RegisterHandlers --> Receive["Receive Image Sequence"]
+    Receive --> Decode["Decode via Core Utilities"]
+    Decode --> Store["Store Image"]
+    Store --> Render["Render on Viewport"]
+    Render --> Resize["Viewport Resize Handling"]
+    Resize --> Render

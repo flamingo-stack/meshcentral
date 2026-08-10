@@ -1,0 +1,9 @@
+sequenceDiagram
+    participant App
+    participant Terminal
+    participant Services
+
+    App->>Terminal: new Terminal()
+    App->>Terminal: open(element)
+    Terminal->>Services: Initialize Services
+    Terminal->>Terminal: Attach Listeners

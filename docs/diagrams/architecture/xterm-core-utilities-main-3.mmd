@@ -1,0 +1,6 @@
+flowchart LR
+    MouseMove["Mouse Move Event"] --> Linkifier
+    Linkifier --> LinkProviderService["Link Provider Service"]
+    LinkProviderService --> Linkifier
+    Linkifier --> RenderService
+    Linkifier --> DOMUpdate["Underline / Cursor Update"]

@@ -1,0 +1,8 @@
+flowchart TD
+    Start["OSC 1337 Sequence"] --> HeaderParse["Header Parser"]
+    HeaderParse --> Validate{"Valid Header?"}
+    Validate -->|No| Abort["Abort"]
+    Validate -->|Yes| Decode["Base64 Decoder"]
+    Decode --> Detect["Image Type Detection"]
+    Detect --> Resize["Resize Logic"]
+    Resize --> Store["Image Storage"]

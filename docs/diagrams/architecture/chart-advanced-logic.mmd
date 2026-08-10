@@ -1,0 +1,10 @@
+flowchart TD
+    Config["Chart Configuration"] --> Registry["Registry (tn)"]
+    Registry --> Controllers["Dataset Controllers"]
+    Registry --> Scales["Scale Implementations"]
+    Controllers --> Elements["Chart Elements"]
+    Controllers --> Animations["Animation Engine"]
+    Scales --> Layout["Layout System"]
+    Elements --> Renderer["Canvas Renderer"]
+    Animations --> Renderer
+    Layout --> Renderer

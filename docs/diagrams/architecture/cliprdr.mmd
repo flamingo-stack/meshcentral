@@ -1,0 +1,8 @@
+flowchart TD
+    RDPTransport["RDP Transport"] -->|"cliprdr channel"| Client["Cliprdr Client"]
+    Client -->|"send()"| ChannelPDU["Channel PDU Wrapper"]
+    ChannelPDU --> Server["RDP Server"]
+
+    Server -->|"cliprdr data"| Client
+    Client --> ClipboardState["Clipboard State Machine"]
+    ClipboardState --> EventEmitter["EventEmitter"]

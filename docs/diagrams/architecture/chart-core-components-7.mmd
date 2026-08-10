@@ -1,0 +1,6 @@
+flowchart LR
+    Configuration["Configuration"] --> Parsing["Data Parsing"]
+    Parsing --> ScaleCompute["Scale Computation"]
+    ScaleCompute --> Geometry["Element Geometry"]
+    Geometry --> Animation["Animation Resolution"]
+    Animation --> Canvas["Canvas Rendering"]

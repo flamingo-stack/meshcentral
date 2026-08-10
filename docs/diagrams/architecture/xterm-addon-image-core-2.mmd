@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant App as Remote Application
+    participant Terminal as Xterm
+    participant Core as ImageAddon
+    participant Decoder as WASM Decoder
+    participant Storage as ImageStorage
+    participant Renderer as ImageRenderer
+
+    App->>Terminal: Send SIXEL or OSC 1337
+    Terminal->>Core: Dispatch escape handler
+    Core->>Decoder: Decode image bytes
+    Decoder-->>Core: Pixel buffer
+    Core->>Storage: addImage()
+    Terminal->>Renderer: onRender()
+    Renderer->>Storage: render visible region
+    Renderer->>Renderer: Draw to canvas layer

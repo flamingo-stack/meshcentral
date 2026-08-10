@@ -1,0 +1,10 @@
+sequenceDiagram
+    participant Terminal
+    participant Utilities
+
+    Terminal->>Utilities: initialize()
+    Utilities->>Utilities: register DOM + service listeners
+    Terminal->>Utilities: onRender/onResize/onScroll
+    Utilities->>Utilities: update internal state
+    Terminal->>Utilities: dispose()
+    Utilities->>Utilities: cleanup listeners and DOM

@@ -1,0 +1,16 @@
+flowchart TD
+    Terminal["Terminal Class"] --> CoreTerminal["CoreTerminal Base"]
+    Terminal --> RenderService["Render Service"]
+    Terminal --> SelectionService["Selection Service"]
+    Terminal --> MouseService["Mouse Service"]
+    Terminal --> Linkifier["Linkifier"]
+    Terminal --> AccessibilityManager["Accessibility Manager"]
+    Terminal --> Viewport["Viewport"]
+
+    CoreTerminal --> BufferService["Buffer Service"]
+    CoreTerminal --> InputHandler["Input Handler"]
+    CoreTerminal --> CoreService["Core Service"]
+
+    RenderService --> DomRenderer["DOM Renderer"]
+    SelectionService --> BufferService
+    Viewport --> BufferService

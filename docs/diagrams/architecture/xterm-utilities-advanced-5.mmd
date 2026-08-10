@@ -1,0 +1,5 @@
+flowchart TD
+    MouseEvent["Mouse Event"] --> SelectionService["Selection Service"]
+    MouseEvent --> Linkifier["Linkifier"]
+    SelectionService --> Buffer["Buffer"]
+    Linkifier --> Activation["Link Activation"]

@@ -1,0 +1,5 @@
+flowchart LR
+    Init["Initialize Element"] --> Update["Update Properties"]
+    Update --> Animate["Apply Animations"]
+    Animate --> Draw["Draw via Rendering Layer"]
+    Draw --> Interact["Hit Testing & Tooltip"]

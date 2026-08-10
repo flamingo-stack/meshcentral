@@ -1,0 +1,7 @@
+flowchart TD
+    Start["Start decodeRect"] --> WaitCheck["Check rQwait"]
+    WaitCheck -->|"Not Enough Data"| ReturnFalse["Return false"]
+    WaitCheck -->|"Enough Data"| ReadData["Read and Decode Bytes"]
+    ReadData --> Transform["Transform to RGBA Buffer"]
+    Transform --> Render["Call Display Method"]
+    Render --> End["Return true"]

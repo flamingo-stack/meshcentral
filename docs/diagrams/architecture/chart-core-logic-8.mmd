@@ -1,0 +1,7 @@
+flowchart TD
+    BeforeInit --> Init
+    Init --> BeforeUpdate
+    BeforeUpdate --> Update
+    Update --> BeforeDraw
+    BeforeDraw --> Draw
+    Draw --> AfterDraw

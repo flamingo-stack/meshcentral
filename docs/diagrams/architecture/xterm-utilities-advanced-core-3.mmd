@@ -1,0 +1,6 @@
+flowchart TD
+    Input["User Input / Parser"] --> Buffer["Buffer State Updated"]
+    Buffer --> RenderService["Render Service"]
+    RenderService --> Debouncer["Render Debouncer"]
+    Debouncer --> DomRenderer["DOM Renderer"]
+    DomRenderer --> Screen["Terminal Screen"]

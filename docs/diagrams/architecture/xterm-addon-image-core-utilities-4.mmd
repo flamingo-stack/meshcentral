@@ -1,0 +1,6 @@
+flowchart LR
+    Decode["Decode Data"] --> Canvas["Uint32 Canvas Buffer"]
+    Canvas --> View32["data32 View"]
+    Canvas --> View8["data8 View"]
+    Canvas --> MemoryCheck{"Memory Limit?"}
+    MemoryCheck -->|Exceeded| Release["Release Decoder"]

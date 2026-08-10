@@ -1,0 +1,15 @@
+flowchart TD
+    Subsystem["MeshCentral Web UI"] --> UiModule["Ui Components Module"]
+
+    UiModule --> ModernModalNode["ModernModal"]
+    UiModule --> ModernCardNode["ModernCard"]
+    UiModule --> IconUploadNode["IconUploadComponent"]
+
+    ModernModalNode --> BootstrapModal["Bootstrap Modal"]
+    ModernModalNode --> GlobalModalHelpers["setModalContent() / showModal()"]
+
+    ModernCardNode --> BootstrapCard["Bootstrap Card Styles"]
+    ModernCardNode --> FontAwesome["Font Awesome Icons"]
+
+    IconUploadNode --> DOMApi["Browser DOM API"]
+    IconUploadNode --> PageCallbacks["Page-Level Callbacks"]

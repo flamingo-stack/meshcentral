@@ -1,0 +1,5 @@
+flowchart LR
+    KeyEvent["keydown / keypress"] --> Terminal
+    Terminal --> evaluateKeyboardEvent
+    evaluateKeyboardEvent --> CoreService["triggerDataEvent()"]
+    CoreService --> Backend["Transport Layer"]

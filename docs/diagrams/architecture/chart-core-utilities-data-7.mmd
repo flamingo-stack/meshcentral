@@ -1,0 +1,5 @@
+flowchart LR
+    UpdateCall["update(mode)"] --> ResolveAnim["_resolveAnimations()"]
+    ResolveAnim --> Animator["Chart Animator"]
+    Animator --> Interpolate["Property Interpolation"]
+    Interpolate --> ElementState["Updated Element State"]

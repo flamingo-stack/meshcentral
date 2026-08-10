@@ -1,0 +1,15 @@
+flowchart TD
+    Utilities["Chart Utility Components"]
+    Utilities --> Viz["Visualization Utilities"]
+    Utilities --> Data["Data Utilities"]
+    Utilities --> General["General Utilities"]
+
+    Viz --> Time["Wo - Time Scale"]
+    Viz --> Color["Zt - Color Engine"]
+    Viz --> Legend["ba - Legend Engine"]
+
+    Data --> Resolver["bn - Config Resolver"]
+    Data --> Linear["bo - Linear Scale"]
+    Data --> Animator["bt - Animation Manager"]
+
+    General --> Shared["Shared Infrastructure"]
