@@ -8,11 +8,18 @@ const MESH_DEVICE_GROUP = process.env.MESH_DEVICE_GROUP || '';
 
 // --- Helpers ---
 
-function corsHeaders(res) {
-  res.set('Access-Control-Allow-Origin', '*');
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean);
+function corsHeaders(req, res) {
+  var origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+    res.set('Vary', 'Origin');
+  }
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, X-MeshAuth');
 }
+
+const ALLOWED_HOSTS = (process.env.ALLOWED_MESH_HOSTS || '').split(',').filter(Boolean);
 
 function sendError(res, status, message) {
   res.status(status).json({ error: message });
@@ -49,18 +56,37 @@ module.exports.openframe = function (pluginHandler) {
 
     log('Routes registered (tenant="' + tenantDomain + '")');
 
+    function checkAuth(req, res) {
+      var token = req.headers['x-meshauth'];
+      if (!token || !parent.validateAuthToken(token)) {
+        sendError(res, 401, 'Unauthorized');
+        return false;
+      }
+      return true;
+    }
+
     // CORS preflight
     app.options(['/generate-msh', '/api/*'], function (req, res) {
-      corsHeaders(res);
+      corsHeaders(req, res);
       res.sendStatus(204);
     });
 
     // Route 1: GET /generate-msh?host=X - Generate custom MSH agent config
     app.get('/generate-msh', function (req, res) {
-      corsHeaders(res);
+      corsHeaders(req, res);
+
+      if (!checkAuth(req, res)) return;
 
       var host = req.query.host;
       if (!host) return sendError(res, 400, 'Missing required parameter: host');
+
+      // Validate host against allowlist to prevent SSRF
+      var cleanHost = host.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
+      // Strip any path/query from the host for comparison
+      var hostOnly = cleanHost.split('/')[0];
+      if (ALLOWED_HOSTS.length === 0 || !ALLOWED_HOSTS.includes(hostOnly)) {
+        return sendError(res, 400, 'Host not permitted');
+      }
 
       var meshId, serverId;
       try {
@@ -73,7 +99,6 @@ module.exports.openframe = function (pluginHandler) {
       if (!meshId || !serverId) return sendError(res, 500, 'Invalid mesh configuration');
 
       var protocol = host.startsWith('http://') ? 'ws' : 'wss';
-      var cleanHost = host.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
       var meshServerUrl = protocol + '://' + cleanHost + '/ws/tools/agent/meshcentral-server/agent.ashx';
 
       var mshContent = [
@@ -95,7 +120,9 @@ module.exports.openframe = function (pluginHandler) {
     // Route 2: GET /api/deviceStatus?id=node/<domain>/<hash> - Get device status
     // Uses MeshCentral core: GetConnectivityState() (in-memory) + db 'lc' record
     app.get('/api/deviceStatus', function (req, res) {
-      corsHeaders(res);
+      corsHeaders(req, res);
+
+      if (!checkAuth(req, res)) return;
 
       var nodeId = req.query.id;
       if (!nodeId) return sendError(res, 400, 'Missing required parameter: id');
