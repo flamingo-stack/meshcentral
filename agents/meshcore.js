@@ -1150,6 +1150,14 @@ function getServerTargetUrl(path) {
     if (path == null) { path = ''; }
     x = http.parseUri(x);
     if (x == null) return null;
+    // OpenFrame mode: dial through the gateway proxy path with the agent JWT
+    var token = null;
+    try { if (typeof mesh.authToken == 'function') { token = mesh.authToken(); } } catch (ex) { }
+    if (token) {
+        var url = x.protocol + '//' + x.host + '/ws/tools/agent/meshcentral-server/' + path;
+        url += ((path.indexOf('?') !== -1) ? '&' : '?') + 'authorization=' + token;
+        return url;
+    }
     return x.protocol + '//' + x.host + ':' + x.port + '/' + path;
 }
 
