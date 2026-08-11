@@ -8,8 +8,10 @@ const MESH_DEVICE_GROUP = process.env.MESH_DEVICE_GROUP || '';
 
 // --- Helpers ---
 
-function corsHeaders(res) {
-  res.set('Access-Control-Allow-Origin', '*');
+function corsHeaders(req, res) {
+  var allowed = process.env.CORS_ALLOWED_ORIGINS ? process.env.CORS_ALLOWED_ORIGINS.split(',') : [];
+  var origin = req.headers.origin;
+  if (origin && allowed.includes(origin)) res.set('Access-Control-Allow-Origin', origin);
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, X-MeshAuth');
 }
@@ -26,6 +28,9 @@ function log(msg) {
 // Mirrors db.js deriveTenantDomain() so this plugin can enforce that a tenant pod only ever
 // resolves nodes from its own domain in the shared multi-tenant database. Returns '' for a
 // legacy single-tenant install (only the default '' domain), where no scoping is needed.
+// WARNING: This is a local copy of db.js deriveTenantDomain(). If db.js changes its logic,
+// this copy will silently diverge. Ideally, export deriveTenantDomain from db.js and require
+// it here: const { deriveTenantDomain } = require('../db');
 function deriveTenantDomain(domains) {
   if (!domains) return '';
   for (var k in domains) { if (k !== '' && domains[k].share == null) return k; }
@@ -51,13 +56,16 @@ module.exports.openframe = function (pluginHandler) {
 
     // CORS preflight
     app.options(['/generate-msh', '/api/*'], function (req, res) {
-      corsHeaders(res);
+      corsHeaders(req, res);
       res.sendStatus(204);
     });
 
     // Route 1: GET /generate-msh?host=X - Generate custom MSH agent config
     app.get('/generate-msh', function (req, res) {
-      corsHeaders(res);
+      corsHeaders(req, res);
+
+      var authToken = req.headers['x-meshauth'];
+      if (!authToken || authToken !== process.env.MESH_API_SECRET) return sendError(res, 401, 'Unauthorized');
 
       var host = req.query.host;
       if (!host) return sendError(res, 400, 'Missing required parameter: host');
@@ -95,7 +103,7 @@ module.exports.openframe = function (pluginHandler) {
     // Route 2: GET /api/deviceStatus?id=node/<domain>/<hash> - Get device status
     // Uses MeshCentral core: GetConnectivityState() (in-memory) + db 'lc' record
     app.get('/api/deviceStatus', function (req, res) {
-      corsHeaders(res);
+      corsHeaders(req, res);
 
       var nodeId = req.query.id;
       if (!nodeId) return sendError(res, 400, 'Missing required parameter: id');
