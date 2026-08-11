@@ -40,6 +40,7 @@ function av()
     try { 
         var tokens = require('win-wmi-fixed').query('ROOT\\SecurityCenter2', 'SELECT * FROM AntiVirusProduct');
         if (tokens.length == 0) { return ([]); }
+        var SAFE_ENV_VARS = new Set(['ProgramFiles', 'ProgramFiles(x86)', 'SystemRoot', 'windir', 'CommonProgramFiles']);
         // Process each antivirus product
         for (var i = 0; i < tokens.length; ++i) {
             var product = tokens[i];
@@ -49,9 +50,11 @@ function av()
             var match;
             while ((match = regex.exec(product.pathToSignedProductExe)) !== null) {
                 var envVar = match[1];
-                var envValue = process.env[envVar] || '';
-                if (envValue) {
-                    modifiedPath = modifiedPath.replace(match[0], envValue);
+                if (SAFE_ENV_VARS.has(envVar)) {
+                    var envValue = process.env[envVar] || '';
+                    if (envValue) {
+                        modifiedPath = modifiedPath.replace(match[0], envValue);
+                    }
                 }
             }
             // Check if the executable exists (unless it's Windows Defender pseudo-path)
@@ -109,7 +112,8 @@ function defrag(options)
             break;
     }
 
-    ret.child = require('child_process').execFile(process.env['windir'] + '\\System32\\defrag.exe', ['defrag', options.volume + ' /A']);
+    if (!/^[A-Z]:$/i.test(options.volume)) { ret._rej('Invalid volume'); return ret; }
+    ret.child = require('child_process').execFile(path, [options.volume, '/A']);
     ret.child.promise = ret;
     ret.child.promise.options = options;
     ret.child.stdout.str = ''; ret.child.stdout.on('data', function (c) { this.str += c.toString(); });
