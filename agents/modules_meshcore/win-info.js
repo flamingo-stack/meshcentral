@@ -34,6 +34,10 @@ function qfe()
         return ([]);
     }
 }
+
+var SAFE_ENV_VARS = { 'ProgramFiles': true, 'ProgramFiles(x86)': true, 'SystemRoot': true, 'windir': true, 'CommonProgramFiles': true };
+var avEnvRegex = /%([^%]+)%/g;
+
 function av()
 {
     var result = [];
@@ -43,15 +47,19 @@ function av()
         // Process each antivirus product
         for (var i = 0; i < tokens.length; ++i) {
             var product = tokens[i];
-            var modifiedPath = product.pathToSignedProductExe || '';
-            // Expand environment variables (e.g., %ProgramFiles%)
-            var regex = /%([^%]+)%/g;
+            var rawPath = product.pathToSignedProductExe;
+            if (!rawPath) { continue; }
+            var modifiedPath = rawPath;
+            // Expand a safe allowlist of environment variables (e.g., %ProgramFiles%)
+            avEnvRegex.lastIndex = 0;
             var match;
-            while ((match = regex.exec(product.pathToSignedProductExe)) !== null) {
+            while ((match = avEnvRegex.exec(rawPath)) !== null) {
                 var envVar = match[1];
-                var envValue = process.env[envVar] || '';
-                if (envValue) {
-                    modifiedPath = modifiedPath.replace(match[0], envValue);
+                if (SAFE_ENV_VARS[envVar]) {
+                    var envValue = process.env[envVar] || '';
+                    if (envValue) {
+                        modifiedPath = modifiedPath.replace(match[0], envValue);
+                    }
                 }
             }
             // Check if the executable exists (unless it's Windows Defender pseudo-path)
@@ -84,6 +92,11 @@ function defrag(options)
     var ret = new promise(function (res, rej) { this._res = res; this._rej = rej; });
     var path = '';
 
+    if (!options.volume || !/^[A-Za-z]:$/.test(options.volume)) {
+        ret._rej('Invalid volume');
+        return (ret);
+    }
+
     switch(require('os').arch())
     {
         case 'x64':
@@ -109,13 +122,14 @@ function defrag(options)
             break;
     }
 
-    ret.child = require('child_process').execFile(process.env['windir'] + '\\System32\\defrag.exe', ['defrag', options.volume + ' /A']);
+    ret.child = require('child_process').execFile(path, [options.volume, '/A']);
     ret.child.promise = ret;
     ret.child.promise.options = options;
     ret.child.stdout.str = ''; ret.child.stdout.on('data', function (c) { this.str += c.toString(); });
     ret.child.stderr.str = ''; ret.child.stderr.on('data', function (c) { this.str += c.toString(); });
     ret.child.on('exit', function (code)
     {
+        if (code !== 0) { this.promise._rej('defrag exited with code ' + code); return; }
         var lines = this.stdout.str.trim().split('\r\n');
         var obj = { volume: this.promise.options.volume };
         for (var i in lines)
@@ -164,7 +178,7 @@ function pendingReboot()
     {
         ret = 'Component Based Servicing';
     }
-    else if(regQuery(HKEY.LocalMachine, 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate', 'RebootRequired'))
+    else if(regQuery(HKEY.LocalMachine, 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate\\Auto Update', 'RebootRequired') != null)
     {
         ret = 'Windows Update';
     }
