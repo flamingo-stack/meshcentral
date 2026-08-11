@@ -8,8 +8,11 @@ const MESH_DEVICE_GROUP = process.env.MESH_DEVICE_GROUP || '';
 
 // --- Helpers ---
 
-function corsHeaders(res) {
-  res.set('Access-Control-Allow-Origin', '*');
+function corsHeaders(res, req, allowedOrigin) {
+  if (allowedOrigin && req.headers.origin === allowedOrigin) {
+    res.set('Access-Control-Allow-Origin', allowedOrigin);
+    res.set('Vary', 'Origin');
+  }
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, X-MeshAuth');
 }
@@ -47,17 +50,29 @@ module.exports.openframe = function (pluginHandler) {
     // collection (cross-tenant disclosure). Empty string = legacy single-tenant (no scoping).
     var tenantDomain = deriveTenantDomain(parent.config && parent.config.domains);
 
+    // Allowed CORS origin read from config. Only requests from this exact origin receive the
+    // Access-Control-Allow-Origin header; all others get no ACAO header (browser blocks them).
+    var allowedOrigin = (parent.config && parent.config.domains && parent.config.domains[''] && parent.config.domains[''].openframeOrigin) || '';
+
+    // Shared secret used to authenticate /api/deviceStatus callers. Read once at startup.
+    var meshAuthSecret = '';
+    try {
+      meshAuthSecret = fs.readFileSync(path.join(MESH_DIR, 'mesh_server_id'), 'utf8').trim();
+    } catch (e) {
+      log('WARNING: Could not read mesh_server_id for X-MeshAuth validation — /api/deviceStatus will reject all requests');
+    }
+
     log('Routes registered (tenant="' + tenantDomain + '")');
 
     // CORS preflight
     app.options(['/generate-msh', '/api/*'], function (req, res) {
-      corsHeaders(res);
+      corsHeaders(res, req, allowedOrigin);
       res.sendStatus(204);
     });
 
     // Route 1: GET /generate-msh?host=X - Generate custom MSH agent config
     app.get('/generate-msh', function (req, res) {
-      corsHeaders(res);
+      corsHeaders(res, req, allowedOrigin);
 
       var host = req.query.host;
       if (!host) return sendError(res, 400, 'Missing required parameter: host');
@@ -74,6 +89,13 @@ module.exports.openframe = function (pluginHandler) {
 
       var protocol = host.startsWith('http://') ? 'ws' : 'wss';
       var cleanHost = host.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
+
+      // Validate cleanHost: only hostname/IP characters and an optional port are allowed.
+      // This prevents newline injection into the MSH file and path traversal.
+      if (!/^[a-zA-Z0-9._-]+(:\d+)?$/.test(cleanHost)) {
+        return sendError(res, 400, 'Invalid host');
+      }
+
       var meshServerUrl = protocol + '://' + cleanHost + '/ws/tools/agent/meshcentral-server/agent.ashx';
 
       var mshContent = [
@@ -85,7 +107,8 @@ module.exports.openframe = function (pluginHandler) {
         'MeshServer=' + meshServerUrl
       ].join('\n');
 
-      log(new Date().toISOString() + ' Generated MSH for host: ' + cleanHost);
+      // cleanHost is already validated by the regex above, but strip CR/LF defensively before logging.
+      log(new Date().toISOString() + ' Generated MSH for host: ' + cleanHost.replace(/[\r\n]/g, ''));
 
       res.set('Content-Type', 'application/octet-stream');
       res.set('Content-Disposition', 'attachment; filename=meshagent.msh');
@@ -95,7 +118,13 @@ module.exports.openframe = function (pluginHandler) {
     // Route 2: GET /api/deviceStatus?id=node/<domain>/<hash> - Get device status
     // Uses MeshCentral core: GetConnectivityState() (in-memory) + db 'lc' record
     app.get('/api/deviceStatus', function (req, res) {
-      corsHeaders(res);
+      corsHeaders(res, req, allowedOrigin);
+
+      // Authentication: require X-MeshAuth header to match the shared server secret.
+      // This prevents unauthenticated callers from probing device presence/IP addresses.
+      if (!meshAuthSecret || req.headers['x-meshauth'] !== meshAuthSecret) {
+        return sendError(res, 401, 'Unauthorized');
+      }
 
       var nodeId = req.query.id;
       if (!nodeId) return sendError(res, 400, 'Missing required parameter: id');
