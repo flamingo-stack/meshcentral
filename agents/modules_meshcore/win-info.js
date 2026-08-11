@@ -40,18 +40,22 @@ function av()
     try { 
         var tokens = require('win-wmi-fixed').query('ROOT\\SecurityCenter2', 'SELECT * FROM AntiVirusProduct');
         if (tokens.length == 0) { return ([]); }
+        // Regex compiled once, outside the loop
+        var regex = /%([^%]+)%/g;
         // Process each antivirus product
         for (var i = 0; i < tokens.length; ++i) {
             var product = tokens[i];
             var modifiedPath = product.pathToSignedProductExe || '';
             // Expand environment variables (e.g., %ProgramFiles%)
-            var regex = /%([^%]+)%/g;
             var match;
-            while ((match = regex.exec(product.pathToSignedProductExe)) !== null) {
+            regex.lastIndex = 0;
+            while ((match = regex.exec(modifiedPath)) !== null) {
                 var envVar = match[1];
                 var envValue = process.env[envVar] || '';
                 if (envValue) {
                     modifiedPath = modifiedPath.replace(match[0], envValue);
+                    // Restart matching from the beginning of the updated string
+                    regex.lastIndex = 0;
                 }
             }
             // Check if the executable exists (unless it's Windows Defender pseudo-path)
@@ -109,7 +113,8 @@ function defrag(options)
             break;
     }
 
-    ret.child = require('child_process').execFile(process.env['windir'] + '\\System32\\defrag.exe', ['defrag', options.volume + ' /A']);
+    if (!/^[A-Za-z]:$/.test(options.volume)) { ret._rej('Invalid volume: ' + options.volume); return ret; }
+    ret.child = require('child_process').execFile(path, [options.volume, '/A']);
     ret.child.promise = ret;
     ret.child.promise.options = options;
     ret.child.stdout.str = ''; ret.child.stdout.on('data', function (c) { this.str += c.toString(); });
@@ -164,7 +169,7 @@ function pendingReboot()
     {
         ret = 'Component Based Servicing';
     }
-    else if(regQuery(HKEY.LocalMachine, 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate', 'RebootRequired'))
+    else if(regQuery(HKEY.LocalMachine, 'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WindowsUpdate', 'RebootRequired') != null)
     {
         ret = 'Windows Update';
     }
