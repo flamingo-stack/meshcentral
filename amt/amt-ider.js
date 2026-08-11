@@ -68,6 +68,9 @@ module.exports.CreateAmtIderSession = function (parent, db, ws, req, args, domai
 
     } catch (e) { console.log(e); }
 
+    // HTML-escape helper to prevent XSS when inserting file names into HTML
+    function escHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
+
     // Process incoming web socket data from the browser
     function processWebSocketData(msg) {
         var command, i = 0, mesh = null, meshid = null, nodeid = null, meshlinks = null, change = 0;
@@ -95,14 +98,14 @@ module.exports.CreateAmtIderSession = function (parent, db, ws, req, args, domai
 
                         // Floppy image selection
                         xx = "<select style=width:240px id=xxFloppyImagesSelect><option value=''>None</option>";
-                        for (var i in floppyImages) { xx += "<option value='" + encodeURIComponent(floppyImages[i]) + "'" + (sel?" selected":"") + ">" + floppyImages[i] + "</option>"; sel = false; }
+                        for (var i in floppyImages) { xx += "<option value='" + encodeURIComponent(floppyImages[i]) + "'" + (sel?" selected":"") + ">" + escHtml(floppyImages[i]) + "</option>"; sel = false; }
                         xx += "</select>";
                         html += "<div style=margin:5px>" + addHtmlValue("Floppy Image", xx) + "</div>";
 
                         // CDROM image selection
                         sel = true;
                         xx = "<select style=width:240px id=xxCdromImagesSelect><option value=''>None</option>";
-                        for (var i in cdromImages) { xx += "<option value='" + encodeURIComponent(cdromImages[i]) + "'" + (sel ? " selected" : "") + ">" + cdromImages[i] + "</option>"; sel = false; }
+                        for (var i in cdromImages) { xx += "<option value='" + encodeURIComponent(cdromImages[i]) + "'" + (sel ? " selected" : "") + ">" + escHtml(cdromImages[i]) + "</option>"; sel = false; }
                         xx += "</select>";
                         html += "<div style=margin:5px>" + addHtmlValue("CDROM Image", xx) + "</div>";
 
@@ -126,16 +129,20 @@ module.exports.CreateAmtIderSession = function (parent, db, ws, req, args, domai
                     // Decode and validate file paths
                     if ((command.args.floppyPath != null) && (typeof command.args.floppyPath != 'string')) { command.args.floppyPath = null; } else { command.args.floppyPath = decodeURIComponent(command.args.floppyPath); }
                     if ((command.args.cdromPath != null) && (typeof command.args.cdromPath != 'string')) { command.args.cdromPath = null; } else { command.args.cdromPath = decodeURIComponent(command.args.cdromPath); }
-                    // TODO: Double check that "." or ".." are not used.
-                    if ((command.args.floppyPath != null) && (command.args.floppyPath.indexOf('..') >= 0)) { delete command.args.floppyPath; }
-                    if ((command.args.cdromPath != null) && (command.args.cdromPath.indexOf('..') >= 0)) { delete command.args.cdromPath; }
 
                     // Get the disk image paths
                     var domainx = 'domain' + ((domain.id == '') ? '' : ('-' + domain.id));
                     var useridx = user._id.split('/')[2];
+                    var userPath = path.resolve(parent.parent.path.join(parent.parent.filespath, domainx, 'user-' + useridx));
                     var floppyPath = null, cdromPath = null;
-                    if (command.args.floppyPath) { floppyPath = parent.parent.path.join(parent.parent.filespath, domainx, 'user-' + useridx, command.args.floppyPath); }
-                    if (command.args.cdromPath) { cdromPath = parent.parent.path.join(parent.parent.filespath, domainx, 'user-' + useridx, command.args.cdromPath); }
+                    if (command.args.floppyPath) {
+                        var resolvedFloppy = path.resolve(parent.parent.path.join(parent.parent.filespath, domainx, 'user-' + useridx, command.args.floppyPath));
+                        if (resolvedFloppy.indexOf(userPath + path.sep) === 0 || resolvedFloppy === userPath) { floppyPath = resolvedFloppy; }
+                    }
+                    if (command.args.cdromPath) {
+                        var resolvedCdrom = path.resolve(parent.parent.path.join(parent.parent.filespath, domainx, 'user-' + useridx, command.args.cdromPath));
+                        if (resolvedCdrom.indexOf(userPath + path.sep) === 0 || resolvedCdrom === userPath) { cdromPath = resolvedCdrom; }
+                    }
 
                     // Setup the IDER session
                     obj.ider = amtMeshRedirModule.CreateAmtRedirect(amtMeshIderModule.CreateAmtRemoteIder(parent, parent.parent), domain, user, parent, parent.parent);
@@ -191,8 +198,9 @@ module.exports.CreateAmtIderSession = function (parent, db, ws, req, args, domai
             list.forEach(function (file) {
                 file = path.resolve(dir, file);
                 fs.stat(file, function (err, stat) {
+                    if (err) { if (!--pending) func(null, results); return; }
                     if (stat && stat.isDirectory()) {
-                        readFsRec(file, function (err, res) { results = results.concat(res); if (!--pending) func(null, results); });
+                        readFsRec(file, function (err, res) { results = results.concat(res || []); if (!--pending) func(null, results); });
                     } else {
                         results.push(file); if (!--pending) func(null, results);
                     }
