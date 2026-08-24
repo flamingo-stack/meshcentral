@@ -166,7 +166,7 @@ module.exports.CreateMeshScanner = function (parent) {
                     if ((typeof obj.parent.config.domains[''].title2 == 'string') && (obj.parent.config.domains[''].title2.length > 0)) { 
                         info = obj.common.replacePlaceholders(obj.parent.config.domains[''].title2, { 
                             'serverversion': obj.parent.currentVer,
-                            'servername': obj.getWebServerName(domain, req),
+                            'servername': obj.getWebServerName(obj.parent.config.domains[''], null),
                             'agentsessions': Object.keys(parent.webserver.wsagents).length,
                             'connectedusers': Object.keys(parent.webserver.wssessions).length,
                             'userssessions': Object.keys(parent.webserver.wssessions2).length,
