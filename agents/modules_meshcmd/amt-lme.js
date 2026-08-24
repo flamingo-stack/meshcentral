@@ -214,7 +214,7 @@ function lme_heci(options) {
                                     this.LMS.emit('bind', this._binded);
                                 } catch (ex)
                                 {
-                                    console.info1(ex, 'Port ' + port);
+                                    console.info(ex, 'Port ' + port);
                                     if(!this._emitConnected)
                                     {
                                         this._emitConnected = true;
@@ -493,3 +493,4 @@ function _lmsNotifyToCode(notify) {
 }
 
 module.exports = lme_heci;
+
