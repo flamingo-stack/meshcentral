@@ -85,9 +85,9 @@ function DownloadAgentBinary(path, ID)
 {
     var options = require('http').parseUri(require('MeshAgent').ServerInfo.ServerUri);
     var downloadUri = 'https://' + options.host + ':' + options.port + '/meshagents?id=' + (ID != null ? ID : getARCHID());
-    sendServerLog('Diagnostic: Attempting to downlod agent from: ' + downloadUri);
+    sendServerLog('Diagnostic: Attempting to download agent from: ' + downloadUri);
 
-    return (wget(downloadUri, path, { rejectUnauthorized: false }));
+    return (wget(downloadUri, path));
 }
 
 function giveup()
@@ -204,3 +204,4 @@ function start()
         }
     }
 };
+
