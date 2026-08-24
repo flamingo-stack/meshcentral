@@ -24,7 +24,7 @@ var rsa = require('../security').rsa;
 var asn1 = require('../asn1');
 
 /**
- *  @see http://msdn.microsoft.com/en-us/library/cc240521.aspx
+ *  @see http://msdn.microsoft.com/en-us/library/cc240521.aspx
  */
 var CertificateType = {
     CERT_CHAIN_VERSION_1 : 0x00000001,
@@ -158,7 +158,7 @@ function certificate() {
 				self.certData = x509CertificateChain().read(s);
 				break;
 			default:
-				log.error('unknown cert type ' + self.dwVersion.value & 0x7fffffff);
+				log.error('unknown cert type ' + (self.dwVersion.value & 0x7fffffff));
 			}
 		})
 	};
