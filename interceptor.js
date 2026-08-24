@@ -86,7 +86,7 @@ module.exports.CreateHttpInterceptor = function (args) {
         } else if (obj.amt.mode == 1) { // Length Body Mode
             // Send the body of content-length size
             var rl = obj.amt.count;
-            if (rl < obj.amt.acc.length) rl = obj.amt.acc.length;
+            if (rl > obj.amt.acc.length) rl = obj.amt.acc.length;
             r = obj.amt.acc.substring(0, rl);
             obj.amt.acc = obj.amt.acc.substring(rl);
             obj.amt.count -= rl;
@@ -197,38 +197,38 @@ module.exports.CreateHttpInterceptor = function (args) {
         } else if (obj.ws.mode == 1) { // Length Body Mode
             // Send the body of content-length size
             var rl = obj.ws.count;
-            if (rl < obj.ws.acc.length) rl = obj.ws.acc.length;
+            if (rl > obj.ws.acc.length) rl = obj.ws.acc.length;
             r = obj.ws.acc.substring(0, rl);
             obj.ws.acc = obj.ws.acc.substring(rl);
             obj.ws.count -= rl;
             if (obj.ws.count == 0) { obj.ws.mode = 0; }
             return r;
-        } else if (obj.amt.mode == 2) { // Chunked Body Mode
+        } else if (obj.ws.mode == 2) { // Chunked Body Mode
             // Send data one chunk at a time
-            headerend = obj.amt.acc.indexOf('\r\n');
+            headerend = obj.ws.acc.indexOf('\r\n');
             if (headerend < 0) return '';
-            var chunksize = parseInt(obj.amt.acc.substring(0, headerend), 16);
+            var chunksize = parseInt(obj.ws.acc.substring(0, headerend), 16);
             if (isNaN(chunksize)) { // TODO: Check this path
                 // Chunk is not in this batch, move one
-                r = obj.amt.acc.substring(0, headerend + 2);
-                obj.amt.acc = obj.amt.acc.substring(headerend + 2);
+                r = obj.ws.acc.substring(0, headerend + 2);
+                obj.ws.acc = obj.ws.acc.substring(headerend + 2);
                 // Peek if we next is the end of chunked transfer
-                headerend = obj.amt.acc.indexOf('\r\n');
+                headerend = obj.ws.acc.indexOf('\r\n');
                 if (headerend > 0) {
-                    chunksize = parseInt(obj.amt.acc.substring(0, headerend), 16);
-                    if (chunksize == 0) { obj.amt.mode = 0; }
+                    chunksize = parseInt(obj.ws.acc.substring(0, headerend), 16);
+                    if (chunksize == 0) { obj.ws.mode = 0; }
                 }
                 return r;
-            } else if (chunksize == 0 && obj.amt.acc.length >= headerend + 4) {
+            } else if (chunksize == 0 && obj.ws.acc.length >= headerend + 4) {
                 // Send the ending chunk (NOTE: We do not support trailing headers)
-                r = obj.amt.acc.substring(0, headerend + 4);
-                obj.amt.acc = obj.amt.acc.substring(headerend + 4);
-                obj.amt.mode = 0;
+                r = obj.ws.acc.substring(0, headerend + 4);
+                obj.ws.acc = obj.ws.acc.substring(headerend + 4);
+                obj.ws.mode = 0;
                 return r;
-            } else if (chunksize > 0 && obj.amt.acc.length >= headerend + 4) {
+            } else if (chunksize > 0 && obj.ws.acc.length >= headerend + 4) {
                 // Send a chunk
-                r = obj.amt.acc.substring(0, headerend + chunksize + 4);
-                obj.amt.acc = obj.amt.acc.substring(headerend + chunksize + 4);
+                r = obj.ws.acc.substring(0, headerend + chunksize + 4);
+                obj.ws.acc = obj.ws.acc.substring(headerend + chunksize + 4);
                 return r;
             }
         } else if (obj.ws.mode == 3) { // Until Close Mode
