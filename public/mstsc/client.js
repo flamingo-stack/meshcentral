@@ -183,8 +183,8 @@
                         if (Mstsc.browser() == 'firefox') return; // this is needed because firefox pops up a PASTE option every second which is annoying
                         navigator.clipboard.readText()
                         .then(function(data){
-                            if(data != self.prevClipboard){
-                                self.prevClipboard = data;
+                            if(data != self.prevClipboardText){
+                                self.prevClipboardText = data;
                                 if (self.socket) { self.socket.send(JSON.stringify(['clipboard', data])); }
                             }
                         })
