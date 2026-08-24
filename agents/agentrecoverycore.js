@@ -1,4 +1,7 @@
 
+/*jshint node: true */
+/*jshint strict: false */
+"use strict";
 var http = require('http');
 var childProcess = require('child_process');
 var meshCoreObj = { "action": "coreinfo", "value": "MeshCore Recovery", "caps": 14 }; // Capability bitmask: 1 = Desktop, 2 = Terminal, 4 = Files, 8 = Console, 16 = JavaScript
@@ -255,18 +258,22 @@ require('MeshAgent').AddCommandHandler(function (data)
                                                         break;
                                                     case 'mkdir': {
                                                         // Create a new empty folder
+                                                        if ((cmd.path == null) || (cmd.path.indexOf('..') >= 0)) { break; }
                                                         fs.mkdirSync(cmd.path);
                                                         break;
                                                     }
                                                     case 'mkfile': {
                                                         // Create a new empty file
+                                                        if ((cmd.path == null) || (cmd.path.indexOf('..') >= 0)) { break; }
                                                         fs.closeSync(fs.openSync(cmd.path, 'w'));
                                                         break;
                                                     }
                                                     case 'rm': {
                                                         // Delete, possibly recursive delete
+                                                        if ((cmd.path == null) || (cmd.path.indexOf('..') >= 0)) { break; }
                                                         for (var i in cmd.delfiles)
                                                         {
+                                                            if ((cmd.delfiles[i] == null) || (cmd.delfiles[i].indexOf('..') >= 0)) { continue; }
                                                             try { deleteFolderRecursive(path.join(cmd.path, cmd.delfiles[i]), cmd.rec); } catch (e) { }
                                                         }
                                                         break;
@@ -469,3 +476,4 @@ function deleteFolderRecursive(path, rec) {
         fs.unlinkSync(path);
     }
 };
+
