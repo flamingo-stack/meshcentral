@@ -2,9 +2,10 @@ document.addEventListener("DOMContentLoaded", function () {
   const themeStylesheet = document.getElementById("theme-stylesheet");
 
   // Load saved theme from local storage
+  const ALLOWED_THEMES = ["default", "dark", "light"];
   const savedTheme = localStorage.getItem("theme");
   if (savedTheme) {
-    const safeTheme = ((savedTheme != 'default') ? encodeURIComponent(savedTheme) : encodeURIComponent('..'));
+    const safeTheme = ALLOWED_THEMES.includes(savedTheme) ? savedTheme : "default";
     themeStylesheet.href = `styles/themes/${safeTheme}/bootstrap-min.css`;
   }
 
@@ -19,3 +20,4 @@ document.addEventListener("DOMContentLoaded", function () {
     placeholder: $(this).data("placeholder"),
   });
 });
+
