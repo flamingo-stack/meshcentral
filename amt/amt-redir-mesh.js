@@ -81,7 +81,7 @@ module.exports.CreateAmtRedirect = function (module, domain, user, webserver, me
         var obj = new require('stream').Duplex(options);
         obj.forwardwrite = null;
         obj.updateBuffer = function (chunk) { this.push(chunk); };
-        obj._write = function (chunk, encoding, callback) { if (obj.forwardwrite != null) { obj.forwardwrite(chunk); } else { console.err('Failed to fwd _write.'); } if (callback) callback(); }; // Pass data written to forward
+        obj._write = function (chunk, encoding, callback) { if (obj.forwardwrite != null) { obj.forwardwrite(chunk); } else { console.error('Failed to fwd _write.'); } if (callback) callback(); }; // Pass data written to forward
         obj._read = function (size) { }; // Push nothing, anything to read should be pushed from updateBuffer()
         return obj;
     }
@@ -545,3 +545,4 @@ module.exports.CreateAmtRedirect = function (module, domain, user, webserver, me
 
 function ToIntStr(v) { return String.fromCharCode((v & 0xFF), ((v >> 8) & 0xFF), ((v >> 16) & 0xFF), ((v >> 24) & 0xFF)); }
 function ToShortStr(v) { return String.fromCharCode((v & 0xFF), ((v >> 8) & 0xFF)); }
+
