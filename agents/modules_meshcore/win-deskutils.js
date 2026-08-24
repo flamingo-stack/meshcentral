@@ -104,7 +104,7 @@ function sessionDispatch(tsid, parent, method, args)
 //
 function background_get(tsid)
 {
-    if (tsid != null || tsid === null) // TSID is not undefined or is explicitly null
+    if (tsid !== undefined) // TSID is not undefined
     {
         // Need to disatch to different session first
         return (sessionDispatch(tsid, 'background', 'get', []));
@@ -123,7 +123,7 @@ function background_get(tsid)
 //
 function background_set(path, tsid)
 {
-    if (tsid != null || tsid === null) // TSID is not undefined or is explicitly null
+    if (tsid !== undefined) // TSID is not undefined
     {
         // Need to disatch to different session first
         return (sessionDispatch(tsid, 'background', 'set', [path]));
@@ -160,7 +160,7 @@ function dispatch(parent, method, args)
 //
 function mousetrails_set(value, tsid)
 {
-    if (tsid != null || tsid === null) // TSID is not undefined or is explicitly null
+    if (tsid !== undefined) // TSID is not undefined
     {
         // Need to disatch to different session first
         return (sessionDispatch(tsid, 'mouse', 'setTrails', [value]));
@@ -178,7 +178,7 @@ function mousetrails_set(value, tsid)
 //
 function mousetrails_get(tsid)
 {
-    if (tsid != null || tsid === null) // TSID is not undefined or is explicitly null
+    if (tsid !== undefined) // TSID is not undefined
     {
         // Need to disatch to different session first
         return (sessionDispatch(tsid, 'mouse', 'getTrails', []));
@@ -205,7 +205,7 @@ function mousetrails_get(tsid)
 //
 function idle_getSeconds(tsid)
 {
-    if (tsid != null || tsid === null) // TSID is not undefined or is explicitly null
+    if (tsid !== undefined) // TSID is not undefined
     {
         // Need to dispatch to different session first
         return (sessionDispatch(tsid, 'idle', 'getSeconds', []));
