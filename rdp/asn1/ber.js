@@ -30,6 +30,7 @@ var error = require('../core').error;
  */
 function decodeTag(s, tag) {
 	var nextTag = new type.UInt8().read(s).value;
+	var nextTagNumber;
 	if (tag.tagNumber > 30) {
 		nextTagNumber = new type.UInt8().read(s).value;
 	}
@@ -109,3 +110,4 @@ module.exports = {
 	decode : decode,
 	encode : encode
 };
+

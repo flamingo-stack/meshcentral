@@ -74,7 +74,7 @@ var CreateWsmanComm = function (host, port, user, pass, tls, tlsoptions, mpsConn
         var obj = new require('stream').Duplex(options);
         obj.forwardwrite = null;
         obj.updateBuffer = function (chunk) { try { this.push(chunk); } catch (ex) { } };
-        obj._write = function (chunk, encoding, callback) { if (obj.forwardwrite != null) { obj.forwardwrite(chunk); } else { console.err("Failed to fwd _write."); } if (callback) callback(); }; // Pass data written to forward
+        obj._write = function (chunk, encoding, callback) { if (obj.forwardwrite != null) { obj.forwardwrite(chunk); } else { console.error("Failed to fwd _write."); } if (callback) callback(); }; // Pass data written to forward
         obj._read = function (size) { }; // Push nothing, anything to read should be pushed from updateBuffer()
         return obj;
     }

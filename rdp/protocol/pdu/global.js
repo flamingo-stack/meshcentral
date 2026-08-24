@@ -99,7 +99,7 @@ function Client(transport, fastPathTransport) {
 	this.clientCapabilities[caps.CapsType.CAPSTYPE_OFFSCREENCACHE] = caps.offscreenBitmapCacheCapability();
 	this.clientCapabilities[caps.CapsType.CAPSTYPE_VIRTUALCHANNEL] = caps.virtualChannelCapability();
 	this.clientCapabilities[caps.CapsType.CAPSTYPE_SOUND] = caps.soundCapability();
-	this.clientCapabilities[caps.CapsType.CAPSETTYPE_MULTIFRAGMENTUPDATE] = caps.multiFragmentUpdate();
+	this.clientCapabilities[caps.CapsETTYPE_MULTIFRAGMENTUPDATE] = caps.multiFragmentUpdate();
 }
 
 // inherit from Layer
@@ -205,6 +205,7 @@ Client.prototype.recvServerControlCooperatePDU = function(s) {
 		this.transport.once('data', function(s) {
 			self.recvServerControlCooperatePDU(s);
 		});
+		return;
 	}
 	
 	var self = this;
@@ -229,6 +230,7 @@ Client.prototype.recvServerControlGrantedPDU = function(s) {
 		this.transport.once('data', function(s) {
 			self.recvServerControlGrantedPDU(s);
 		});
+		return;
 	}
 	
 	var self = this;
@@ -252,6 +254,7 @@ Client.prototype.recvServerFontMapPDU = function(s) {
 		this.transport.once('data', function(s) {
 			self.recvServerFontMapPDU(s);
 		});
+		return;
 	}
 	
 	this.emit('connect');

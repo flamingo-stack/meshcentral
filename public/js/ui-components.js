@@ -32,24 +32,6 @@ class ModernModal {
         const sizeClass = this.options.size === 'large' ? 'modal-lg' :
                          this.options.size === 'extra-large' ? 'modal-xl' : '';
 
-        let modalContent = `
-            <div class="modal-dialog modal-dialog-centered ${sizeClass}">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">${title}</h5>
-                        ${this.options.showCloseButton ? '<button type="button" class="btn-close" data-bs-dismiss="modal"></button>' : ''}
-                    </div>
-                    <div class="modal-body">
-                        ${content}
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        ${okCallback ? `<button type="button" class="btn btn-primary" id="${this.modalId}OkBtn">${okButtonText}</button>` : ''}
-                    </div>
-                </div>
-            </div>
-        `;
-
         setModalContent(this.modalId, title, content, this.options.size);
 
         if (okCallback) {
@@ -393,3 +375,4 @@ if (typeof module !== 'undefined' && module.exports) {
         createIconUploadComponent
     };
 }
+

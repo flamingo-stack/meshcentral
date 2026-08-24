@@ -102,6 +102,7 @@ function windows_volumes()
                         var germanpass = (abc !== '' && abc.includes('Kennwort:') && !abc.includes('Numerisches Kennwort:')); // German Password
                         var frenchpass = (abc !== '' && abc.includes('Mot de passe :') && !abc.includes('Mot de passe num')); // French Password
                         if (englishidpass || germanidpass || frenchidpass|| englishpass || germanpass || frenchpass) {
+                            if (x + 1 >= lines.length) { continue; }
                             var nextline = lines[x + 1].trim();
                             if (x + 1 < lines.length && (nextline !== '' && (nextline.startsWith('ID:') || nextline.startsWith('ID :')) )) {
                                 identifier = nextline.replace('ID:','').replace('ID :', '').trim();

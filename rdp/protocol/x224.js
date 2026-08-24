@@ -44,6 +44,19 @@ var NegotiationType = {
 };
 
 /**
+ * Failure codes used in negotiation failure packet
+ * @see http://msdn.microsoft.com/en-us/library/cc240507.aspx
+ */
+var NegotiationFailureCode = {
+	SSL_REQUIRED_BY_SERVER : 0x00000001,
+	SSL_NOT_ALLOWED_BY_SERVER : 0x00000002,
+	SSL_CERT_NOT_ON_SERVER : 0x00000003,
+	INCONSISTENT_FLAGS : 0x00000004,
+	HYBRID_REQUIRED_BY_SERVER : 0x00000005,
+	SSL_WITH_USER_AUTH_REQUIRED_BY_SERVER : 0x00000006
+};
+
+/**
  * Protocols available for x224 layer
  */
 var Protocols = {
@@ -308,7 +321,7 @@ Server.prototype.recvConnectionRequest = function (s) {
 	
 	if (!(this.selectedProtocol & Protocols.PROTOCOL_SSL)) {
 		var confirm = serverConnectionConfirm();
-		confirm.obj.protocolNeg.obj.type.value = NegociationType.TYPE_RDP_NEG_FAILURE;
+		confirm.obj.protocolNeg.obj.type.value = NegotiationType.TYPE_RDP_NEG_FAILURE;
 		confirm.obj.protocolNeg.obj.result.value = NegotiationFailureCode.SSL_REQUIRED_BY_SERVER;
 		this.transport.send(confirm);
 		this.close();
@@ -347,3 +360,4 @@ module.exports = {
 		Client : Client,
 		Server : Server
 };
+

@@ -67,19 +67,15 @@ module.exports = {
     level: Levels.INFO, // Levels.INFO,
 	Levels: Levels,
     debug: function (message) {
-        //console.log(message);
-	    //logger.debug(message);
+        log('DEBUG', message);
 	},
     info: function (message) {
-        //console.log(message);
-	    //logger.info(message);
+        log('INFO', message);
 	},
     warn: function (message) {
-        //console.log(message);
-	    //logger.warn(message);
+        log('WARN', message);
 	},
     error: function (message) {
-        //console.log(message);
-	    //logger.error(message);
+        log('ERROR', message);
 	}
 };

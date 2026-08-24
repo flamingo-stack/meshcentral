@@ -233,7 +233,7 @@ function readLastBlock(state, func) {
                 var xtype = buf2.readUInt16BE(0); // Type (1 = Header, 2 = Network Data, 3 = End, 4 = Extra Metadata)
                 var xflags = buf2.readUInt16BE(2); // Flags (1 = Binary, 2 = User)
                 var xsize = buf2.readUInt32BE(4); // Size
-                var xtime = buf.readUIntBE(10, 6); // Time
+                var xtime = buf2.readUIntBE(10, 6); // Time
                 var buf3 = Buffer.alloc(xsize);
                 fs.read(state.recFile, buf3, 0, xsize, time + 16, function (err, bytesRead, buf3) {
                     func(state, true, xtime, JSON.parse(buf3.toString()));

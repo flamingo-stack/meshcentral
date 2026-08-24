@@ -218,12 +218,13 @@ function macos_memUtilization()
         mem.MemTotal = (mem.MemFree + mem.MemUsed);
         mem.percentFree = ((mem.MemFree / mem.MemTotal) * 100);//.toFixed(2);
         mem.percentConsumed = (((mem.MemTotal - mem.MemFree) / mem.MemTotal) * 100);//.toFixed(2);
-        return (mem);
+        ret._res(mem);
     }
     else
     {
-        throw ('Parse Error');
+        ret._rej('Parse Error');
     }
+    return (ret);
 }
 
 function windows_thermals()
@@ -243,7 +244,7 @@ function windows_thermals()
 function linux_thermals()
 {
     var ret = [];
-    child = require('child_process').execFile('/bin/sh', ['sh']);
+    var child = require('child_process').execFile('/bin/sh', ['sh']);
     child.stdout.str = ''; child.stdout.on('data', function (c) { this.str += c.toString(); });
     child.stderr.str = ''; child.stderr.on('data', function (c) { this.str += c.toString(); });
     child.stdin.write("for folder in /sys/class/thermal/thermal_zone*/; do [ -e \"$folder/temp\" ] && echo \"$(cat \"$folder/temp\"),$(cat \"$folder/type\")\"; done\nexit\n");
