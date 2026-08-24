@@ -63,7 +63,7 @@ RC4.prototype.encrypt = function (input) {
 RC4.prototype.decrypt = function (input) {
     var outputText = '';
     input = input.match(/[a-z0-9]{2}/gi);
-    for (var i = 0, ii = input.length; i < ii; i++) { outputText += String.fromCharCode((parseInt(input[i], 16) ^ byteStream.next().value)); }
+    for (var i = 0, ii = input.length; i < ii; i++) { outputText += String.fromCharCode((parseInt(input[i], 16) ^ this.byteStream.next().value)); }
     return outputText;
 }
 
