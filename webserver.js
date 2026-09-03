@@ -287,8 +287,22 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
 
     function EscapeHtml(x) { if (typeof x == 'string') return x.replace(/&/g, '&amp;').replace(/>/g, '&gt;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); if (typeof x == 'boolean') return x; if (typeof x == 'number') return x; }
     //function EscapeHtmlBreaks(x) { if (typeof x == "string") return x.replace(/&/g, '&amp;').replace(/>/g, '&gt;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;').replace(/\r/g, '<br />').replace(/\n/g, '').replace(/\t/g, '&nbsp;&nbsp;'); if (typeof x == "boolean") return x; if (typeof x == "number") return x; }
+    // Boot cache scope. All tenant servers share one database, and these three loads are what
+    // put every tenant's users, device groups and user groups into this pod's memory: the maps
+    // are keyed by full _id, so any lookup that does not separately re-check .domain resolves a
+    // foreign object (that is how 'changeuserpass' reached another tenant's admin, and how
+    // removeInactiveDevices found another tenant's device groups). Loading only our own domain
+    // removes the class rather than the individual call sites, and makes memory O(tenant)
+    // instead of O(fleet). Null outside OpenFrame mode, where the load stays unscoped.
+    const bootCacheDomain = (process.env.OPENFRAME_MODE === 'true')
+        ? require('./db.js').deriveTenantDomain(parent.config.domains)
+        : null;
+    const loadAllOfType = function (type, func) {
+        if (bootCacheDomain) { obj.db.GetAllTypeForDomain(type, bootCacheDomain, func); } else { obj.db.GetAllType(type, func); }
+    };
+
     // Fetch all users from the database, keep this in memory
-    obj.db.GetAllType('user', function (err, docs) {
+    loadAllOfType('user', function (err, docs) {
         if (err != null) { parent.diagLog('ERROR', new Date().toISOString() + ' ERROR: failed to load users from database at startup: ' + err); }
         obj.common.unEscapeAllLinksFieldName(docs);
         var domainUserCount = {}, i = 0;
@@ -305,7 +319,7 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
         // Fetch all device groups (meshes) from the database, keep this in memory
         // As we load things in memory, we will also be doing some cleaning up.
         // We will not save any clean up in the database right now, instead it will be saved next time there is a change.
-        obj.db.GetAllType('mesh', function (err, docs) {
+        loadAllOfType('mesh', function (err, docs) {
             // A failed device-group load (e.g. a transient Mongo timeout) silently left
             // obj.meshes empty, which makes the server orphan EVERY agent ("invalid
             // domain/mesh, holding connection") until the next restart. Surface it.
@@ -342,7 +356,7 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
             } catch (censusEx) { parent.diagLog('DEBUG', 'DB census error: ' + censusEx); }
 
             // Fetch all user groups from the database, keep this in memory
-            obj.db.GetAllType('ugrp', function (err, docs) {
+            loadAllOfType('ugrp', function (err, docs) {
                 obj.common.unEscapeAllLinksFieldName(docs);
 
                 // Perform user group link cleanup
