@@ -3075,16 +3075,52 @@ module.exports.CreateDB = function (parent, func) {
 
             // Database actions on the Server Stats collection
             obj.SetServerStats = function (data, func) { obj.serverstatsfile.insertOne(data, func); };
-            obj.GetServerStats = function (hours, func) { var t = new Date(); t.setTime(t.getTime() - (60 * 60 * 1000 * hours)); obj.serverstatsfile.find({ time: { $gt: t } }, { _id: 0, cpu: 0 }).toArray(func); };
+            // Server stats carry no tenant marker upstream — one server, one timeline. Here every
+            // tenant server writes into the same collection, so an unfiltered read shows each
+            // tenant the summed load of the whole fleet. The write side now stamps `domain`;
+            // rows written before that have none and are still shown during the transition so the
+            // timeline does not go blank. They expire on their own (expireServerStatsSeconds).
+            obj.GetServerStats = function (hours, func) {
+                var t = new Date(); t.setTime(t.getTime() - (60 * 60 * 1000 * hours));
+                var q = { time: { $gt: t } };
+                var d = openframeDomain();
+                if (d != null) { q.$or = [{ domain: d }, { domain: { $exists: false } }]; }
+                obj.serverstatsfile.find(q, { _id: 0, cpu: 0 }).toArray(func);
+            };
 
-            // Read a configuration file from the database
-            obj.getConfigFile = function (path, func) { obj.Get('cfile/' + path, func); }
+            // Read a configuration file from the database.
+            // Config files (certificates, terms, images) are keyed by bare filename upstream, so on
+            // a shared database every tenant server reads and writes the SAME row: whichever pod
+            // boots last wins, and all tenants end up with identical server certificates — hence an
+            // identical ServerID, which is exactly what agents pin.
+            //
+            // The key is scoped per tenant now. Reads fall back to the legacy shared row, and that
+            // fallback is what keeps certificates byte-identical through the migration: a pod pulls
+            // the shared certificate and pushes it back under its own key. Regenerating instead
+            // would change the ServerID and every installed agent would stop trusting the server.
+            obj.getConfigFile = function (path, func) {
+                var d = openframeDomain();
+                if (d == null) { obj.Get('cfile/' + path, func); return; }
+                obj.Get('cfile/' + d + '/' + path, function (err, docs) {
+                    if ((err == null) && (docs != null) && (docs.length > 0)) { func(err, docs); return; }
+                    obj.Get('cfile/' + path, func); // legacy shared row
+                });
+            }
 
             // Write a configuration file to the database
-            obj.setConfigFile = function (path, data, func) { obj.Set({ _id: 'cfile/' + path, type: 'cfile', data: data.toString('base64') }, func); }
+            obj.setConfigFile = function (path, data, func) {
+                var d = openframeDomain();
+                var doc = { _id: (d == null) ? ('cfile/' + path) : ('cfile/' + d + '/' + path), type: 'cfile', data: data.toString('base64') };
+                if (d != null) { doc.domain = d; }
+                obj.Set(doc, func);
+            }
 
             // List all configuration files
-            obj.listConfigFiles = function (func) { obj.file.find({ type: 'cfile' }).sort({ _id: 1 }).toArray(func); }
+            obj.listConfigFiles = function (func) {
+                var d = openframeDomain();
+                var q = (d == null) ? { type: 'cfile' } : { type: 'cfile', _id: { $regex: '^cfile/' + d + '/' } };
+                obj.file.find(q).sort({ _id: 1 }).toArray(func);
+            }
 
             // Get database information
             obj.getDbStats = function (func) {
@@ -3341,11 +3377,17 @@ module.exports.CreateDB = function (parent, func) {
 
         // Get all configuration files
         obj.getAllConfigFiles = function (password, func) {
+            const cfileDomain = openframeDomain();
             obj.GetAllType('cfile', function (err, docs) {
                 if (err != null) { func(null); return; }
                 var r = null;
                 for (var i = 0; i < docs.length; i++) {
-                    var name = docs[i]._id.split('/')[1];
+                    // Keys are 'cfile/<name>' (legacy, shared) or 'cfile/<domain>/<name>' (scoped),
+                    // so the file name is the last segment, not the second one. Skip other tenants'
+                    // rows: on a shared database GetAllType('cfile') returns the whole fleet's.
+                    var idParts = docs[i]._id.split('/');
+                    if ((cfileDomain != null) && (idParts.length > 2) && (idParts[1] !== cfileDomain)) continue;
+                    var name = idParts[idParts.length - 1];
                     var data = obj.decryptData(password, docs[i].data);
                     if (data != null) { if (r == null) { r = {}; } r[name] = data; }
                 }
