@@ -31,7 +31,7 @@ module.exports.CreateMQTTBroker = function (parent, db, args) {
 
     // Connection Authentication
     aedes.authenticate = function (client, username, password, callback) {
-        obj.parent.debug('mqtt', "Authentication User:" + username + ", Pass:" + password.toString() + ", ClientID:" + client.id + ", " + client.conn.xtransport + "://" + cleanRemoteAddr(client.conn.xip));
+        obj.parent.debug('mqtt', "Authentication User:" + username + ", ClientID:" + client.id + ", " + client.conn.xtransport + "://" + cleanRemoteAddr(client.conn.xip));
 
         // Parse the username and password
         var usersplit = username.split(':');
@@ -128,7 +128,7 @@ module.exports.CreateMQTTBroker = function (parent, db, args) {
         for (var i in clients) {
             // Only publish to client that subscribe to the topic
             if (clients[i].subscriptions[topic] != null) {
-                clients[i].publish({ cmd: 'publish', qos: 0, topic: topic, payload: message, retain: false }, function () { });
+                try { clients[i].publish({ cmd: 'publish', qos: 0, topic: topic, payload: message, retain: false }, function () { }); } catch (ex) { }
             }
         }
     }
