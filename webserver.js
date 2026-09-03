@@ -2254,7 +2254,13 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
         // If there is a login token, use that
         if (req.query.login != null) {
             var ucookie = parent.decodeCookie(req.query.login, parent.loginCookieEncryptionKey, 60); // Cookie with 1 hour timeout
-            if ((ucookie != null) && (ucookie.a === 3) && (typeof ucookie.u == 'string')) { user = obj.users[ucookie.u]; }
+            // The userid inside the cookie must belong to the domain this request was served on.
+            // Every other cookie acceptance point checks this (see the control websocket handler and
+            // the relay cookie above); this one did not, and obj.users is keyed by full id, so a
+            // token naming another domain's user resolved to that user. Sibling to the per-tenant
+            // cookie key: the key stops a foreign cookie from validating at all, this stops a
+            // validly-signed one from being used outside its domain.
+            if ((ucookie != null) && (ucookie.a === 3) && (typeof ucookie.u == 'string') && (ucookie.u.split('/')[1] == domain.id)) { user = obj.users[ucookie.u]; }
         }
 
         // If no token, see if we have an active session
