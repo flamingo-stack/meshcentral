@@ -40,7 +40,7 @@ stop() {
     else
       echo 'Service not running'
     fi
-    rm -f $"PIDFILE"
+    rm -f "$PIDFILE"
   fi
 }
 restart(){
@@ -82,3 +82,4 @@ case "$1" in
         ;;
 esac
 exit 0
+
