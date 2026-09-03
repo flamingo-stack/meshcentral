@@ -186,6 +186,44 @@ test('the write guard can be turned off for rollback', async () => {
     } finally { await client.close(); }
 });
 
+test('server stats are read per tenant, with legacy rows still visible', async () => {
+    const { client, db: raw } = await freshDatabase();
+    const { db } = await openDb(A);
+    try {
+        const now = new Date();
+        await raw.collection('serverstats').insertMany([
+            { time: now, domain: A, conn: { ca: 1 } },
+            { time: now, domain: B, conn: { ca: 2 } },
+            { time: now, conn: { ca: 3 } } // written before the domain field existed
+        ]);
+        const rows = await new Promise((res) => db.GetServerStats(24, (err, docs) => res(docs)));
+        const seen = rows.map((r) => r.conn.ca).sort();
+        assert.deepStrictEqual(seen, [1, 3], 'own rows plus legacy rows, never another tenant');
+    } finally { await client.close(); }
+});
+
+test('config files are stored per tenant and fall back to the shared legacy key', async () => {
+    const { client, db: raw } = await freshDatabase();
+    const { db } = await openDb(A);
+    try {
+        await new Promise((res) => db.setConfigFile('agentserver-cert-public.crt', Buffer.from('CERT'), res));
+        assert.strictEqual(await raw.collection('meshcentral').countDocuments({ _id: 'cfile/' + A + '/agentserver-cert-public.crt' }), 1);
+
+        // A file that only exists under the legacy shared key must still resolve: that fallback is
+        // what keeps certificates (and therefore the ServerID agents pin) identical through the
+        // migration, instead of every pod minting a new one.
+        await raw.collection('meshcentral').insertOne({ _id: 'cfile/legacy.crt', type: 'cfile', data: Buffer.from('LEGACY').toString('base64') });
+        const legacy = await new Promise((res) => db.getConfigFile('legacy.crt', (err, docs) => res(docs)));
+        assert.strictEqual(legacy.length, 1);
+        assert.strictEqual(legacy[0]._id, 'cfile/legacy.crt');
+
+        // Another tenant's file must not be listed.
+        await raw.collection('meshcentral').insertOne({ _id: 'cfile/' + B + '/secret.crt', type: 'cfile', data: 'x' });
+        const listed = await new Promise((res) => db.listConfigFiles((err, docs) => res(docs)));
+        assert.deepStrictEqual(ids(listed), ['cfile/' + A + '/agentserver-cert-public.crt']);
+    } finally { await client.close(); }
+});
+
 test('deriveTenantDomain picks the tenant, ignoring the default and share domains', () => {
     const { deriveTenantDomain } = require(path.join(MESH_DIR, 'db.js'));
     assert.strictEqual(deriveTenantDomain(config(A).domains), A);
