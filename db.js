@@ -1160,8 +1160,13 @@ module.exports.CreateDB = function (parent, func) {
                     console.log('WARNING: watch() is not a function, MongoDB ChangeStream not supported.');
                 } else {
                     const tenantDomain = deriveTenantDomain(parent.config.domains);
+                    // Own domain only. The empty domain used to be included here, but it is one
+                    // shared space in a shared database: anything landing in it is visible to every
+                    // tenant server, so treating it as ours contradicts the boot cache, which now
+                    // loads this domain alone. Keeping both in sync matters — a document the cache
+                    // does not hold must not arrive as a change event for an object we never loaded.
                     const changeStreamServerDomains = (process.env.OPENFRAME_MODE === 'true' && tenantDomain)
-                        ? [tenantDomain, '']
+                        ? [tenantDomain]
                         : Object.keys(parent.config.domains);
                     obj.fileChangeStream = obj.file.watch([{ $match: { $or: [{ 'fullDocument.type': { $in: ['node', 'mesh', 'user', 'ugrp'] } }, { 'operationType': 'delete' }] } }], { fullDocument: 'updateLookup' });
                     obj.fileChangeStream.on('change', function (change) {
