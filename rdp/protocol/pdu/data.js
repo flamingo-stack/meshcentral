@@ -129,16 +129,6 @@ var UpdateType = {
 };
 
 /**
- * @see http://msdn.microsoft.com/en-us/library/cc240608.aspx
- */
-var UpdateType = {
-    UPDATETYPE_ORDERS : 0x0000,
-    UPDATETYPE_BITMAP : 0x0001,
-    UPDATETYPE_PALETTE : 0x0002,
-    UPDATETYPE_SYNCHRONIZE : 0x0003
-};
-
-/**
  * @see http://msdn.microsoft.com/en-us/library/cc240583.aspx
  */
 var InputMessageType = {
@@ -704,7 +694,7 @@ function clientInputEventPDU(inputs, opt) {
 			return self.slowPathInputEvents.obj.length;
 		}),
         pad2Octets : new type.UInt16Le(),
-        slowPathInputEvents : inputs || new type.Factory(function(s) {
+        slowPathInputEvents : inputs || new type.Factory(function(s) {
         	self.slowPathInputEvents = new type.Component([]);
         	for(var i = 0; i < self.numEvents.value; i++) {
         		self.slowPathInputEvents.obj.push(slowPathInputEvent().read(s));
@@ -871,7 +861,7 @@ function bitmapUpdateDataPDU(data, opt) {
 		numberRectangles : new type.UInt16Le(function() {
 			return self.rectangles.obj.length;
 		}),
-        rectangles : data || new type.Factory(function(s) {
+        rectangles : data || new type.Factory(function(s) {
         	self.rectangles = new type.Component([]);
         	for(var i = 0; i < self.numberRectangles.value; i++) {
         		self.rectangles.obj.push(bitmapData().read(s));
@@ -943,7 +933,7 @@ function dataPDU(pduData, shareId, opt) {
 		}), function() {
 			return self.pduData.obj.__PDUTYPE2__;
 		}, shareId),
-		pduData : pduData || new type.Factory(function(s) {
+		pduData : pduData || new type.Factory(function(s) {
 			
 			//compute local readLength
 			var options = { readLength : new type.CallableValue(function() {
@@ -1164,7 +1154,7 @@ function fastPathUpdatePDU(updateData, opt) {
 		size : new type.UInt16Le( function () {
 			return self.updateData.size();
 		}),
-		updateData : updateData || new type.Factory( function (s) {
+		updateData : updateData || new type.Factory( function (s) {
 			var options = { readLength : new type.CallableValue( function () {
 				return self.size.value;
 			}) };
