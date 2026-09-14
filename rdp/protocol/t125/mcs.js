@@ -197,7 +197,7 @@ MCS.prototype.send = function(channelName, data) {
  * @param s {type.Stream}
  */
 MCS.prototype.recv = function(s) {
-	opcode = new type.UInt8().read(s).value;
+	var opcode = new type.UInt8().read(s).value;
 	
 	if (readMCSPDUHeader(opcode, DomainMCSPDU.DISCONNECT_PROVIDER_ULTIMATUM)) {
 		log.info("MCS DISCONNECT_PROVIDER_ULTIMATUM");
@@ -517,3 +517,4 @@ module.exports = {
 		Client : Client,
 		Server : Server
 };
+
