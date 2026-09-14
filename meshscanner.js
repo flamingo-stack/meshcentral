@@ -166,7 +166,7 @@ module.exports.CreateMeshScanner = function (parent) {
                     if ((typeof obj.parent.config.domains[''].title2 == 'string') && (obj.parent.config.domains[''].title2.length > 0)) { 
                         info = obj.common.replacePlaceholders(obj.parent.config.domains[''].title2, { 
                             'serverversion': obj.parent.currentVer,
-                            'servername': obj.getWebServerName(domain, req),
+                            'servername': parent.certificates.CommonName,
                             'agentsessions': Object.keys(parent.webserver.wsagents).length,
                             'connectedusers': Object.keys(parent.webserver.wssessions).length,
                             'userssessions': Object.keys(parent.webserver.wssessions2).length,
@@ -245,7 +245,7 @@ module.exports.CreateMeshScanner = function (parent) {
     function sendPendingPacket() {
         if (obj.pendingOutboundPackets.length == 0) { if (obj.pendingOutboundTimer != null) { clearInterval(obj.pendingOutboundTimer); obj.pendingOutboundTimer = null; } return; }
         var packet = obj.pendingOutboundPackets.shift();
-        if (packet != null) { packet[0].send(packet[1], 0, packet[1].length, packet[2], packet[3]); }
+        if (packet != null) { try { packet[0].send(packet[1], 0, packet[1].length, packet[2], packet[3]); } catch (e) { } }
     }
 
     // As a side job, we also send server wake-on-lan packets
