@@ -36,10 +36,12 @@ class Client extends Cliprdr {
 
         this.transport.once('connect', (gccCore, userId, channelId) => {
             this.connect(gccCore, userId, channelId);
-        }).on('close', function () {
-            //this.emit('close');
-        }).on('error', function (err) {
-            //this.emit('error', err);
+        }).on('close', () => {
+            log.debug('cliprdr : transport closed');
+            this.emit('close');
+        }).on('error', (err) => {
+            log.error('cliprdr : transport error ' + err);
+            this.emit('error', err);
         });
 
         this.content = '';
