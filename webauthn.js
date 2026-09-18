@@ -26,7 +26,7 @@ module.exports.CreateWebAuthnModule = function () {
         };
     }
 
-    obj.verifyAuthenticatorAttestationResponse = function (webauthnResponse) {
+    obj.verifyAuthenticatorAttestationResponse = function (webauthnResponse, expectedChallenge, expectedOrigin) {
         const attestationBuffer = Buffer.from(webauthnResponse.attestationObject, 'base64');
         const ctapMakeCredResp = cbor.decodeAllSync(attestationBuffer)[0];
         const authrDataStruct = parseMakeCredAuthData(ctapMakeCredResp.authData);
@@ -35,7 +35,26 @@ module.exports.CreateWebAuthnModule = function () {
 
         const response = { 'verified': false };
 
-        if ((ctapMakeCredResp.fmt === 'none') || (ctapMakeCredResp.fmt === 'fido-u2f') || (ctapMakeCredResp.fmt === 'packed')) {
+        // Verify clientDataJSON challenge, origin, and type
+        if (expectedChallenge || expectedOrigin) {
+            let clientData;
+            try {
+                clientData = JSON.parse(Buffer.from(webauthnResponse.clientDataJSON, 'base64').toString('utf8'));
+            } catch (e) {
+                throw new Error('Failed to parse clientDataJSON: ' + e.message);
+            }
+            if (expectedChallenge && clientData.challenge !== expectedChallenge) {
+                throw new Error('Registration challenge mismatch');
+            }
+            if (expectedOrigin && clientData.origin !== expectedOrigin) {
+                throw new Error('Registration origin mismatch');
+            }
+            if (clientData.type !== 'webauthn.create') {
+                throw new Error('Registration clientData type mismatch');
+            }
+        }
+
+        if (ctapMakeCredResp.fmt === 'none') {
             if (!(authrDataStruct.flags & 0x01)) { throw new Error('User was NOT presented during authentication!'); } // U2F_USER_PRESENTED
 
             const publicKey = COSEECDHAtoPKCS(authrDataStruct.COSEPublicKey);
@@ -49,21 +68,21 @@ module.exports.CreateWebAuthnModule = function () {
                     keyId: authrDataStruct.credID.toString('base64')
                 };
             }
-        }
-        /*
-        else if (ctapMakeCredResp.fmt === 'fido-u2f') {
-            if (!(authrDataStruct.flags & 0x01)) // U2F_USER_PRESENTED
-                throw new Error('User was NOT presented during authentication!');
+        } else if (ctapMakeCredResp.fmt === 'fido-u2f') {
+            if (!(authrDataStruct.flags & 0x01)) { throw new Error('User was NOT presented during authentication!'); } // U2F_USER_PRESENTED
 
-            const clientDataHash = hash(webauthnResponse.clientDataJSON)
+            const clientDataHash = hash(Buffer.from(webauthnResponse.clientDataJSON, 'base64'));
             const reservedByte = Buffer.from([0x00]);
-            const publicKey = COSEECDHAtoPKCS(authrDataStruct.COSEPublicKey)
+            const publicKey = COSEECDHAtoPKCS(authrDataStruct.COSEPublicKey);
             const signatureBase = Buffer.concat([reservedByte, authrDataStruct.rpIdHash, clientDataHash, authrDataStruct.credID, publicKey]);
 
+            if (!ctapMakeCredResp.attStmt || !ctapMakeCredResp.attStmt.x5c || !ctapMakeCredResp.attStmt.sig) {
+                throw new Error('fido-u2f attestation missing x5c or sig');
+            }
             const PEMCertificate = ASN1toPEM(ctapMakeCredResp.attStmt.x5c[0]);
             const signature = ctapMakeCredResp.attStmt.sig;
 
-            response.verified = verifySignature(signature, signatureBase, PEMCertificate)
+            response.verified = verifySignature(signature, signatureBase, PEMCertificate);
 
             if (response.verified) {
                 response.authrInfo = {
@@ -71,82 +90,42 @@ module.exports.CreateWebAuthnModule = function () {
                     publicKey: ASN1toPEM(publicKey),
                     counter: authrDataStruct.counter,
                     keyId: authrDataStruct.credID.toString('base64')
-                }
+                };
             }
-        } else if (ctapMakeCredResp.fmt === 'packed' && ctapMakeCredResp.attStmt.hasOwnProperty('x5c')) {
-            if (!(authrDataStruct.flags & 0x01)) // U2F_USER_PRESENTED
-                throw new Error('User was NOT presented durring authentication!');
-
-            const clientDataHash = hash(webauthnResponse.clientDataJSON)
-            const publicKey = COSEECDHAtoPKCS(authrDataStruct.COSEPublicKey)
-            const signatureBase = Buffer.concat([ctapMakeCredResp.authData, clientDataHash]);
-
-            const PEMCertificate = ASN1toPEM(ctapMakeCredResp.attStmt.x5c[0]);
-            const signature = ctapMakeCredResp.attStmt.sig;
-
-            const pem = Certificate.fromPEM(PEMCertificate);
-
-            // Getting requirements from https://www.w3.org/TR/webauthn/#packed-attestation
-            const aaguid_ext = pem.getExtension('1.3.6.1.4.1.45724.1.1.4')
-
-            response.verified = // Verify that sig is a valid signature over the concatenation of authenticatorData
-                // and clientDataHash using the attestation public key in attestnCert with the algorithm specified in alg.
-                verifySignature(signature, signatureBase, PEMCertificate) &&
-                // version must be 3 (which is indicated by an ASN.1 INTEGER with value 2)
-                pem.version == 3 &&
-                // ISO 3166 valid country
-                typeof iso_3166_1.whereAlpha2(pem.subject.countryName) !== 'undefined' &&
-                // Legal name of the Authenticator vendor (UTF8String)
-                pem.subject.organizationName &&
-                // Literal string “Authenticator Attestation” (UTF8String)
-                pem.subject.organizationalUnitName === 'Authenticator Attestation' &&
-                // A UTF8String of the vendor’s choosing
-                pem.subject.commonName &&
-                // The Basic Constraints extension MUST have the CA component set to false
-                !pem.extensions.isCA &&
-                // If attestnCert contains an extension with OID 1.3.6.1.4.1.45724.1.1.4 (id-fido-gen-ce-aaguid)
-                // verify that the value of this extension matches the aaguid in authenticatorData.
-                // The extension MUST NOT be marked as critical.
-                (aaguid_ext != null ?
-                    (authrDataStruct.hasOwnProperty('aaguid') ?
-                        !aaguid_ext.critical && aaguid_ext.value.slice(2).equals(authrDataStruct.aaguid) : false)
-                    : true);
-
-            if (response.verified) {
-                response.authrInfo = {
-                    fmt: 'fido-u2f',
-                    publicKey: publicKey,
-                    counter: authrDataStruct.counter,
-                    keyId: authrDataStruct.credID.toString('base64')
-                }
-            }
-
-        // Self signed
         } else if (ctapMakeCredResp.fmt === 'packed') {
-            if (!(authrDataStruct.flags & 0x01)) // U2F_USER_PRESENTED
-                throw new Error('User was NOT presented durring authentication!');
+            if (!(authrDataStruct.flags & 0x01)) { throw new Error('User was NOT presented during authentication!'); } // U2F_USER_PRESENTED
 
-            const clientDataHash = hash(webauthnResponse.clientDataJSON)
-            const publicKey = COSEECDHAtoPKCS(authrDataStruct.COSEPublicKey)
+            const clientDataHash = hash(Buffer.from(webauthnResponse.clientDataJSON, 'base64'));
+            const publicKey = COSEECDHAtoPKCS(authrDataStruct.COSEPublicKey);
             const signatureBase = Buffer.concat([ctapMakeCredResp.authData, clientDataHash]);
-            const PEMCertificate = ASN1toPEM(publicKey);
 
-            const { attStmt: { sig: signature, alg } } = ctapMakeCredResp
+            if (!ctapMakeCredResp.attStmt || !ctapMakeCredResp.attStmt.sig) {
+                throw new Error('packed attestation missing sig');
+            }
+            const signature = ctapMakeCredResp.attStmt.sig;
+            const alg = ctapMakeCredResp.attStmt.alg;
 
-            response.verified = // Verify that sig is a valid signature over the concatenation of authenticatorData
-                // and clientDataHash using the attestation public key in attestnCert with the algorithm specified in alg.
-                verifySignature(signature, signatureBase, PEMCertificate) && alg === -7
+            if (ctapMakeCredResp.attStmt.x5c) {
+                // Full attestation: verify with certificate
+                const PEMCertificate = ASN1toPEM(ctapMakeCredResp.attStmt.x5c[0]);
+                response.verified = verifySignature(signature, signatureBase, PEMCertificate);
+            } else {
+                // Self attestation: verify with the credential public key
+                const PEMPublicKey = ASN1toPEM(publicKey);
+                response.verified = verifySignature(signature, signatureBase, PEMPublicKey) && alg === -7;
+            }
 
             if (response.verified) {
                 response.authrInfo = {
-                    fmt: 'fido-u2f',
+                    fmt: 'packed',
                     publicKey: ASN1toPEM(publicKey),
                     counter: authrDataStruct.counter,
                     keyId: authrDataStruct.credID.toString('base64')
-                }
+                };
             }
-
-        } else if (ctapMakeCredResp.fmt === 'android-safetynet') {
+        }
+        /*
+        else if (ctapMakeCredResp.fmt === 'android-safetynet') {
             console.log("Android safetynet request\n")
             console.log(ctapMakeCredResp)
 
@@ -197,11 +176,37 @@ module.exports.CreateWebAuthnModule = function () {
         return response;
     }
 
-    obj.verifyAuthenticatorAssertionResponse = function (webauthnResponse, authr) {
+    obj.verifyAuthenticatorAssertionResponse = function (webauthnResponse, authr, expectedChallenge, expectedOrigin) {
         const response = { 'verified': false }
+
+        // Verify clientDataJSON challenge, origin, and type
+        if (expectedChallenge || expectedOrigin) {
+            let clientData;
+            try {
+                clientData = JSON.parse(Buffer.from(webauthnResponse.clientDataJSON, 'base64').toString('utf8'));
+            } catch (e) {
+                throw new Error('Failed to parse clientDataJSON: ' + e.message);
+            }
+            if (expectedChallenge && clientData.challenge !== expectedChallenge) {
+                throw new Error('Assertion challenge mismatch');
+            }
+            if (expectedOrigin && clientData.origin !== expectedOrigin) {
+                throw new Error('Assertion origin mismatch');
+            }
+            if (clientData.type !== 'webauthn.get') {
+                throw new Error('Assertion clientData type mismatch');
+            }
+        }
+
         if (['fido-u2f'].includes(authr.fmt)) {
             const authrDataStruct = parseGetAssertAuthData(webauthnResponse.authenticatorData);
             if (!(authrDataStruct.flags & 0x01)) { throw new Error('User was not presented durring authentication!'); } // U2F_USER_PRESENTED
+
+            // Check counter to detect cloned authenticators
+            if (authrDataStruct.counter !== 0 && authrDataStruct.counter <= authr.counter) {
+                throw new Error('Counter did not increment — possible authenticator clone detected');
+            }
+
             response.counter = authrDataStruct.counter;
             response.verified = verifySignature(webauthnResponse.signature, Buffer.concat([authrDataStruct.rpIdHash, authrDataStruct.flagsBuf, authrDataStruct.counterBuf, hash(webauthnResponse.clientDataJSON)]), authr.publicKey);
         }
