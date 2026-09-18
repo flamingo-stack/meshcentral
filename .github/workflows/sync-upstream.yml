@@ -46,4 +46,6 @@ jobs:
 
           gh pr create --repo "$GITHUB_REPOSITORY" --base master --head "$BRANCH" \
             --title "Sync from Fork" \
-            --body "Automatic weekly sync from \`Ylianst/MeshCentral@master\`."
+            --body "Automatic weekly sync from \`Ylianst/MeshCentral@master\`. **This PR pulls unreviewed third-party upstream history and requires maintainer review and explicit approval before merging — do not enable auto-merge.**"
+
+</br>

@@ -144,7 +144,7 @@ function CreateAPFClient(parent, args) {
     obj.onSecureConnect = function onSecureConnect(resp, ws, head) {
         Debug("APF Secure WebSocket connected.");
         //console.log(JSON.stringify(resp));                
-        obj.forwardClient.tag = { accumulator: [] };
+        obj.forwardClient.tag = { accumulator: '' };
         obj.forwardClient.ws = ws;
         obj.forwardClient.ws.on('end', function () {
             Debug("APF: Connection is closing.");
