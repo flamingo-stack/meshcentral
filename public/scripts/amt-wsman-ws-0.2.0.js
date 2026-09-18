@@ -105,7 +105,7 @@ var CreateWsmanComm = function (host, port, user, pass, tls) {
     // Websocket relay specific private method
     obj.renderDigest = function (params) {
         var paramsnames = [];
-        for (i in params) { paramsnames.push(i); }
+        for (var i in params) { paramsnames.push(i); }
         return 'Digest ' + paramsnames.reduce(function (s1, ii) { return s1 + ',' + (((ii == 'nc') || (ii == 'qop')) ? (ii + '=' + params[ii]) : (ii + '="' + params[ii] + '"')); }, '').substring(1);
     }
 
@@ -128,7 +128,7 @@ var CreateWsmanComm = function (host, port, user, pass, tls) {
     function _OnSocketConnected() {
         //obj.Debug("xxOnSocketConnected");
         obj.socketState = 2;
-        for (i in obj.pendingAjaxCall) { obj.sendRequest(obj.pendingAjaxCall[i][0], obj.pendingAjaxCall[i][3], obj.pendingAjaxCall[i][4]); }
+        for (var i in obj.pendingAjaxCall) { obj.sendRequest(obj.pendingAjaxCall[i][0], obj.pendingAjaxCall[i][3], obj.pendingAjaxCall[i][4]); }
     }
 
     // Websocket relay specific private method
@@ -146,7 +146,7 @@ var CreateWsmanComm = function (host, port, user, pass, tls) {
                 obj.socketParseState = 1;
                 obj.socketData = '';
                 obj.socketXHeader = { Directive: obj.socketHeader[0].split(' ') };
-                for (i in obj.socketHeader) {
+                for (var i in obj.socketHeader) {
                     if (i != 0) {
                         var x2 = obj.socketHeader[i].indexOf(':');
                         obj.socketXHeader[obj.socketHeader[i].substring(0, x2).toLowerCase()] = obj.socketHeader[i].substring(x2 + 2);

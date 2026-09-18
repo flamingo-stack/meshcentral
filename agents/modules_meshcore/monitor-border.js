@@ -44,6 +44,7 @@ function windows_monitorborder()
 
     this.Stop = function Stop()
     {
+        clearInterval(info.redInterval);
         info.redInterval = null;
 
         var drawRect = gm.CreateVariable(16);
@@ -144,6 +145,7 @@ function linux_monitorborder()
 
     this.Stop = function Stop()
     {
+        clearTimeout(this._timeout);
         this._timeout = null;
         if(!this._isUnity)
         {
@@ -326,6 +328,7 @@ switch(process.platform)
     default:
         break;
 }
+
 
 
 
