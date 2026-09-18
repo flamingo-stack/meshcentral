@@ -1,3 +1,6 @@
+/*jshint node: true */
+"use strict";
+
 /**
 * @description MQTT broker reference implementation based on AEDES
 * @author Joko Banu Sastriawan, Ylian Saint-Hilaire
@@ -153,3 +156,4 @@ module.exports.CreateMQTTBroker = function (parent, db, args) {
 
     return obj;
 }
+
