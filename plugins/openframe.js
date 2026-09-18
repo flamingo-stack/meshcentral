@@ -6,6 +6,12 @@ const path = require('path');
 const MESH_DIR = process.env.MESH_DIR || '/opt/mesh';
 const MESH_DEVICE_GROUP = process.env.MESH_DEVICE_GROUP || '';
 
+// Hostname/IPv4 validation for the /generate-msh `host` parameter: restricts to a safe
+// charset and structure (labels separated by dots, optional :port) to prevent SSRF-style
+// redirection and config injection (e.g. via newlines/control characters) into the
+// generated .msh file. Does not attempt DNS-based allowlisting of specific servers.
+const HOST_PATTERN = /^[A-Za-z0-9]([A-Za-z0-9-]{0,62})?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,62})?)*(:[0-9]{1,5})?$/;
+
 // --- Helpers ---
 
 function corsHeaders(res) {
@@ -74,6 +80,15 @@ module.exports.openframe = function (pluginHandler) {
 
       var protocol = host.startsWith('http://') ? 'ws' : 'wss';
       var cleanHost = host.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
+
+      // Validate the cleaned host against a strict allowlist pattern before it is embedded
+      // into the generated agent config. Rejects control characters, newlines, and any
+      // value that isn't a plain hostname/IPv4 with an optional port, preventing both
+      // agent-redirection (SSRF-like) and MSH config injection via crafted `host` values.
+      if (!HOST_PATTERN.test(cleanHost)) {
+        return sendError(res, 400, 'Invalid host parameter');
+      }
+
       var meshServerUrl = protocol + '://' + cleanHost + '/ws/tools/agent/meshcentral-server/agent.ashx';
 
       var mshContent = [
@@ -113,6 +128,7 @@ module.exports.openframe = function (pluginHandler) {
 
       // 1. Verify device exists in DB
       db.Get(nodeId, function (err, docs) {
+        if (err) log('db.Get error for ' + nodeId + ': ' + err);
         if (docs == null || docs.length !== 1) return sendError(res, 404, 'Device not found');
 
         // 2. Live connectivity state from MeshCentral in-memory store
@@ -121,6 +137,7 @@ module.exports.openframe = function (pluginHandler) {
 
         // 3. Last connection record from DB
         db.Get('lc' + nodeId, function (err, docs) {
+          if (err) log('db.Get error for lc' + nodeId + ': ' + err);
           var lc = (docs != null && docs.length === 1) ? docs[0] : null;
 
           res.json({

@@ -49,7 +49,7 @@ var CreateKvmDataChannel = function (webchannel, module, keepalive) {
                 // Chrome & Firefox (Draft)
                 fileReaderInuse = true;
                 fileReader.readAsBinaryString(new Blob([e.data]));
-            } else if (f.readAsArrayBuffer) {
+            } else if (fileReader.readAsArrayBuffer) {
                 // Chrome & Firefox (Spec)
                 fileReaderInuse = true;
                 fileReader.readAsArrayBuffer(e.data);
@@ -144,3 +144,4 @@ var CreateKvmDataChannel = function (webchannel, module, keepalive) {
 
     return obj;
 }
+
