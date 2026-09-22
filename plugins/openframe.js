@@ -52,17 +52,20 @@ function readRecordingMetadata(filePath, cb) {
     var done = function (e, meta) { fs.close(fd, function () { cb(e, meta); }); };
     var header = Buffer.alloc(16);
     fs.read(fd, header, 0, 16, 0, function (err, n) {
-      if (err || n < 16) return done(err || new Error('short header'));
-      var type = header.readInt16BE(0), size = header.readInt32BE(4);
-      if (type !== 1 || size <= 0 || size > RECORDING_METADATA_MAX_BYTES) return done(new Error('unexpected first record'));
-      var body = Buffer.alloc(size);
-      fs.read(fd, body, 0, size, 16, function (err, n) {
-        if (err || n < size) return done(err || new Error('short metadata'));
-        var meta;
-        try { meta = JSON.parse(body.toString('utf8')); } catch (ex) { return done(ex); }
-        if (meta == null || typeof meta != 'object' || meta.magic !== 'MeshCentralRelaySession') return done(new Error('not a relay session recording'));
-        done(null, meta);
-      });
+      try {
+        if (err || n < 16) return done(err || new Error('short header'));
+        var type = header.readInt16BE(0), size = header.readInt32BE(4);
+        if (type !== 1 || size <= 0 || size > RECORDING_METADATA_MAX_BYTES) return done(new Error('unexpected first record'));
+        var body = Buffer.alloc(size);
+        fs.read(fd, body, 0, size, 16, function (err, n) {
+          try {
+            if (err || n < size) return done(err || new Error('short metadata'));
+            var meta = JSON.parse(body.toString('utf8'));
+            if (meta == null || typeof meta != 'object' || meta.magic !== 'MeshCentralRelaySession') return done(new Error('not a relay session recording'));
+            done(null, meta);
+          } catch (ex) { done(ex); }
+        });
+      } catch (ex) { done(ex); }
     });
   });
 }
@@ -87,12 +90,13 @@ function getAccessToken(cb) {
     res.on('data', function (c) { chunks.push(c); });
     res.on('close', function () { settle(new Error('metadata server closed the response early')); });
     res.on('end', function () {
-      if (res.statusCode !== 200) return settle(new Error('metadata server answered ' + res.statusCode));
-      var t = null;
-      try { t = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch (ex) { return settle(ex); }
-      if (t == null || typeof t.access_token != 'string') return settle(new Error('metadata server answered without a token'));
-      tokenCache = { token: t.access_token, expiresAt: Date.now() + ((t.expires_in || 0) * 1000) };
-      settle(null, t.access_token);
+      try {
+        if (res.statusCode !== 200) return settle(new Error('metadata server answered ' + res.statusCode));
+        var t = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        if (t == null || typeof t.access_token != 'string') return settle(new Error('metadata server answered without a token'));
+        tokenCache = { token: t.access_token, expiresAt: Date.now() + ((t.expires_in || 0) * 1000) };
+        settle(null, t.access_token);
+      } catch (ex) { settle(ex); }
     });
   });
   req.on('timeout', function () { req.destroy(new Error('metadata server timeout')); });
@@ -127,6 +131,31 @@ function uploadObject(token, key, filePath, size, cb) {
   body.pipe(req);
 }
 
+// Size of an existing object, used to tell a lost-response retry from a real key collision.
+function getObjectSize(token, key, cb) {
+  var settled = false;
+  var settle = function (err, size) { if (settled) return; settled = true; cb(err, size); };
+  var req = https.request({
+    host: GCS_UPLOAD_HOST,
+    path: '/storage/v1/b/' + encodeURIComponent(MESH_RECORDINGS_BUCKET) + '/o/' + encodeURIComponent(key) + '?fields=size',
+    headers: { 'Authorization': 'Bearer ' + token },
+    timeout: 15000
+  }, function (res) {
+    var chunks = [];
+    res.on('data', function (c) { chunks.push(c); });
+    res.on('close', function () { settle(new Error('storage closed the response early')); });
+    res.on('end', function () {
+      try {
+        if (res.statusCode !== 200) return settle(new Error('storage answered ' + res.statusCode + ' to the size check'));
+        settle(null, parseInt(JSON.parse(Buffer.concat(chunks).toString('utf8')).size, 10));
+      } catch (ex) { settle(ex); }
+    });
+  });
+  req.on('timeout', function () { req.destroy(new Error('storage size check timeout')); });
+  req.on('error', settle);
+  req.end();
+}
+
 var uploadsInFlight = {};
 
 function uploadRecording(filePath, tenantDomain, attempt, expectedNodeId) {
@@ -151,13 +180,21 @@ function uploadRecording(filePath, tenantDomain, attempt, expectedNodeId) {
       if (tenantDomain !== '' && target.domain !== tenantDomain) { finish(); log('Skipping recording from another domain ' + filePath); return; }
       getAccessToken(function (err, token) {
         if (err) return retry(err);
-        uploadObject(token, target.key, filePath, st.size, function (err, status) {
-          if (err) return retry(err);
+        var removeLocal = function (note) {
           fs.unlink(filePath, function (err) {
             finish();
             if (err) log('Uploaded ' + target.key + ' but could not delete ' + filePath + ': ' + err.message);
-            else if (status === 412) log('WARNING: ' + target.key + ' already existed, the local ' + st.size + '-byte copy was dropped');
-            else log('Uploaded ' + target.key + ' (' + st.size + ' bytes)');
+            else log('Uploaded ' + target.key + ' (' + st.size + ' bytes' + note + ')');
+          });
+        };
+        uploadObject(token, target.key, filePath, st.size, function (err, status) {
+          if (err) return retry(err);
+          if (status !== 412) return removeLocal('');
+          getObjectSize(token, target.key, function (err, size) {
+            if (err) return retry(err);
+            if (size === st.size) return removeLocal(', already present');
+            finish();
+            log('WARNING: ' + target.key + ' already exists with ' + size + ' bytes, keeping the local ' + st.size + '-byte file ' + filePath);
           });
         });
       });
@@ -172,7 +209,7 @@ function recordingDir(parent, domain) {
 
 function recordingFilePath(parent, event) {
   var base = (typeof event.filename == 'string') ? path.basename(event.filename) : '';
-  if (base === '' || base !== event.filename) return null;
+  if (base === '' || base === '.' || base === '..' || base !== event.filename) return null;
   return path.join(recordingDir(parent, (parent.config.domains || {})[event.domain]), base);
 }
 
