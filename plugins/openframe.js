@@ -15,6 +15,7 @@ const METADATA_HOST = '169.254.169.254';
 const METADATA_TOKEN_PATH = '/computeMetadata/v1/instance/service-accounts/default/token';
 const UPLOAD_RETRY_DELAYS_MS = [5000, 15000, 45000, 135000, 300000];
 const RECORDING_METADATA_MAX_BYTES = 65536;
+const JSON_RESPONSE_MAX_BYTES = 65536;
 const SWEEP_MIN_AGE_MS = 30000;
 
 // --- Helpers ---
@@ -78,6 +79,22 @@ function recordingObjectKey(meta) {
   return { domain: nodeParts[1], key: nodeParts[1] + '/recordings/' + nodeParts[2] + '/' + meta.sessionid + '.mcrec' };
 }
 
+// Collects a small JSON response; anything larger than the cap is cut off as an error.
+function readJsonResponse(res, what, cb) {
+  var chunks = [], total = 0, settled = false;
+  var settle = function (err, value) { if (settled) return; settled = true; cb(err, value); };
+  res.on('data', function (c) {
+    total += c.length;
+    if (total > JSON_RESPONSE_MAX_BYTES) { res.destroy(new Error(what + ' response too large')); return; }
+    chunks.push(c);
+  });
+  res.on('error', settle);
+  res.on('close', function () { settle(new Error(what + ' closed the response early')); });
+  res.on('end', function () {
+    try { settle(null, JSON.parse(Buffer.concat(chunks).toString('utf8'))); } catch (ex) { settle(ex); }
+  });
+}
+
 var tokenCache = { token: null, expiresAt: 0 };
 
 // Workload Identity: the GKE metadata server hands out a token for the pod's service account.
@@ -86,17 +103,12 @@ function getAccessToken(cb) {
   var settled = false;
   var settle = function (err, token) { if (settled) return; settled = true; cb(err, token); };
   var req = http.request({ host: METADATA_HOST, path: METADATA_TOKEN_PATH, headers: { 'Metadata-Flavor': 'Google' }, timeout: 5000 }, function (res) {
-    var chunks = [];
-    res.on('data', function (c) { chunks.push(c); });
-    res.on('close', function () { settle(new Error('metadata server closed the response early')); });
-    res.on('end', function () {
-      try {
-        if (res.statusCode !== 200) return settle(new Error('metadata server answered ' + res.statusCode));
-        var t = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-        if (t == null || typeof t.access_token != 'string') return settle(new Error('metadata server answered without a token'));
-        tokenCache = { token: t.access_token, expiresAt: Date.now() + ((t.expires_in || 0) * 1000) };
-        settle(null, t.access_token);
-      } catch (ex) { settle(ex); }
+    if (res.statusCode !== 200) { res.resume(); return settle(new Error('metadata server answered ' + res.statusCode)); }
+    readJsonResponse(res, 'metadata server', function (err, t) {
+      if (err) return settle(err);
+      if (t == null || typeof t.access_token != 'string') return settle(new Error('metadata server answered without a token'));
+      tokenCache = { token: t.access_token, expiresAt: Date.now() + ((t.expires_in || 0) * 1000) };
+      settle(null, t.access_token);
     });
   });
   req.on('timeout', function () { req.destroy(new Error('metadata server timeout')); });
@@ -116,6 +128,7 @@ function uploadObject(token, key, filePath, size, cb) {
     timeout: 60000
   }, function (res) {
     res.resume();
+    res.on('error', settle);
     res.on('close', function () { settle(new Error('storage closed the response early')); });
     res.on('end', function () {
       if ((res.statusCode >= 200 && res.statusCode < 300) || res.statusCode === 412) return settle(null, res.statusCode);
@@ -141,14 +154,12 @@ function getObjectSize(token, key, cb) {
     headers: { 'Authorization': 'Bearer ' + token },
     timeout: 15000
   }, function (res) {
-    var chunks = [];
-    res.on('data', function (c) { chunks.push(c); });
-    res.on('close', function () { settle(new Error('storage closed the response early')); });
-    res.on('end', function () {
-      try {
-        if (res.statusCode !== 200) return settle(new Error('storage answered ' + res.statusCode + ' to the size check'));
-        settle(null, parseInt(JSON.parse(Buffer.concat(chunks).toString('utf8')).size, 10));
-      } catch (ex) { settle(ex); }
+    if (res.statusCode !== 200) { res.resume(); return settle(new Error('storage answered ' + res.statusCode + ' to the size check')); }
+    readJsonResponse(res, 'storage', function (err, o) {
+      if (err) return settle(err);
+      var size = (o != null) ? parseInt(o.size, 10) : NaN;
+      if (isNaN(size)) return settle(new Error('storage answered without a size'));
+      settle(null, size);
     });
   });
   req.on('timeout', function () { req.destroy(new Error('storage size check timeout')); });
