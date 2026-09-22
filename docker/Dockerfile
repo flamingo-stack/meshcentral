@@ -8,7 +8,8 @@ RUN apk add --no-cache --update \
 COPY ./ /opt/meshcentral/meshcentral/
 WORKDIR /opt/meshcentral/meshcentral
 
-RUN jq '.dependencies += {"modern-syslog": "1.2.0", "telegram": "2.26.22", "mongodb": "4.17.2", "@mongodb-js/saslprep": "1.3.1"}' package.json > temp.json && mv temp.json package.json \
+# image-size: meshcentral.js requires it at startup whenever a domain has sessionRecording, and the runtime image has no npm.
+RUN jq '.dependencies += {"modern-syslog": "1.2.0", "telegram": "2.26.22", "mongodb": "4.17.2", "@mongodb-js/saslprep": "1.3.1", "image-size": "2.0.2"}' package.json > temp.json && mv temp.json package.json \
     && npm i --package-lock-only \
     && npm ci --omit=dev \
     && npm cache clean --force
