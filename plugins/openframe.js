@@ -73,9 +73,9 @@ function readRecordingMetadata(filePath, cb) {
 // <domain>/recordings/<node hash>/<relay id>.mcrec; the backend derives the same key from the relay recording event.
 function recordingObjectKey(meta) {
   var nodeParts = (typeof meta.nodeid == 'string') ? meta.nodeid.split('/') : [];
-  if (nodeParts.length !== 3 || nodeParts[0] !== 'node' || !/^[A-Za-z0-9@$_-]+$/.test(nodeParts[2])) return null;
+  if (nodeParts.length !== 3 || nodeParts[0] !== 'node' || nodeParts[1] === '' || !/^[A-Za-z0-9@$_-]+$/.test(nodeParts[2])) return null;
   if (typeof meta.sessionid != 'string' || !/^[A-Za-z0-9._-]{1,200}$/.test(meta.sessionid)) return null;
-  return { domain: nodeParts[1], key: (nodeParts[1] ? nodeParts[1] + '/' : '') + 'recordings/' + nodeParts[2] + '/' + meta.sessionid + '.mcrec' };
+  return { domain: nodeParts[1], key: nodeParts[1] + '/recordings/' + nodeParts[2] + '/' + meta.sessionid + '.mcrec' };
 }
 
 var tokenCache = { token: null, expiresAt: 0 };
@@ -169,16 +169,18 @@ function uploadRecording(filePath, tenantDomain, attempt, expectedNodeId) {
     log('Recording upload failed (' + err.message + '), retrying ' + filePath + ' in ' + (delay / 1000) + 's');
     setTimeout(function () { uploadRecording(filePath, tenantDomain, attempt + 1, expectedNodeId); }, delay);
   };
-  fs.stat(filePath, function (err, st) {
+  // Every callback below runs guarded, so a throw releases the in-flight flag and counts as a failed attempt.
+  var guarded = function (fn) { return function () { try { fn.apply(null, arguments); } catch (ex) { retry(ex); } }; };
+  fs.stat(filePath, guarded(function (err, st) {
     if (err) { finish(); log('Recording vanished before upload: ' + filePath); return; }
-    readRecordingMetadata(filePath, function (err, meta) {
+    readRecordingMetadata(filePath, guarded(function (err, meta) {
       if (err) { finish(); log('Skipping unreadable recording ' + filePath + ': ' + err.message); return; }
       if (String(meta.protocol) !== '2') { finish(); log('Skipping non-desktop recording ' + filePath); return; }
       if (expectedNodeId != null && meta.nodeid !== expectedNodeId) { finish(); log('Skipping recording whose header names another node: ' + filePath); return; }
       var target = recordingObjectKey(meta);
       if (target == null) { finish(); log('Skipping recording without a usable node id or relay id in its header: ' + filePath); return; }
       if (tenantDomain !== '' && target.domain !== tenantDomain) { finish(); log('Skipping recording from another domain ' + filePath); return; }
-      getAccessToken(function (err, token) {
+      getAccessToken(guarded(function (err, token) {
         if (err) return retry(err);
         var removeLocal = function (note) {
           fs.unlink(filePath, function (err) {
@@ -187,19 +189,19 @@ function uploadRecording(filePath, tenantDomain, attempt, expectedNodeId) {
             else log('Uploaded ' + target.key + ' (' + st.size + ' bytes' + note + ')');
           });
         };
-        uploadObject(token, target.key, filePath, st.size, function (err, status) {
+        uploadObject(token, target.key, filePath, st.size, guarded(function (err, status) {
           if (err) return retry(err);
           if (status !== 412) return removeLocal('');
-          getObjectSize(token, target.key, function (err, size) {
+          getObjectSize(token, target.key, guarded(function (err, size) {
             if (err) return retry(err);
             if (size === st.size) return removeLocal(', already present');
             finish();
             log('WARNING: ' + target.key + ' already exists with ' + size + ' bytes, keeping the local ' + st.size + '-byte file ' + filePath);
-          });
-        });
-      });
-    });
-  });
+          }));
+        }));
+      }));
+    }));
+  }));
 }
 
 function recordingDir(parent, domain) {
