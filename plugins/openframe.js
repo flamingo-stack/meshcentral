@@ -8,8 +8,13 @@ const MESH_DEVICE_GROUP = process.env.MESH_DEVICE_GROUP || '';
 
 // --- Helpers ---
 
-function corsHeaders(res) {
-  res.set('Access-Control-Allow-Origin', '*');
+const ALLOWED_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS || '').split(',').filter(Boolean);
+function corsHeaders(req, res) {
+  var origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+    res.set('Vary', 'Origin');
+  }
   res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.set('Access-Control-Allow-Headers', 'Content-Type, X-MeshAuth');
 }
@@ -32,6 +37,22 @@ function deriveTenantDomain(domains) {
   return '';
 }
 
+// Validate the X-MeshAuth shared secret. Returns true if the request is authenticated.
+var MESH_AUTH_SECRET = process.env.MESH_AUTH_SECRET || '';
+function checkAuth(req, res) {
+  if (!MESH_AUTH_SECRET) {
+    // No secret configured — deny all to avoid accidentally open endpoints
+    sendError(res, 403, 'Authentication not configured');
+    return false;
+  }
+  var provided = req.headers['x-meshauth'] || '';
+  if (provided !== MESH_AUTH_SECRET) {
+    sendError(res, 401, 'Unauthorized');
+    return false;
+  }
+  return true;
+}
+
 // --- Plugin ---
 
 module.exports.openframe = function (pluginHandler) {
@@ -51,13 +72,15 @@ module.exports.openframe = function (pluginHandler) {
 
     // CORS preflight
     app.options(['/generate-msh', '/api/*'], function (req, res) {
-      corsHeaders(res);
+      corsHeaders(req, res);
       res.sendStatus(204);
     });
 
     // Route 1: GET /generate-msh?host=X - Generate custom MSH agent config
     app.get('/generate-msh', function (req, res) {
-      corsHeaders(res);
+      corsHeaders(req, res);
+
+      if (!checkAuth(req, res)) return;
 
       var host = req.query.host;
       if (!host) return sendError(res, 400, 'Missing required parameter: host');
@@ -95,7 +118,9 @@ module.exports.openframe = function (pluginHandler) {
     // Route 2: GET /api/deviceStatus?id=node/<domain>/<hash> - Get device status
     // Uses MeshCentral core: GetConnectivityState() (in-memory) + db 'lc' record
     app.get('/api/deviceStatus', function (req, res) {
-      corsHeaders(res);
+      corsHeaders(req, res);
+
+      if (!checkAuth(req, res)) return;
 
       var nodeId = req.query.id;
       if (!nodeId) return sendError(res, 400, 'Missing required parameter: id');
