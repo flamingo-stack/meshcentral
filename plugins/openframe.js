@@ -71,12 +71,14 @@ function readRecordingMetadata(filePath, cb) {
   });
 }
 
-// <domain>/recordings/<node hash>/<relay id>.mcrec; the backend derives the same key from the relay recording event.
-function recordingObjectKey(meta) {
+// <domain>/recordings/<node hash>/<relay id>/<mesh filename>: a tunnel that reconnects yields several files per relay id, so the mesh filename (start time + relay id) is the unique part.
+function recordingObjectKey(meta, fileName) {
   var nodeParts = (typeof meta.nodeid == 'string') ? meta.nodeid.split('/') : [];
   if (nodeParts.length !== 3 || nodeParts[0] !== 'node' || nodeParts[1] === '' || !/^[A-Za-z0-9@$_-]+$/.test(nodeParts[2])) return null;
   if (typeof meta.sessionid != 'string' || !/^[A-Za-z0-9._-]{1,200}$/.test(meta.sessionid)) return null;
-  return { domain: nodeParts[1], key: nodeParts[1] + '/recordings/' + nodeParts[2] + '/' + meta.sessionid + '.mcrec' };
+  if (typeof fileName != 'string' || fileName !== path.basename(fileName) || /[\r\n]/.test(fileName) || fileName.length > 512) return null;
+  if (!fileName.endsWith('-' + meta.sessionid + '.mcrec')) return null;
+  return { domain: nodeParts[1], key: nodeParts[1] + '/recordings/' + nodeParts[2] + '/' + meta.sessionid + '/' + fileName };
 }
 
 // Collects a small JSON response; anything larger than the cap is cut off as an error.
@@ -188,8 +190,8 @@ function uploadRecording(filePath, tenantDomain, attempt, expectedNodeId) {
       if (err) { finish(); log('Skipping unreadable recording ' + filePath + ': ' + err.message); return; }
       if (String(meta.protocol) !== '2') { finish(); log('Skipping non-desktop recording ' + filePath); return; }
       if (expectedNodeId != null && meta.nodeid !== expectedNodeId) { finish(); log('Skipping recording whose header names another node: ' + filePath); return; }
-      var target = recordingObjectKey(meta);
-      if (target == null) { finish(); log('Skipping recording without a usable node id or relay id in its header: ' + filePath); return; }
+      var target = recordingObjectKey(meta, path.basename(filePath));
+      if (target == null) { finish(); log('Skipping recording whose header and filename do not give a usable node id and relay id: ' + filePath); return; }
       if (tenantDomain !== '' && target.domain !== tenantDomain) { finish(); log('Skipping recording from another domain ' + filePath); return; }
       getAccessToken(guarded(function (err, token) {
         if (err) return retry(err);
