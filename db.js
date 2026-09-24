@@ -38,8 +38,23 @@ function deriveTenantDomain(domains) {
 }
 module.exports.deriveTenantDomain = deriveTenantDomain;
 
+// This pod's tenant, or null when not running in OpenFrame mode (single-tenant / OSS installs,
+// where none of the scoping below applies and behaviour must stay exactly as upstream).
+//
+// Resolved ONCE per database instance, not per call: the tenant a server belongs to cannot change
+// while it runs, and reading process.env on every query made the scoping depend on when the query
+// happened to run relative to the environment. Every caller below must see the same answer as the
+// write guard, which binds itself at setup.
+function makeOpenframeDomain(parent) {
+    const resolved = (process.env.OPENFRAME_MODE === 'true')
+        ? (deriveTenantDomain(parent.config.domains) || null)
+        : null;
+    return function () { return resolved; };
+}
+
 module.exports.CreateDB = function (parent, func) {
     var obj = {};
+    const openframeDomain = makeOpenframeDomain(parent);
     var Datastore = null;
     var expireEventsSeconds = (60 * 60 * 24 * 20);              // By default, expire events after 20 days (1728000). (Seconds * Minutes * Hours * Days)
     var expirePowerEventsSeconds = (60 * 60 * 24 * 10);         // By default, expire power events after 10 days (864000). (Seconds * Minutes * Hours * Days)
@@ -208,8 +223,16 @@ module.exports.CreateDB = function (parent, func) {
             }
         }
 
-        // Check if any device groups have a inactive device removal setting
+        // Check if any device groups have a inactive device removal setting.
+        // In OpenFrame mode, only this pod's own domain: parent.webserver.meshes is loaded
+        // unscoped from the shared database, so without this filter one tenant enabling
+        // expireDevs makes every other tenant's server delete that tenant's devices. Worse,
+        // the "is it still connected" test below (GetConnectivityState) reads this pod's
+        // memory, which never holds another tenant's agents — so a foreign pod would delete
+        // devices that are online on their own.
+        const removeInactiveOwnDomain = openframeDomain();
         for (var i in parent.webserver.meshes) {
+            if ((removeInactiveOwnDomain != null) && (parent.webserver.meshes[i].domain !== removeInactiveOwnDomain)) continue;
             if (typeof parent.webserver.meshes[i].expireDevs == 'number') {
                 var v = parent.webserver.meshes[i].expireDevs;
                 if ((v >= 1) && (v <= 2000)) {
@@ -229,6 +252,9 @@ module.exports.CreateDB = function (parent, func) {
 
         // For each domain with a inactive device removal setting, get a list of last device connections
         for (var domainid in minRemoveInactiveDevicesPerDomain) {
+            // Second guard on the same invariant as the mesh loop above: nothing in this
+            // function may read or delete outside this pod's own domain.
+            if ((removeInactiveOwnDomain != null) && (domainid !== removeInactiveOwnDomain)) continue;
             obj.GetAllTypeNoTypeField('lastconnect', domainid, function (err, docs) {
                 if ((err != null) || (docs == null)) return;
                 for (var j in docs) {
@@ -478,8 +504,24 @@ module.exports.CreateDB = function (parent, func) {
                             // MariaDB
                             sqlDbQuery('DELETE FROM Main WHERE (extra LIKE ("mesh/%") AND (extra NOT IN ?)', [meshlist], function (err, response) { });
                         } else if (obj.databaseType == DB_MONGODB) {
-                            // MongoDB
-                            obj.file.deleteMany({ meshid: { $exists: true, $nin: meshlist } }, { multi: true });
+                            // MongoDB: deliberately does NOT prune orphans.
+                            //
+                            // The upstream statement here was:
+                            //   obj.file.deleteMany({ meshid: { $exists: true, $nin: meshlist } })
+                            // i.e. "delete every document whose meshid is not in the list we just
+                            // read". Correct when one server owns the database; unsafe here, where
+                            // every tenant server shares one. Two ways it destroys data:
+                            //   1. meshlist is built inside `if ((err == null) && (docs.length > 0))`
+                            //      above, but the delete ran outside it. A transient read error left
+                            //      meshlist empty, and `$nin: []` matches everything — one boot would
+                            //      wipe every tenant's nodes, interfaces and notes.
+                            //   2. A mesh created by another tenant between the read and the delete
+                            //      is absent from meshlist, so its nodes are deleted.
+                            // Note this also means the read above must stay unscoped for the other
+                            // branches: scoping it to one domain while the delete stays fleet-wide
+                            // would make case 1 the normal path, not the failure path.
+                            // Orphan accounting is done out of band by an audit query scoped with
+                            // an explicit ^mesh/<domain>/ prefix.
                         } else {
                             // NeDB or MongoJS
                             obj.file.remove({ meshid: { $exists: true, $nin: meshlist } }, { multi: true });
@@ -1118,8 +1160,13 @@ module.exports.CreateDB = function (parent, func) {
                     console.log('WARNING: watch() is not a function, MongoDB ChangeStream not supported.');
                 } else {
                     const tenantDomain = deriveTenantDomain(parent.config.domains);
+                    // Own domain only. The empty domain used to be included here, but it is one
+                    // shared space in a shared database: anything landing in it is visible to every
+                    // tenant server, so treating it as ours contradicts the boot cache, which now
+                    // loads this domain alone. Keeping both in sync matters — a document the cache
+                    // does not hold must not arrive as a change event for an object we never loaded.
                     const changeStreamServerDomains = (process.env.OPENFRAME_MODE === 'true' && tenantDomain)
-                        ? [tenantDomain, '']
+                        ? [tenantDomain]
                         : Object.keys(parent.config.domains);
                     obj.fileChangeStream = obj.file.watch([{ $match: { $or: [{ 'fullDocument.type': { $in: ['node', 'mesh', 'user', 'ugrp'] } }, { 'operationType': 'delete' }] } }], { fullDocument: 'updateLookup' });
                     obj.fileChangeStream.on('change', function (change) {
@@ -2871,6 +2918,13 @@ module.exports.CreateDB = function (parent, func) {
                 obj.file.find(x, { type: 0 }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); });
             };
             obj.GetAllType = function (type, func) { obj.file.find({ type: type }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
+            // Domain-scoped GetAllType. Same query shape as GetAllTypeNoTypeField above, but it
+            // does NOT project the type field away: callers of this one keep the documents (the
+            // boot caches, which later save them back), and a document saved without its `type`
+            // stops being returned by every type query — the user disappears, the mesh drops out
+            // of any mesh listing. Callers that legitimately want the whole database (the CLI
+            // branches, export) keep using GetAllType.
+            obj.GetAllTypeForDomain = function (type, domain, func) { obj.file.find({ type: type, domain: domain }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
             obj.GetAllIdsOfType = function (ids, domain, type, func) { obj.file.find({ type: type, domain: domain, _id: { $in: ids } }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
             obj.GetUserWithEmail = function (domain, email, func) { obj.file.find({ type: 'user', domain: domain, email: email }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
             obj.GetUserWithVerifiedEmail = function (domain, email, func) { obj.file.find({ type: 'user', domain: domain, email: email, emailVerified: true }).toArray(function (err, docs) { func(err, performTypedRecordDecrypt(docs)); }); };
@@ -3297,6 +3351,54 @@ module.exports.CreateDB = function (parent, func) {
                 }
                 func(r);
             });
+        }
+
+        // Cross-tenant write guard. Every tenant server shares one database and separation is
+        // by the `domain` field alone, so a missing domain check anywhere upstream lands here
+        // as a write into another tenant's document. Wrapping at this single point covers all
+        // backends: Set/SetUser/Remove are already bound to the concrete one by now.
+        //
+        // Only enforced when a domain can actually be determined — from the document, or from
+        // the id, whose shape is `[prefix]<type>/<domain>/<hash>` (e.g. 'lc' + node/<dom>/...).
+        // Documents that carry no tenant at all (cfile/*, serverstats, power, DatabaseIdentifier)
+        // are out of scope here and are handled by giving them a domain of their own.
+        //
+        // Set OPENFRAME_CROSS_TENANT_WRITES=allow to log without blocking (rollback switch).
+        {
+            const guardDomain = openframeDomain();
+            const guardEnforce = (process.env.OPENFRAME_CROSS_TENANT_WRITES !== 'allow');
+            const guardIdDomain = /(?:^|[a-z]{2})(?:user|node|mesh|ugrp)\/([^/]*)\//;
+            const guardDomainOf = function (doc, id) {
+                if ((doc != null) && (typeof doc.domain === 'string')) { return doc.domain; }
+                if (typeof id !== 'string') { return null; }
+                const m = guardIdDomain.exec(id);
+                return (m != null) ? m[1] : null;
+            };
+            if (guardDomain) {
+                ['Set', 'SetUser', 'Remove'].forEach(function (guardName) {
+                    const guardOrig = obj[guardName];
+                    if (typeof guardOrig != 'function') return;
+                    obj[guardName] = function (guardArg) {
+                        const d = (guardName === 'Remove')
+                            ? guardDomainOf(null, guardArg)
+                            : guardDomainOf(guardArg, (guardArg != null) ? guardArg._id : null);
+                        if ((d != null) && (d !== guardDomain)) {
+                            const guardId = ((guardArg != null) && (guardArg._id != null)) ? guardArg._id : guardArg;
+                            console.log(new Date().toISOString() + ' CROSS-TENANT ' + guardName +
+                                (guardEnforce ? ' BLOCKED' : ' ALLOWED') +
+                                ' domain=' + d + ' mine=' + guardDomain + ' id=' + guardId);
+                            if (guardEnforce) {
+                                // Blocking must not hang a caller that is waiting on a callback
+                                // (Set(data, func) / Remove(id, func)), so fail it explicitly.
+                                const guardCb = arguments[arguments.length - 1];
+                                if (typeof guardCb == 'function') { setImmediate(function () { guardCb(new Error('cross-tenant write blocked')); }); }
+                                return;
+                            }
+                        }
+                        return guardOrig.apply(obj, arguments);
+                    };
+                });
+            }
         }
 
         func(obj); // Completed function setup
