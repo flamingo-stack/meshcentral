@@ -67,9 +67,9 @@ function WsmanStackCreateService(comm)
 
     // Perform a WSMAN Subscribe operation
     obj.ExecSubscribe = function ExecSubscribe(resuri, delivery, url, callback, tag, pri, selectors, opaque, user, pass) {
-        var digest = "", digest2 = "", opaque = "";
+        var digest = "", digest2 = "";
         if (user != null && pass != null) { digest = '<t:IssuedTokens xmlns:t="http://schemas.xmlsoap.org/ws/2005/02/trust" xmlns:se="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd"><t:RequestSecurityTokenResponse><t:TokenType>http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-username-token-profile-1.0#UsernameToken</t:TokenType><t:RequestedSecurityToken><se:UsernameToken><se:Username>' + user + '</se:Username><se:Password Type="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd#PasswordText">' + pass + '</se:Password></se:UsernameToken></t:RequestedSecurityToken></t:RequestSecurityTokenResponse></t:IssuedTokens>'; digest2 = '<w:Auth Profile="http://schemas.dmtf.org/wbem/wsman/1/wsman/secprofile/http/digest"/>'; }
-        if (opaque != null) { opaque = '<a:ReferenceParameters><m:arg>' + opaque + '</m:arg></a:ReferenceParameters>'; }
+        if (opaque != null) { opaque = '<a:ReferenceParameters><m:arg>' + opaque + '</m:arg></a:ReferenceParameters>'; } else { opaque = ""; }
         if (delivery == 'PushWithAck') { delivery = 'dmtf.org/wbem/wsman/1/wsman/PushWithAck'; } else if (delivery == 'Push') { delivery = 'xmlsoap.org/ws/2004/08/eventing/DeliveryModes/Push'; }
         var data = "http://schemas.xmlsoap.org/ws/2004/08/eventing/Subscribe</a:Action><a:To>" + obj.Address + "</a:To><w:ResourceURI>" + resuri + "</w:ResourceURI><a:MessageID>" + (obj.NextMessageId++) + "</a:MessageID><a:ReplyTo><a:Address>http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous</a:Address></a:ReplyTo>" + _PutObjToSelectorsXml(selectors) + digest + '</Header><Body><e:Subscribe><e:Delivery Mode="http://schemas.' + delivery + '"><e:NotifyTo><a:Address>' + url + '</a:Address>' + opaque + '</e:NotifyTo>' + digest2 + '</e:Delivery></e:Subscribe>';
         obj.PerformAjax(data + "</Body></Envelope>", callback, tag, pri, 'xmlns:e="http://schemas.xmlsoap.org/ws/2004/08/eventing" xmlns:m="http://x.com"');
