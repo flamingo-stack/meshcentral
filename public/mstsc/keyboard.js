@@ -213,7 +213,6 @@
 		164 : "BracketRight",
 		13 : "Enter",
 		20 : "CapsLock",
-		20 : "CapsLock",
 		81 : "KeyA",
 		83 : "KeyS",
 		68 : "KeyD",
@@ -238,12 +237,10 @@
 		59 : "Comma",
 		58 : "Period",
 		161 : "Slash",
-		16 : "ShiftRight",
 		17 : "ControlLeft",
 		91 : "OSLeft",
 		18 : "AltLeft",
 		32 : "Space",
-		17 : "ControlLeft",
 		18 : "AltRight",
 		91 : "OSRight",
 		93 : "ContextMenu",
@@ -252,7 +249,6 @@
 		38 : "ArrowUp",
 		40 : "ArrowDown",
 		39 : "ArrowRight",
-		144 : "NumLock",
 		144 : "NumLock",
 		111 : "NumpadDivide",
 		106 : "NumpadMultiply",
@@ -268,11 +264,7 @@
 		98 : "Numpad2",
 		99 : "Numpad3",
 		96 : "Numpad0",
-		110 : "NumpadDecimal",
-		13 : "NumpadEnter",
-		17 : "ControlLeft",
-		67 : "KeyC",
-		17 : "ControlLeft"
+		110 : "NumpadDecimal"
 	};
 	
 	var UnicodeToCodeChrome_FR = {
@@ -318,7 +310,6 @@
 		186 : "BracketRight",
 		13 : "Enter",
 		20 : "CapsLock",
-		20 : "CapsLock",
 		81 : "KeyA",
 		83 : "KeyS",
 		68 : "KeyD",
@@ -343,12 +334,10 @@
 		190 : "Comma",
 		191 : "Period",
 		223 : "Slash",
-		16 : "ShiftRight",
 		17 : "ControlLeft",
 		91 : "OSLeft",
 		18 : "AltLeft",
 		32 : "Space",
-		17 : "ControlLeft",
 		18 : "AltRight",
 		91 : "OSRight",
 		93 : "ContextMenu",
@@ -357,7 +346,6 @@
 		38 : "ArrowUp",
 		40 : "ArrowDown",
 		39 : "ArrowRight",
-		144 : "NumLock",
 		144 : "NumLock",
 		111 : "NumpadDivide",
 		106 : "NumpadMultiply",
@@ -373,11 +361,7 @@
 		98 : "Numpad2",
 		99 : "Numpad3",
 		96 : "Numpad0",
-		110 : "NumpadDecimal",
-		13 : "NumpadEnter",
-		17 : "ControlLeft",
-		67 : "KeyC",
-		17 : "ControlLeft"
+		110 : "NumpadDecimal"
 	};
 	
 	var UnicodeToCode_EN = {
@@ -447,7 +431,6 @@
 		188 : "Comma",
 		190 : "Period",
 		191 : "Slash",
-		16 : "ShiftRight",
 		17 : "ControlLeft",
 		18 : "AltLeft",
 		91 : "OSLeft",
@@ -460,7 +443,6 @@
 		38 : "ArrowUp",
 		40 : "ArrowDown",
 		39 : "ArrowRight",
-		144 : "NumLock",
 		144 : "NumLock",
 		111 : "NumpadDivide",
 		106 : "NumpadMultiply",

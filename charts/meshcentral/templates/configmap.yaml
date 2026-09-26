@@ -3,8 +3,8 @@ kind: ConfigMap
 metadata:
   name: {{ .Chart.Name }}-default
 data:
-  OPENFRAME_MODE: "true"
-  OPENFRAME_GATEWAY_URL: "localhost"
+  OPENFRAME_MODE: {{ .Values.openframe.mode | default "true" | quote }}
+  OPENFRAME_GATEWAY_URL: {{ .Values.openframe.gatewayUrl | quote }}
 
   MESH_PROTOCOL: "ws"
   MESH_DEVICE_GROUP: "OpenFrame"
@@ -27,3 +27,4 @@ data:
   MC_MONGO_REPLICA_SET: {{ .Values.mongodb.replicaSetValue | quote }}
   MC_MONGO_URI_OPTIONS: {{ .Values.mongodb.uriOptionsValue | quote }}
 {{- end }}
+

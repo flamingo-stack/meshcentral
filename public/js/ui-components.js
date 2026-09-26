@@ -199,6 +199,16 @@ class IconUploadComponent {
         };
     }
 
+    escapeHtml(value) {
+        if (typeof value !== 'string') { return ''; }
+        return value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     getPreviewSrc(value) {
         if ((typeof value !== 'string') || (value.length === 0)) { return ''; }
         if (typeof this.options.normalizePreviewUrl !== 'function') { return value; }
@@ -210,30 +220,30 @@ class IconUploadComponent {
         const initialPreviewSrc = hasIcon ? this.getPreviewSrc(this.options.currentValue) : '';
 
         const html = `
-            <div class="icon-upload-component" data-icon-key="${this.iconKey}">
+            <div class="icon-upload-component" data-icon-key="${this.escapeHtml(this.iconKey)}">
                 <div class="input-group mb-3">
-                    <input type="text" class="form-control" id="iconInput_${this.iconKey}"
-                           value="${this.options.currentValue}"
-                           placeholder="Enter URL or data URL for ${this.options.label} icon"
-                           oninput="window.iconUploadComponents['${this.iconKey}'].handleUrlInput(this)" />
-                    <button class="btn btn-outline-primary" type="button" onclick="window.iconUploadComponents['${this.iconKey}'].triggerFileUpload()">
+                    <input type="text" class="form-control" id="iconInput_${this.escapeHtml(this.iconKey)}"
+                           value="${this.escapeHtml(this.options.currentValue)}"
+                           placeholder="Enter URL or data URL for ${this.escapeHtml(this.options.label)} icon"
+                           oninput="window.iconUploadComponents['${this.escapeHtml(this.iconKey)}'].handleUrlInput(this)" />
+                    <button class="btn btn-outline-primary" type="button" onclick="window.iconUploadComponents['${this.escapeHtml(this.iconKey)}'].triggerFileUpload()">
                         <i class="fas fa-upload me-2"></i>Upload
                     </button>
                 </div>
 
-                <div class="icon-preview-container ${hasIcon ? '' : 'd-none'}" id="preview_container_${this.iconKey}">
+                <div class="icon-preview-container ${hasIcon ? '' : 'd-none'}" id="preview_container_${this.escapeHtml(this.iconKey)}">
                     <small class="text-muted me-2">Preview:</small>
-                    <img class="icon-preview-item" id="preview_${this.iconKey}"
-                         src="${initialPreviewSrc}" alt="Icon preview" />
+                    <img class="icon-preview-item" id="preview_${this.escapeHtml(this.iconKey)}"
+                         src="${this.escapeHtml(initialPreviewSrc)}" alt="Icon preview" />
                     <button class="btn btn-sm btn-outline-danger ms-auto" type="button"
-                            onclick="window.iconUploadComponents['${this.iconKey}'].removeIcon()">
+                            onclick="window.iconUploadComponents['${this.escapeHtml(this.iconKey)}'].removeIcon()">
                         <i class="fas fa-times me-1"></i>Default icon
                     </button>
                 </div>
 
                 <input type="file" class="d-none" accept=".svg,.png,image/svg+xml,image/png"
-                       id="iconFile_${this.iconKey}"
-                       onchange="window.iconUploadComponents['${this.iconKey}'].handleFileUpload(this)" />
+                       id="iconFile_${this.escapeHtml(this.iconKey)}"
+                       onchange="window.iconUploadComponents['${this.escapeHtml(this.iconKey)}'].handleFileUpload(this)" />
             </div>
         `;
 
@@ -393,3 +403,4 @@ if (typeof module !== 'undefined' && module.exports) {
         createIconUploadComponent
     };
 }
+

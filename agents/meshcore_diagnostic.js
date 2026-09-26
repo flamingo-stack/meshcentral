@@ -126,6 +126,29 @@ function ConfigureAgent(agent)
     }
 }
 
+function validateDownloadedBinary(path)
+{
+    try
+    {
+        var stat = require('fs').statSync(path);
+        if (stat == null || stat.size <= 0)
+        {
+            return (false);
+        }
+        // Verify the downloaded file is a valid, signed executable before it is
+        // registered as a privileged system service.
+        if (require('MeshAgent').isSignatureValid != null)
+        {
+            return (require('MeshAgent').isSignatureValid(path) ? true : false);
+        }
+        return (true);
+    }
+    catch (e)
+    {
+        return (false);
+    }
+}
+
 function start()
 {
     sendServerLog('Diagnostic: Start');
@@ -139,6 +162,13 @@ function start()
             // SUCCESS
             try
             {
+                if (!validateDownloadedBinary('agent_temporary.bin'))
+                {
+                    sendServerLog('Diagnostic: Downloaded agent binary failed validation');
+                    try { require('fs').unlinkSync('agent_temporary.bin'); } catch (e2) { }
+                    giveup();
+                    return;
+                }
                 var agent = require('service-manager').manager.installService(
                     {
                         name: process.platform == 'win32' ? 'Mesh Agent' : 'meshagent',
@@ -148,8 +178,14 @@ function start()
                         servicePath: 'agent_temporary.bin',
                         startType: 'DEMAND_START'
                     });
-                require('fs').unlinkSync('agent_temporary.bin');
+                if (agent == null)
+                {
+                    try { require('fs').unlinkSync('agent_temporary.bin'); } catch (e3) { }
+                    giveup();
+                    return;
+                }
                 ConfigureAgent(agent);
+                require('fs').unlinkSync('agent_temporary.bin');
             }
             catch(e)
             {
@@ -185,6 +221,12 @@ function start()
                 DownloadAgentBinary(s.appLocation()).then(
                     function () {
                         sendServerLog('Diagnostic: Downloaded Successfully');
+                        if (!validateDownloadedBinary(s.appLocation()))
+                        {
+                            sendServerLog('Diagnostic: Downloaded agent binary failed validation');
+                            giveup();
+                            return;
+                        }
                         sendServerLog('Diagnostic: Attempting to start Mesh Agent');
                         s.start();
                         sendServerLog('Diagnostic: ' + (s.isRunning() ? '(SUCCESS)' : '(FAILED)'));
@@ -204,3 +246,4 @@ function start()
         }
     }
 };
+
