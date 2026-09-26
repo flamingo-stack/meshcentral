@@ -18,6 +18,11 @@ const RECORDING_METADATA_MAX_BYTES = 65536;
 const JSON_RESPONSE_MAX_BYTES = 65536;
 const SWEEP_MIN_AGE_MS = 30000;
 
+// RFC 1123 hostname (with optional port), or a bare IPv4 address (with optional port).
+// This deliberately rejects control characters, whitespace, newlines and other
+// characters that could inject additional MSH directives into the generated file.
+const HOST_PATTERN = /^[A-Za-z0-9]([A-Za-z0-9-]{0,62}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,62}[A-Za-z0-9])?)*(:[0-9]{1,5})?$/;
+
 // --- Helpers ---
 
 function corsHeaders(res) {
@@ -291,6 +296,12 @@ module.exports.openframe = function (pluginHandler) {
     app.get('/generate-msh', function (req, res) {
       corsHeaders(res);
 
+      // Require an authenticated MeshCentral session, consistent with other endpoints (e.g.
+      // amt-ider.js), since this generates a downloadable agent config tied to server identity.
+      if (req.session == null || !req.session.userid) {
+        return sendError(res, 401, 'Authentication required');
+      }
+
       var host = req.query.host;
       if (!host) return sendError(res, 400, 'Missing required parameter: host');
 
@@ -306,6 +317,13 @@ module.exports.openframe = function (pluginHandler) {
 
       var protocol = host.startsWith('http://') ? 'ws' : 'wss';
       var cleanHost = host.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '');
+
+      // Validate the stripped host: must be a plain hostname/IPv4 with optional port and no
+      // newlines, whitespace or other characters that could inject extra MSH directives.
+      if (!HOST_PATTERN.test(cleanHost)) {
+        return sendError(res, 400, 'Invalid host parameter');
+      }
+
       var meshServerUrl = protocol + '://' + cleanHost + '/ws/tools/agent/meshcentral-server/agent.ashx';
 
       var mshContent = [
@@ -345,6 +363,10 @@ module.exports.openframe = function (pluginHandler) {
 
       // 1. Verify device exists in DB
       db.Get(nodeId, function (err, docs) {
+        if (err) {
+          log('db.Get error for ' + nodeId + ': ' + err);
+          return sendError(res, 500, 'Database error');
+        }
         if (docs == null || docs.length !== 1) return sendError(res, 404, 'Device not found');
 
         // 2. Live connectivity state from MeshCentral in-memory store
@@ -353,6 +375,10 @@ module.exports.openframe = function (pluginHandler) {
 
         // 3. Last connection record from DB
         db.Get('lc' + nodeId, function (err, docs) {
+          if (err) {
+            log('db.Get error for lc' + nodeId + ': ' + err);
+            return sendError(res, 500, 'Database error');
+          }
           var lc = (docs != null && docs.length === 1) ? docs[0] : null;
 
           res.json({
