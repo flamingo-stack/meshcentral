@@ -15,6 +15,12 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * NOTE: This file is vendored third-party code from node-rdpjs and is
+ * licensed under the GNU General Public License v3 (GPLv3) as noted above,
+ * distinct from the Apache-2.0 license used by the rest of this project.
+ * See the project's licensing documentation for details on this
+ * third-party dependency and its license compatibility.
  */
 
 var Levels = {
@@ -83,3 +89,4 @@ module.exports = {
 	    //logger.error(message);
 	}
 };
+

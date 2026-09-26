@@ -6,9 +6,6 @@
 * @version v0.0.1
 */
 
-/*xjslint node: true */
-/*xjslint plusplus: true */
-/*xjslint maxlen: 256 */
 /*jshint node: true */
 /*jshint strict: false */
 /*jshint esversion: 6 */
