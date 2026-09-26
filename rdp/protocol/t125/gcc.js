@@ -444,8 +444,8 @@ function readConferenceCreateResponse(s) {
 		throw new error.ProtocolError('NODE_RDP_PROTOCOL_T125_GCC_BAD_H221_SC_KEY');
 	}
 	
-	length = per.readLength(s);
-	serverSettings = settings(null, { readLength : new type.CallableValue(length) });
+	var length = per.readLength(s);
+	var serverSettings = settings(null, { readLength : new type.CallableValue(length) });
 	
 	// Object magic
 	return serverSettings.read(s).obj.blocks.obj.map(function(e) {
@@ -479,7 +479,7 @@ function readConferenceCreateRequest (s) {
 
 	per.readOctetStream(s, h221_cs_key, 4);
 	
-	length = per.readLength(s);
+	var length = per.readLength(s);
 	var clientSettings = settings(null, { readLength : new type.CallableValue(length) });
 	
 	// Object magic

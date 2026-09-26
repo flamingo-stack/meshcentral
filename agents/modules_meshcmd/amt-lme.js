@@ -155,7 +155,7 @@ function lme_heci(options) {
                     break;
                 case APF_SERVICE_REQUEST:
                     var nameLen = chunk.readUInt32BE(1);
-                    var name = chunk.slice(5, nameLen + 5);
+                    var name = chunk.slice(5, nameLen + 5).toString();
                     //console.log("Service Request for: " + name);
                     if (name == 'pfwd@amt.intel.com' || name == 'auth@amt.intel.com') {
                         var outBuffer = Buffer.alloc(5 + nameLen);
@@ -214,7 +214,7 @@ function lme_heci(options) {
                                     this.LMS.emit('bind', this._binded);
                                 } catch (ex)
                                 {
-                                    console.info1(ex, 'Port ' + port);
+                                    console.info(ex, 'Port ' + port);
                                     if(!this._emitConnected)
                                     {
                                         this._emitConnected = true;

@@ -154,9 +154,10 @@ BufferLayer.prototype.startTLS = function(callback) {
 		socket: this.socket,
 		secureContext: tls.createSecureContext(),
 		isServer: false,
-		requestCert: false,
-		rejectUnauthorized: false
+		requestCert: (process.env.MESHCENTRAL_RDP_STRICT_TLS == '1'),
+		rejectUnauthorized: (process.env.MESHCENTRAL_RDP_STRICT_TLS == '1')
 	}, (err) => {
+		if (err) { console.log('RDP startTLS error: ' + err); }
 		log.warn(err);
 		callback(err);
 	});
@@ -194,9 +195,10 @@ BufferLayer.prototype.listenTLS = function(keyFilePath, crtFilePath, callback) {
 			cert: fs.readFileSync(crtFilePath),
 		}),
 		isServer: true,
-		requestCert: false,
-		rejectUnauthorized: false
+		requestCert: (process.env.MESHCENTRAL_RDP_STRICT_TLS == '1'),
+		rejectUnauthorized: (process.env.MESHCENTRAL_RDP_STRICT_TLS == '1')
 	}, (err) => {
+		if (err) { console.log('RDP listenTLS error: ' + err); }
 		log.warn(err);
 		callback(err);
 	});
@@ -227,3 +229,4 @@ BufferLayer.prototype.close = function() {
 module.exports = {
 	BufferLayer : BufferLayer
 };
+
