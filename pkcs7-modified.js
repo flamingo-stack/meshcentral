@@ -27,7 +27,7 @@ try {
     require('../node-forge/lib/pkcs7asn1');
     require('../node-forge/lib/random');
     require('../node-forge/lib/util');
-    require('../node-forge/lib/x509'); f
+    require('../node-forge/lib/x509');
 } catch (ex) { }
 
 if (forge == null) {
@@ -1277,3 +1277,4 @@ function _decryptContent(msg) {
     msg.content = ciph.output;
   }
 }
+

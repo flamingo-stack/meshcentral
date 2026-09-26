@@ -4,6 +4,8 @@
 * @version v0.0.1f
 */
 
+'use strict';
+
 // Construct a MeshServer object
 module.exports = function CreateAmtRedirect(module) {
     var obj = {};
@@ -123,7 +125,7 @@ module.exports = function CreateAmtRedirect(module) {
                     var status = obj.amtaccumulator[1];
                     var authType = obj.amtaccumulator[4];
                     var authData = [];
-                    for (i = 0; i < authDataLen; i++) { authData.push(obj.amtaccumulator[9 + i]); }
+                    for (var i = 0; i < authDataLen; i++) { authData.push(obj.amtaccumulator[9 + i]); }
                     var authDataBuf = obj.amtaccumulator.slice(9, 9 + authDataLen);
                     cmdsize = 9 + authDataLen;
                     if (authType == 0) {
@@ -229,7 +231,7 @@ module.exports = function CreateAmtRedirect(module) {
                     obj.connectstate = 1;
                     obj.m.Start();
                     // KVM traffic, forward rest of accumulator directly.
-                    if (obj.amtaccumulator.length > 8) { obj.m.ProcessData(obj.amtaccumulator.substring(8)); }
+                    if (obj.amtaccumulator.length > 8) { obj.m.ProcessData(obj.amtaccumulator.slice(8)); }
                     cmdsize = obj.amtaccumulator.length;
                     break;
                 default:

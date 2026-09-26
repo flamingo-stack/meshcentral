@@ -40,7 +40,7 @@ module.exports.CreateMonitoring = function (parent, args) {
         ConnectedUsers: { description: "Connected Users" }, // Object.keys(parent.webserver.wssessions).length
         UsersSessions: { description: "Users Sessions" }, // Object.keys(parent.webserver.wssessions2).length
         RelaySessions: { description: "Relay Sessions" }, // parent.webserver.relaySessionCount
-        RelayCount: { description: "Relay Count" } // Object.keys(parent.webserver.wsrelays).length30bb4fb74dfb758d36be52a7
+        RelayCount: { description: "Relay Count" } // Object.keys(parent.webserver.wsrelays).length
     }
     obj.collectors = [];
     if (parent.config.settings.prometheus != null) { // Create Prometheus Monitoring Endpoint
@@ -76,10 +76,10 @@ module.exports.CreateMonitoring = function (parent, args) {
                         UsersSessions: Object.keys(parent.webserver.wssessions2).length,
                         RelaySessions: parent.webserver.relaySessionCount,
                         RelayCount: Object.keys(parent.webserver.wsrelays).length,
-                        ConnectedIntelAMT: 0
+                        ConnectedIntelAMT: 0,
+                        ConnectedIntelAMTCira: 0
                     };
                     if (parent.mpsserver != null) {
-                        gauges.ConnectedIntelAMTCira = 0;
                         for (var i in parent.mpsserver.ciraConnections) { 
                             gauges.ConnectedIntelAMTCira += parent.mpsserver.ciraConnections[i].length;
                         }
