@@ -26,6 +26,9 @@
  * treated as the tenant; legacy single-tenant installs (only the default '') return ''.
  */
 
+/*jshint node: true */
+/*jshint strict: false */
+/*jshint esversion: 6 */
 'use strict';
 
 const fs = require('fs');
