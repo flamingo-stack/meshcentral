@@ -18,6 +18,7 @@
  */
 
 var type = require('../../core').type;
+var log = require('../../core').log;
 
 var MessageType = {
     LICENSE_REQUEST : 0x01,

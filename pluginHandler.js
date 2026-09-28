@@ -250,8 +250,25 @@ module.exports.pluginHandler = function (parent) {
     obj.getPluginConfig = function (configUrl) {
         return new Promise(function (resolve, reject) {
             var http = (configUrl.indexOf('https://') >= 0) ? require('https') : require('http');
-            if (configUrl.indexOf('://') === -1) reject("Unable to fetch the config: Bad URL (" + configUrl + ")");
+            if (configUrl.indexOf('://') === -1) { reject("Unable to fetch the config: Bad URL (" + configUrl + ")"); return; }
             var options = require('url').parse(configUrl);
+            var hostname = (options.hostname || '').toLowerCase();
+            var isBlockedHost = (
+                hostname === '' ||
+                hostname === 'localhost' ||
+                hostname === '::1' ||
+                /^127\./.test(hostname) ||
+                /^10\./.test(hostname) ||
+                /^192\.168\./.test(hostname) ||
+                /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname) ||
+                /^169\.254\./.test(hostname) ||
+                hostname === '0.0.0.0' ||
+                hostname === '169.254.169.254' ||
+                hostname.startsWith('fe80:') ||
+                hostname.startsWith('fc') ||
+                hostname.startsWith('fd')
+            );
+            if (isBlockedHost) { reject("Unable to fetch the config: Bad URL (" + configUrl + ")"); return; }
             if (typeof parent.config.settings.plugins.proxy == 'string' || process.env['HTTP_PROXY'] || process.env['HTTPS_PROXY'] || process.env['http_proxy'] || process.env['https_proxy']) { // Proxy support
                 options.agent = new (require('https-proxy-agent').HttpsProxyAgent)(require('url').parse(parent.config.settings.plugins.proxy) || process.env['HTTP_PROXY'] || process.env['HTTPS_PROXY'] || process.env['http_proxy'] || process.env['https_proxy']);
             }

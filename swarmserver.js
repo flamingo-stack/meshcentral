@@ -197,7 +197,7 @@ module.exports.CreateSwarmServer = function (parent, db, args, certificates) {
         var cmd = common.ReadShort(socket.tag.accumulator, 0);
         var len = common.ReadShort(socket.tag.accumulator, 2);
         if (len > socket.tag.accumulator.length) return 0;
-        var data = socket.tag.accumulator.substring(4, len);
+        var data = socket.tag.accumulator.substring(4, len + 4);
         //console.log('Swarm: Cmd=' + cmd + ', Len=' + len + '.');
 
         switch (cmd) {
@@ -302,7 +302,7 @@ module.exports.CreateSwarmServer = function (parent, db, args, certificates) {
                 parent.debug('swarmcmd', 'Unknown command: ' + cmd + ' of len ' + len + '.');
             }
         }
-        return len;
+        return len + 4;
     }
 
     // Called when a legacy agent connects to this server
@@ -432,3 +432,4 @@ module.exports.CreateSwarmServer = function (parent, db, args, certificates) {
 
     return obj;
 };
+
