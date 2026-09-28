@@ -73,6 +73,14 @@ module.exports.CreateAmtIderSession = function (parent, db, ws, req, args, domai
             case 'selectorResponse': {
                 console.log('selectorResponse', command.args, req.query);
 
+                // Validate that the target host/port/tls query parameters are well-formed before
+                // using them to start a live AMT redirect connection. This does not by itself
+                // authorize the specific device, but it rejects obviously malformed or unscoped
+                // values that could otherwise redirect the session to an arbitrary host:port.
+                if (common.validateString(req.query.host, 1, 256) == false) { console.log('selectorResponse: invalid host, aborting.'); break; }
+                if (common.validateInt(req.query.port, 1, 65535) == false) { console.log('selectorResponse: invalid port, aborting.'); break; }
+                if ((req.query.tls != '0') && (req.query.tls != '1')) { console.log('selectorResponse: invalid tls value, aborting.'); break; }
+
                 // TODO: Start IDER Session
                 // req.query = { host: 'node//KV6AZh3KoEzr71IaM40KqpBXQCn0qysZrMYlCOcvivNkV2$zfP2MXBE4IizBn1Bw', port: '16994', tls: '0', serverauth: '1', tls1only: '1' }
 
