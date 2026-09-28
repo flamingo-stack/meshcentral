@@ -94,7 +94,7 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
                     command.realname = user.realname;           // Add real name
                     if (typeof domain.desktopprivacybartext == 'string') { command.privacybartext = domain.desktopprivacybartext; } // Privacy bar text
                     delete command.nodeid;                      // Remove the nodeid since it's implyed.
-                    agent.send(JSON.stringify(command));
+                    try { agent.send(JSON.stringify(command)); } catch (ex) { }
                     return true;
                 }
             } else {
@@ -310,3 +310,4 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
     performRelay();
     return obj;
 };
+
