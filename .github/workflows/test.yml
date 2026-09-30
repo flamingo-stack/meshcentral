@@ -51,8 +51,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - { name: backend, path: "." }
+        target: ${{ fromJson(needs.changes.outputs.scan_matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
