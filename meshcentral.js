@@ -31,6 +31,24 @@ function CreateMeshCentralServer(config, args) {
     obj.msgserver = null;       // Messaging server, used to sent used messages
     obj.amtEventHandler = null;
     obj.pluginHandler = null;
+    // This pod's tenant, or null outside OpenFrame mode. Used where a record or a database key
+    // would otherwise be shared by every tenant server writing into the one database.
+    // Resolved on first use and cached: a server's tenant cannot change while it runs, and every
+    // caller must get the same answer regardless of when it asks (db.js does the same).
+    var openframeDomainCache;
+    obj.openframeDomain = function () {
+        if (openframeDomainCache === undefined) {
+            openframeDomainCache = (process.env.OPENFRAME_MODE === 'true')
+                ? (require('./db.js').deriveTenantDomain(obj.config.domains) || null)
+                : null;
+        }
+        return openframeDomainCache;
+    };
+    // Database keys that must not be one shared row across the fleet.
+    obj.tenantDbKey = function (baseId) {
+        const d = obj.openframeDomain();
+        return (d == null) ? baseId : (baseId + '_' + d);
+    };
     obj.amtScanner = null;
     obj.amtManager = null;      // Intel AMT manager, used to oversee all Intel AMT devices, activate them and sync policies
     obj.meshScanner = null;
@@ -1747,11 +1765,25 @@ function CreateMeshCentralServer(config, args) {
             obj.fs.open(obj.path.join(obj.datapath, 'agenterrorlogs.txt'), 'a', function (err, fd) { obj.agentErrorLog = fd; })
         }
 
-        // Perform other database cleanup
-        obj.db.cleanup();
+        // Perform other database cleanup.
+        // Skipped in OpenFrame mode: every tenant server shares one database, and cleanup()
+        // is written for "one server owns the whole database". It rewrites every tenant's
+        // user and mesh documents (db.js, obj.Set inside the GetAllType('user'/'mesh')
+        // callbacks) and deletes fleet-wide. What it repairs — pre-1.0 field formats and
+        // legacy type:'event'/'power'/'smbios' rows in the main collection — never existed
+        // in this database: those types are written to their own collections here.
+        // Routine housekeeping is covered elsewhere: RemoveMeshDocuments() on device group
+        // deletion, the explicit Remove() calls on device deletion, and the TTL indexes.
+        if (process.env.OPENFRAME_MODE !== 'true') { obj.db.cleanup(); }
 
-        // Set all nodes to power state of unknown (0)
-        obj.db.storePowerEvent({ time: new Date(), nodeid: '*', power: 0, s: 1 }, obj.multiServer); // s:1 indicates that the server is starting up.
+        // Set all nodes to power state of unknown (0).
+        // Skipped in OpenFrame mode: this marker is stored against the wildcard node id '*' and the
+        // power collection has no domain field, while getPowerTimeline() selects {nodeid: {$in:
+        // ['*', nodeid]}} — so on a shared database every pod's boot shows up in every tenant's
+        // device power timeline.
+        if (obj.openframeDomain() == null) {
+            obj.db.storePowerEvent({ time: new Date(), nodeid: '*', power: 0, s: 1 }, obj.multiServer); // s:1 indicates that the server is starting up.
+        }
 
         // Read or setup database configuration values
         obj.db.Get('dbconfig', function (err, dbconfig) {
@@ -2174,23 +2206,28 @@ function CreateMeshCentralServer(config, args) {
                         if ((obj.loginCookieEncryptionKey == null) || (obj.loginCookieEncryptionKey.length != 80)) { addServerWarning("Invalid \"LoginCookieEncryptionKey\" in config.json.", 20); obj.loginCookieEncryptionKey = null; }
                     }
 
-                    // Login cookie encryption key not set, use one from the database
+                    // Login cookie encryption key not set, use one from the database.
+                    // Per tenant (tenantDbKey) rather than one row for the whole database: this key
+                    // signs login tokens, relay cookies and auth cookies, so a single shared row
+                    // means a cookie minted by one tenant's server verifies on every other one.
+                    // Rotating it invalidates existing sessions for that tenant — expected, and the
+                    // reason this needs a maintenance window.
                     if (obj.loginCookieEncryptionKey == null) {
-                        obj.db.Get('LoginCookieEncryptionKey', function (err, docs) {
+                        obj.db.Get(obj.tenantDbKey('LoginCookieEncryptionKey'), function (err, docs) {
                             if ((docs != null) && (docs.length > 0) && (docs[0].key != null) && (obj.args.logintokengen == null) && (docs[0].key.length >= 160)) {
                                 obj.loginCookieEncryptionKey = Buffer.from(docs[0].key, 'hex');
                             } else {
-                                obj.loginCookieEncryptionKey = obj.generateCookieKey(); obj.db.Set({ _id: 'LoginCookieEncryptionKey', key: obj.loginCookieEncryptionKey.toString('hex'), time: Date.now() });
+                                obj.loginCookieEncryptionKey = obj.generateCookieKey(); obj.db.Set({ _id: obj.tenantDbKey('LoginCookieEncryptionKey'), key: obj.loginCookieEncryptionKey.toString('hex'), time: Date.now() });
                             }
                         });
                     }
 
                     // Load the invitation link encryption key from the database
-                    obj.db.Get('InvitationLinkEncryptionKey', function (err, docs) {
+                    obj.db.Get(obj.tenantDbKey('InvitationLinkEncryptionKey'), function (err, docs) {
                         if ((docs != null) && (docs.length > 0) && (docs[0].key != null) && (docs[0].key.length >= 160)) {
                             obj.invitationLinkEncryptionKey = Buffer.from(docs[0].key, 'hex');
                         } else {
-                            obj.invitationLinkEncryptionKey = obj.generateCookieKey(); obj.db.Set({ _id: 'InvitationLinkEncryptionKey', key: obj.invitationLinkEncryptionKey.toString('hex'), time: Date.now() });
+                            obj.invitationLinkEncryptionKey = obj.generateCookieKey(); obj.db.Set({ _id: obj.tenantDbKey('InvitationLinkEncryptionKey'), key: obj.invitationLinkEncryptionKey.toString('hex'), time: Date.now() });
                         }
                     });
 
@@ -2238,6 +2275,10 @@ function CreateMeshCentralServer(config, args) {
                             const node = obj.connectivityByNode[i];
                             if (node && typeof node.connectivity !== 'undefined' && node.connectivity === 4) { data.conn.am++; }
                         }
+                        // Stamp the tenant: the collection is shared and upstream writes no domain,
+                        // so without this every tenant's "My Server" timeline is the fleet's sum.
+                        const statsDomain = obj.openframeDomain();
+                        if (statsDomain != null) { data.domain = statsDomain; }
                         if (obj.firstStats === true) { delete obj.firstStats; data.first = true; }
                         if (obj.multiServer != null) { data.s = obj.multiServer.serverid; }
                         obj.db.SetServerStats(data); // Save the stats to the database
@@ -3856,7 +3897,7 @@ function CreateMeshCentralServer(config, args) {
                 func('User ' + userid + ' not found.'); return;
             } else {
                 // Load the login cookie encryption key from the database
-                obj.db.Get('LoginCookieEncryptionKey', function (err, docs) {
+                obj.db.Get(obj.tenantDbKey('LoginCookieEncryptionKey'), function (err, docs) {
                     if ((docs.length > 0) && (docs[0].key != null) && (obj.args.logintokengen == null) && (docs[0].key.length >= 160)) {
                         // Key is present, use it.
                         obj.loginCookieEncryptionKey = Buffer.from(docs[0].key, 'hex');
@@ -3864,7 +3905,7 @@ function CreateMeshCentralServer(config, args) {
                     } else {
                         // Key is not present, generate one.
                         obj.loginCookieEncryptionKey = obj.generateCookieKey();
-                        obj.db.Set({ _id: 'LoginCookieEncryptionKey', key: obj.loginCookieEncryptionKey.toString('hex'), time: Date.now() }, function () { func(obj.encodeCookie({ u: userid, a: 3 }, obj.loginCookieEncryptionKey)); });
+                        obj.db.Set({ _id: obj.tenantDbKey('LoginCookieEncryptionKey'), key: obj.loginCookieEncryptionKey.toString('hex'), time: Date.now() }, function () { func(obj.encodeCookie({ u: userid, a: 3 }, obj.loginCookieEncryptionKey)); });
                     }
                 });
             }
@@ -3874,14 +3915,14 @@ function CreateMeshCentralServer(config, args) {
     // Show the user login token generation key
     obj.showLoginTokenKey = function (func) {
         // Load the login cookie encryption key from the database
-        obj.db.Get('LoginCookieEncryptionKey', function (err, docs) {
+        obj.db.Get(obj.tenantDbKey('LoginCookieEncryptionKey'), function (err, docs) {
             if ((docs.length > 0) && (docs[0].key != null) && (obj.args.logintokengen == null) && (docs[0].key.length >= 160)) {
                 // Key is present, use it.
                 func(docs[0].key);
             } else {
                 // Key is not present, generate one.
                 obj.loginCookieEncryptionKey = obj.generateCookieKey();
-                obj.db.Set({ _id: 'LoginCookieEncryptionKey', key: obj.loginCookieEncryptionKey.toString('hex'), time: Date.now() }, function () { func(obj.loginCookieEncryptionKey.toString('hex')); });
+                obj.db.Set({ _id: obj.tenantDbKey('LoginCookieEncryptionKey'), key: obj.loginCookieEncryptionKey.toString('hex'), time: Date.now() }, function () { func(obj.loginCookieEncryptionKey.toString('hex')); });
             }
         });
     };
