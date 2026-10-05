@@ -64,7 +64,9 @@ function AMTScanner() {
             if (masknum <= 16 || masknum > 32) return null;
             masknum = 32 - masknum;
             for (var i = 0; i < masknum; i++) { mask = (mask << 1); mask++; }
-            return { min: (ip & (0xFFFFFFFF - mask))+1, max: (ip & (0xFFFFFFFF - mask)) + mask -1 };//remove network and broadcast address to avoid irrecoverable socket error
+            var netmin = (ip & (0xFFFFFFFF - mask)), netmax = (ip & (0xFFFFFFFF - mask)) + mask;
+            if (netmin < netmax) { netmin++; netmax--; } // remove network and broadcast address to avoid irrecoverable socket error, unless range is too small
+            return { min: netmin, max: netmax };
         }
         x = this.parseIpv4Addr(range);
         if (x == null) return null;
@@ -89,7 +91,15 @@ function AMTScanner() {
         var server = this.dgram.createSocket({ type: 'udp4' });
         server.parent = this;
         server.scanResults = [];
-        server.on('error', function (err) { console.log('Error:' + err); });
+        server.on('error', function (err) {
+            console.log('Error:' + err);
+            clearTimeout(tmout);
+            try { server.close(); } catch (e) { }
+            if (callback) {
+                callback(server.scanResults);
+            }
+            server.parent.emit('found', server.scanResults);
+        });
         server.on('message', function (msg, rinfo) { if (rinfo.size > 4) { this.parent.parseRmcpPacket(this, msg, rinfo, function (s, res) { s.scanResults.push(res); }) }; });
         server.on('listening', function () { for (var i = iprange.min; i <= iprange.max; i++) {             
             server.send(rmcp, 623, server.parent.IPv4NumToStr(i)); } });
@@ -101,7 +111,7 @@ function AMTScanner() {
                 callback(server.scanResults);
             }
             server.parent.emit('found', server.scanResults);
-            delete server;
+            server = null;
         }, timeout);
     };
 }

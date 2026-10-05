@@ -97,7 +97,7 @@ module.exports.CreateMeshScanner = function (parent) {
                     server4.bind(bindOptions, function () {
                         try {
                             var doscan = true;
-                            try { this.setBroadcast(true); this.setMulticastTTL(128); this.addMembership(membershipIPv4, this.xxlocal); } catch (e) { doscan = false; }
+                            try { this.setBroadcast(true); this.setMulticastTTL(128); this.addMembership(membershipIPv4, this.xxlocal); } catch (e) { doscan = false; if (obj.parent && obj.parent.debug) { obj.parent.debug('meshscanner', 'IPv4 multicast setup failed on ' + this.xxlocal + ': ' + e); } }
                             this.on('error', function (error) { /*console.log('Error: ' + error);*/ });
                             this.on('message', function (msg, info) { onUdpPacket(msg, info, this); });
                             if (doscan == true) { obj.performScan(this); obj.performScan(this); }
@@ -105,7 +105,7 @@ module.exports.CreateMeshScanner = function (parent) {
                     });
                     obj.servers4[localAddress] = server4;
                 } catch (e) {
-                    console.log(e);
+                    console.log('meshscanner: Failed to create IPv4 socket for ' + localAddress + ': ' + e);
                 }
             }
         }
@@ -128,7 +128,7 @@ module.exports.CreateMeshScanner = function (parent) {
                     server6.bind(bindOptions, function () {
                         try {
                             var doscan = true;
-                            try { this.setBroadcast(true); this.setMulticastTTL(128); this.addMembership(membershipIPv6, this.xxlocal); } catch (e) { doscan = false; }
+                            try { this.setBroadcast(true); this.setMulticastTTL(128); this.addMembership(membershipIPv6, this.xxlocal); } catch (e) { doscan = false; if (obj.parent && obj.parent.debug) { obj.parent.debug('meshscanner', 'IPv6 multicast setup failed on ' + this.xxlocal + ': ' + e); } }
                             this.on('error', function (error) { console.log('Error: ' + error); });
                             this.on('message', function (msg, info) { onUdpPacket(msg, info, this); });
                             if (doscan == true) { obj.performScan(this); obj.performScan(this); }
@@ -136,7 +136,7 @@ module.exports.CreateMeshScanner = function (parent) {
                     });
                     obj.servers6[localAddress] = server6;
                 } catch (e) {
-                    console.log(e);
+                    console.log('meshscanner: Failed to create IPv6 socket for ' + localAddress + ': ' + e);
                 }
             }
         }
@@ -166,7 +166,7 @@ module.exports.CreateMeshScanner = function (parent) {
                     if ((typeof obj.parent.config.domains[''].title2 == 'string') && (obj.parent.config.domains[''].title2.length > 0)) { 
                         info = obj.common.replacePlaceholders(obj.parent.config.domains[''].title2, { 
                             'serverversion': obj.parent.currentVer,
-                            'servername': obj.getWebServerName(domain, req),
+                            'servername': parent.certificates.CommonName,
                             'agentsessions': Object.keys(parent.webserver.wsagents).length,
                             'connectedusers': Object.keys(parent.webserver.wssessions).length,
                             'userssessions': Object.keys(parent.webserver.wssessions2).length,

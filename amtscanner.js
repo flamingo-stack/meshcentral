@@ -57,6 +57,12 @@ module.exports.CreateAmtScanner = function (parent) {
         obj.active = false;
         for (var i in obj.servers) { obj.servers[i].close(); } // Stop all servers
         obj.servers = {};
+        for (var i in obj.rserver) {
+            var rangeinfo = obj.rserver[i];
+            if (rangeinfo.timer != null) { clearTimeout(rangeinfo.timer); rangeinfo.timer = null; }
+            if (rangeinfo.server != null) { try { rangeinfo.server.close(); } catch (ex) { } delete rangeinfo.server; }
+        }
+        obj.rserver = {};
         if (obj.mainTimer != null) { clearInterval(obj.mainTimer); obj.mainTimer = null; }
     };
 
@@ -75,8 +81,9 @@ module.exports.CreateAmtScanner = function (parent) {
         rangeinfo.server.on('listening', function() { for (var i = rangeinfo.min; i <= rangeinfo.max; i++) { rangeinfo.server.send(obj.rpacket, 623, obj.IPv4NumToStr(i)); } });
         rangeinfo.timer = setTimeout(function () { // ************************* USE OF OUTER VARS!!!!!!!!!!!!!!!
             obj.parent.DispatchEvent(['*', userid], obj, { action: 'scanamtdevice', range: rangeinfo.range, results: rangeinfo.results, nolog: 1 });
-            rangeinfo.server.close();
-            delete rangeinfo.server;
+            if (rangeinfo.server != null) { try { rangeinfo.server.close(); } catch (ex) { } delete rangeinfo.server; }
+            rangeinfo.timer = null;
+            delete obj.rserver[userid];
         }, 3000);
         return true;
     };
@@ -151,7 +158,7 @@ module.exports.CreateAmtScanner = function (parent) {
     */
 
     obj.ResolveName = function (hostname, func) {
-        if ((hostname == '127.0.0.1') || (hostname == '::1') || (hostname == 'localhost')) { func(hostname, null); } // Don't scan localhost
+        if ((hostname == '127.0.0.1') || (hostname == '::1') || (hostname == 'localhost')) { func(hostname, null); return; } // Don't scan localhost
         if (obj.net.isIP(hostname) > 0) { func(hostname, hostname); return; } // This is an IP address, already resolved.
         obj.dns.lookup(hostname, function (err, address, family) { if (err == null) { func(hostname, address); } else { func(hostname, null); } });
     };

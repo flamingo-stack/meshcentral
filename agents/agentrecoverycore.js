@@ -255,12 +255,12 @@ require('MeshAgent').AddCommandHandler(function (data)
                                                         break;
                                                     case 'mkdir': {
                                                         // Create a new empty folder
-                                                        fs.mkdirSync(cmd.path);
+                                                        try { fs.mkdirSync(cmd.path); } catch (e) { this.write(new Buffer(JSON.stringify({ action: 'mkdirerror' }))); }
                                                         break;
                                                     }
                                                     case 'mkfile': {
                                                         // Create a new empty file
-                                                        fs.closeSync(fs.openSync(cmd.path, 'w'));
+                                                        try { fs.closeSync(fs.openSync(cmd.path, 'w')); } catch (e) { this.write(new Buffer(JSON.stringify({ action: 'mkfileerror' }))); }
                                                         break;
                                                     }
                                                     case 'rm': {
@@ -336,7 +336,7 @@ require('MeshAgent').AddCommandHandler(function (data)
                 break;
             }
             default:
-                // Unknown action, ignore it.
+                console.log('Unknown command action: ' + data.action);
                 break;
         }
     }
@@ -469,3 +469,4 @@ function deleteFolderRecursive(path, rec) {
         fs.unlinkSync(path);
     }
 };
+

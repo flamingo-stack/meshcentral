@@ -48,7 +48,7 @@ module.exports.ParseWsman = function (xml) {
         }
         return r;
     } catch (e) {
-        console.log("Unable to parse XML: " + xml);
+        console.log("Unable to parse XML: exception occurred while parsing, length=" + (xml && xml.length != null ? xml.length : 'unknown'));
         return null;
     }
 }
@@ -78,6 +78,15 @@ function _ParseWsmanRec(node) {
     return r;
 }
 
+function _EscapeXml(value) {
+    return value.toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
+
 function _PutObjToBodyXml(resuri, putObj) {
     if (!resuri || putObj == null) return '';
     var objname = obj.GetNameFromUrl(resuri);
@@ -87,25 +96,25 @@ function _PutObjToBodyXml(resuri, putObj) {
         if (!putObj.hasOwnProperty(prop) || prop.indexOf('__') === 0 || prop.indexOf('@') === 0) continue;
         if (putObj[prop] == null || typeof putObj[prop] === 'function') continue;
         if (typeof putObj[prop] === 'object' && putObj[prop]['ReferenceParameters']) {
-            result += '<r:' + prop + '><a:Address>' + putObj[prop].Address + '</a:Address><a:ReferenceParameters><w:ResourceURI>' + putObj[prop]['ReferenceParameters']["ResourceURI"] + '</w:ResourceURI><w:SelectorSet>';
+            result += '<r:' + prop + '><a:Address>' + _EscapeXml(putObj[prop].Address) + '</a:Address><a:ReferenceParameters><w:ResourceURI>' + _EscapeXml(putObj[prop]['ReferenceParameters']["ResourceURI"]) + '</w:ResourceURI><w:SelectorSet>';
             var selectorArray = putObj[prop]['ReferenceParameters']['SelectorSet']['Selector'];
             if (Array.isArray(selectorArray)) {
                 for (var i = 0; i < selectorArray.length; i++) {
-                    result += '<w:Selector' + _ObjectToXmlAttributes(selectorArray[i]) + '>' + selectorArray[i]['Value'] + '</w:Selector>';
+                    result += '<w:Selector' + _ObjectToXmlAttributes(selectorArray[i]) + '>' + _EscapeXml(selectorArray[i]['Value']) + '</w:Selector>';
                 }
             }
             else {
-                result += '<w:Selector' + _ObjectToXmlAttributes(selectorArray) + '>' + selectorArray['Value'] + '</w:Selector>';
+                result += '<w:Selector' + _ObjectToXmlAttributes(selectorArray) + '>' + _EscapeXml(selectorArray['Value']) + '</w:Selector>';
             }
             result += '</w:SelectorSet></a:ReferenceParameters></r:' + prop + '>';
         }
         else {
             if (Array.isArray(putObj[prop])) {
                 for (var i = 0; i < putObj[prop].length; i++) {
-                    result += '<r:' + prop + '>' + putObj[prop][i].toString() + '</r:' + prop + '>';
+                    result += '<r:' + prop + '>' + _EscapeXml(putObj[prop][i]) + '</r:' + prop + '>';
                 }
             } else {
-                result += '<r:' + prop + '>' + putObj[prop].toString() + '</r:' + prop + '>';
+                result += '<r:' + prop + '>' + _EscapeXml(putObj[prop]) + '</r:' + prop + '>';
             }
         }
     }

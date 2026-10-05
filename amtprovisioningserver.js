@@ -6,9 +6,6 @@
 * @version v0.0.1
 */
 
-/*xjslint node: true */
-/*xjslint plusplus: true */
-/*xjslint maxlen: 256 */
 /*jshint node: true */
 /*jshint strict: false */
 /*jshint esversion: 6 */
@@ -39,7 +36,7 @@ module.exports.CreateAmtProvisioningServer = function (parent, config) {
         socket.on('error', function (err) { })
         socket.on('close', function () { if (this.data != null) { processHelloData(this.data, this.ra); } delete this.ra; this.removeAllListeners(); })
         socket.on('data', function (data) {
-            if (this.data == null) { this.data = data; } else { Buffer.concat([this.data, data]); }
+            if (this.data == null) { this.data = data; } else { this.data = Buffer.concat([this.data, data]); }
             var str = this.data.toString();
             if (str.startsWith('GET ') && (str.indexOf('\r\n\r\n') >= 0)) {
                 this.data = null;
@@ -696,3 +693,4 @@ module.exports.CreateAmtProvisioningServer = function (parent, config) {
 
     return obj;
 };
+

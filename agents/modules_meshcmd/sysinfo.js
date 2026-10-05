@@ -201,6 +201,8 @@ function macos_memUtilization()
     var child = require('child_process').execFile('/bin/sh', ['sh']);
     child.stdout.str = '';
     child.stdout.on('data', function (chunk) { this.str += chunk.toString(); });
+    child.stderr.str = '';
+    child.stderr.on('data', function (chunk) { this.str += chunk.toString(); });
     child.stdin.write('top -l 1 | grep -E "^Phys"\nexit\n');
     child.waitExit();
 
@@ -214,12 +216,14 @@ function macos_memUtilization()
         mem.MemFree = parseInt(bdown[1].trim().split(' ')[0]);
         mem.percentFree = ((mem.MemFree / mem.MemTotal) * 100);//.toFixed(2);
         mem.percentConsumed = (((mem.MemTotal - mem.MemFree) / mem.MemTotal) * 100);//.toFixed(2);
-        return (mem);
+        ret._res(mem);
     }
     else
     {
-        throw ('Parse Error');
+        ret._rej('Parse Error');
     }
+
+    return (ret);
 }
 
 function windows_thermals()
@@ -287,3 +291,4 @@ const platformConfig = {
 };
 
 module.exports = platformConfig[process.platform];
+
