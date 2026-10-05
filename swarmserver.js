@@ -176,7 +176,7 @@ module.exports.CreateSwarmServer = function (parent, db, args, certificates) {
         // A client certificate is required
         if ((this.tag.clientCert == null) || (this.tag.clientCert.subject == null)) {
             /*console.log("Swarm Connection, no client cert: " + socket.remoteAddress);*/
-            this.write('HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nMeshCentral2 legacy swarm server.\r\nNo client certificate given.');
+            try { this.write('HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nMeshCentral2 legacy swarm server.\r\nNo client certificate given.'); } catch (ex) { }
             //this.end(); // If we don't close the connection, it may lead to less reconnection traffic.
             return;
         }
@@ -432,3 +432,4 @@ module.exports.CreateSwarmServer = function (parent, db, args, certificates) {
 
     return obj;
 };
+
