@@ -4,7 +4,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Load saved theme from local storage
   const savedTheme = localStorage.getItem("theme");
   if (savedTheme) {
-    const safeTheme = ((savedTheme != 'default') ? encodeURIComponent(savedTheme) : encodeURIComponent('..'));
+    const safeTheme = ((savedTheme === 'default') ? 'default' : encodeURIComponent(savedTheme));
     themeStylesheet.href = `styles/themes/${safeTheme}/bootstrap-min.css`;
   }
 
@@ -19,3 +19,4 @@ document.addEventListener("DOMContentLoaded", function () {
     placeholder: $(this).data("placeholder"),
   });
 });
+
