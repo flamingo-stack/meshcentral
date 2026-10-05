@@ -78,9 +78,15 @@ function _ParseWsmanRec(node) {
     return r;
 }
 
+function _GetNameFromUrl(url) {
+    if (!url) return '';
+    var i = url.lastIndexOf('/');
+    return (i == -1) ? url : url.substring(i + 1);
+}
+
 function _PutObjToBodyXml(resuri, putObj) {
     if (!resuri || putObj == null) return '';
-    var objname = obj.GetNameFromUrl(resuri);
+    var objname = _GetNameFromUrl(resuri);
     var result = '<r:' + objname + ' xmlns:r="' + resuri + '">';
 
     for (var prop in putObj) {
