@@ -1,3 +1,8 @@
+/*jshint node: true */
+/*jshint strict: false */
+/*jshint esversion: 6 */
+"use strict";
+
 var fs = require('fs');
 
 var agents = {
