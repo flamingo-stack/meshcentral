@@ -150,7 +150,7 @@ module.exports.CreateMeshSMS = function (parent) {
                 sms = require('url').parse(sms);
                 if (sms.protocol == 'https:') {
                     // HTTPS GET request
-                    const options = { hostname: sms.hostname, port: sms.port ? sms.port : 443, path: sms.path, method: 'GET', rejectUnauthorized: false };
+                    const options = { hostname: sms.hostname, port: sms.port ? sms.port : 443, path: sms.path, method: 'GET', rejectUnauthorized: (parent.config.sms.allowunauthorizedcert === true) ? false : true };
                     const request = require('https').request(options, function (res) { parent.debug('email', 'SMS result: ' + res.statusCode); if (func != null) { func(res.statusCode == 200, (res.statusCode == 200) ? null : res.statusCode, null); } res.on('data', function (d) { }); });
                     request.on('error', function (err) { parent.debug('email', 'SMS error: ' + err); if (func != null) { func(false, err, null); } });
                     request.end();
@@ -254,3 +254,4 @@ module.exports.CreateMeshSMS = function (parent) {
 
     return obj;
 };
+

@@ -251,7 +251,11 @@ var CreateWsmanComm = function (host, port, user, pass, tls, tlsoptions, mpsConn
                         obj.socket = obj.tls.connect(obj.port, obj.host, options, obj.xxOnSocketConnected);
                         obj.socket.setEncoding('binary');
                         obj.socket.setTimeout(60000); // Set socket idle timeout
-                        obj.socket.on('error', function (ex) { obj.xtlsMethod = 1 - obj.xtlsMethod; });
+                        obj.socket.on('error', function (ex) {
+                            console.error('CIRA TLS socket error: ' + (ex && ex.message ? ex.message : ex));
+                            obj.xtlsMethod = 1 - obj.xtlsMethod;
+                            obj.xxOnSocketClosed();
+                        });
                         obj.socket.on('close', obj.xxOnSocketClosed);
                         obj.socket.on('timeout', obj.destroy);
 

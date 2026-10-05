@@ -110,13 +110,6 @@ function parseUrl(url) {
     sha256.write('bob');
     sha256.end();
 }
-{
-    // FAIL!!!!!!!!!
-    var sha256x = require('SHA256Stream');
-    sha256x.hashString = function (x) { if (x == '81B637D8FCD2C6DA6359E6963113A1170DE795E4B725B84D1E0B4CFD9EC58CE9') { console.log('Test 1 - OK: ' + x); } else { console.log('Test 1 - FAIL: ' + x); } };
-    sha256x.write('bob');
-    sha256x.end();
-}
 
 /*
 {

@@ -484,8 +484,8 @@ Server.prototype.recvConnectInitial = function (s) {
     		break;
     	case gcc.MessageType.CS_NET:
     		this.clientNetworkData = clientSettings[i];
-    		for (var i = 0; i < this.clientNetworkData.obj.channelCount.value; i++) {
-    			this.serverNetworkData.obj.channelIdArray.obj.push(new type.UInt16Le( i + 1 + Channel.MCS_GLOBAL_CHANNEL));
+    		for (var j = 0; j < this.clientNetworkData.obj.channelCount.value; j++) {
+    			this.serverNetworkData.obj.channelIdArray.obj.push(new type.UInt16Le( j + 1 + Channel.MCS_GLOBAL_CHANNEL));
     		}
     		break;
     	default:
@@ -517,3 +517,4 @@ module.exports = {
 		Client : Client,
 		Server : Server
 };
+
