@@ -58,8 +58,8 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
     // Disconnect
     obj.close = function (arg) {
         if (obj.ws != null) {
-            if ((arg == 1) || (arg == null)) { try { obj.ws.close(); parent.parent.debug('relay', 'FileRelay: Soft disconnect (' + obj.req.clientIp + ')'); } catch (ex) { console.log(e); } } // Soft close, close the websocket
-            if (arg == 2) { try { obj.ws._socket._parent.end(); parent.parent.debug('relay', 'FileRelay: Hard disconnect (' + obj.req.clientIp + ')'); } catch (ex) { console.log(e); } } // Hard close, close the TCP socket
+            if ((arg == 1) || (arg == null)) { try { obj.ws.close(); parent.parent.debug('relay', 'FileRelay: Soft disconnect (' + obj.req.clientIp + ')'); } catch (ex) { console.log(ex); } } // Soft close, close the websocket
+            if (arg == 2) { try { obj.ws._socket._parent.end(); parent.parent.debug('relay', 'FileRelay: Hard disconnect (' + obj.req.clientIp + ')'); } catch (ex) { console.log(ex); } } // Hard close, close the TCP socket
         } else if (obj.res != null) {
             try { res.sendStatus(404); } catch (ex) { }
         }
@@ -310,3 +310,4 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
     performRelay();
     return obj;
 };
+
