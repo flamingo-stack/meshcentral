@@ -14,6 +14,30 @@
 /*jshint esversion: 6 */
 "use strict";
 
+// Handshake WARN helpers, module scope: pure and shared by every agent connection.
+const HANDSHAKE_CMD_NAMES = { 1: 'cmd1 (auth request)', 2: 'cmd2 (cert+signature)', 4: 'cmd3 (agent info)', 8: 'cmd4 (auth confirm, optional)' };
+// Decodes obj.receivedCommands into the handshake commands that arrived and the required ones that did not.
+function describeHandshake(bits) {
+    const got = [], missing = [];
+    for (const bit of [1, 2, 4, 8]) {
+        if ((bits & bit) != 0) { got.push(HANDSHAKE_CMD_NAMES[bit]); }
+        else if (bit != 8) { missing.push(HANDSHAKE_CMD_NAMES[bit]); }
+    }
+    return 'got ' + (got.length ? got.join(', ') : 'nothing') + '; missing ' + (missing.length ? missing.join(', ') : 'nothing');
+}
+// At most this many handshake WARN lines per minute, so a reconnect storm or a port scanner cannot flood stdout at the default level.
+const HANDSHAKE_WARN_MAX_PER_MINUTE = 20;
+const handshakeWarn = { windowStart: 0, count: 0, suppressed: 0 };
+function warnHandshakeIncomplete(parent, msg) {
+    const now = Date.now();
+    if (now - handshakeWarn.windowStart >= 60000) {
+        if (handshakeWarn.suppressed > 0) { msg += ' (+' + handshakeWarn.suppressed + ' similar suppressed in the previous minute)'; }
+        handshakeWarn.windowStart = now; handshakeWarn.count = 0; handshakeWarn.suppressed = 0;
+    }
+    if (++handshakeWarn.count > HANDSHAKE_WARN_MAX_PER_MINUTE) { handshakeWarn.suppressed++; return; }
+    parent.parent.diagLog('WARN', msg);
+}
+
 // Construct a MeshAgent object, called upon connection
 module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
     const forge = parent.parent.certificateOperations.forge;
@@ -28,6 +52,8 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
     obj.agentCoreCheck = 0;
     obj.remoteaddr = req.clientIp;
     obj.remoteaddrport = obj.remoteaddr + ':' + ws._socket.remotePort;
+    const diagRemote = obj.remoteaddrport; // Kept for the close diag lines, obj.close() deletes obj.remoteaddrport before 'close' fires.
+    obj.diagStage = 0; // Handshake progress for the close diag: 0 nothing verified, 1 agent cert verified, 2 fully authenticated; survives obj.close().
     obj.nonce = parent.crypto.randomBytes(48).toString('binary');
     obj.diagConnectTime = Date.now(); // Diag: connect timestamp, used to report first-frame/auth/close latency.
     obj.diagMsgCount = 0; // Diag: inbound frame counter; 0 at close means the agent never sent anything.
@@ -584,7 +610,16 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
     ws.on('close', function (req) {
         parent.agentStats.agentClose++;
         // Diag: log EVERY close, including pre-auth ones (nodeid still null) — distinguishes "upgraded but dropped before authenticating" from "was online then dropped".
-        try { parent.parent.diagLog('DEBUG', new Date().toISOString() + ' Agent WS closed from ' + obj.remoteaddrport + ' (authenticated=' + (obj.authenticated || 0) + ', nodeid=' + (obj.nodeid || 'none') + ', frames=' + (obj.diagMsgCount || 0) + ', ' + (Date.now() - obj.diagConnectTime) + 'ms)'); } catch (diagEx) { }
+        try {
+            const lifetimeMs = Date.now() - obj.diagConnectTime;
+            parent.parent.diagLog('DEBUG', new Date().toISOString() + ' Agent WS closed from ' + diagRemote + ' (authenticated=' + (obj.authenticated || 0) + ', nodeid=' + (obj.nodeid || 'none') + ', frames=' + (obj.diagMsgCount || 0) + ', ' + lifetimeMs + 'ms)');
+            if (((obj.diagMsgCount || 0) > 0) && ((obj.diagStage || 0) < 2)) {
+                // The agent talked but never reached the authenticated state: one WARN at the default log level naming what is missing or why it was held.
+                parent.agentStats.agentHandshakeIncompleteCount++;
+                const why = ((obj.diagStage || 0) == 1) ? 'cert verified but connection never completed' : describeHandshake(obj.receivedCommands || 0);
+                warnHandshakeIncomplete(parent, new Date().toISOString() + ' Agent handshake incomplete from ' + diagRemote + ': ' + why + (obj.diagIssue ? ' issue=' + obj.diagIssue : '') + '; frames=' + (obj.diagMsgCount || 0) + ' authenticated=' + (obj.authenticated || 0) + ' lifetime=' + lifetimeMs + 'ms');
+            }
+        } catch (diagEx) { }
         if (obj.nodeid != null) {
             const agentId = (obj.agentInfo && obj.agentInfo.agentId) ? obj.agentInfo.agentId : 'Unknown';
             //console.log('Agent disconnect ' + obj.nodeid + ' (' + obj.remoteaddrport + ') id=' + agentId);
@@ -686,6 +721,7 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
             // Inform mesh agent that it's authenticated.
             delete obj.pendingCompleteAgentConnection;
             obj.authenticated = 2;
+            obj.diagStage = 2;
             obj.sendBinary(common.ShortToStr(4));
 
             // Ask for mesh core hash.
@@ -940,6 +976,7 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
         // We are done, ready to communicate with this agent
         delete obj.pendingCompleteAgentConnection;
         obj.authenticated = 2;
+        obj.diagStage = 2;
         // Diag: agent finished authentication and is now online; fires for BOTH new and reconnecting nodes (unlike the new-node-only census above), so reconnect successes are visible.
         try { parent.parent.diagLog('DEBUG', new Date().toISOString() + ' Agent authenticated: node ' + obj.nodeid + ' -> group ' + obj.dbMeshKey + ' (now online) from ' + obj.remoteaddrport + ' after ' + (Date.now() - obj.diagConnectTime) + 'ms'); } catch (diagEx) { }
 
@@ -1210,6 +1247,7 @@ module.exports.CreateMeshAgent = function (parent, db, ws, req, args, domain) {
         delete obj.nonce;
         delete obj.agentnonce;
         delete obj.unauth;
+        obj.diagStage = 1;
         delete obj.receivedCommands;
         delete obj.agentSeenCerthash;
         if (obj.unauthsign) delete obj.unauthsign;
