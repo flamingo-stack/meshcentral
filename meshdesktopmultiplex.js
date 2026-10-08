@@ -59,10 +59,11 @@ MNG_ENCAPSULATE_AGENT_COMMAND = 70,
 MNG_KVM_DISPLAY_INFO = 82
 */
 
-function CreateDesktopMultiplexor(parent, domain, nodeid, id, func) {
+function CreateDesktopMultiplexor(parent, domain, nodeid, id, user, func) {
     var obj = {};
     obj.id = id;                        // Unique identifier for this session
     obj.nodeid = nodeid;                // Remote device nodeid for this session
+    obj.user = user;                    // User behind the relay that created this session, named in the recording
     obj.parent = parent;                // Parent web server instance
     obj.agent = null;                   // Reference to the connection object that is the agent.
     obj.viewers = [];                   // Array of references to all viewers.
@@ -313,14 +314,17 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, func) {
             delete peer.sendQueue;
             delete peer.startTime;
 
-            // If this is the last viewer, disconnect the agent
-            if ((obj.viewers != null) && (obj.viewers.length == 0) && (obj.agent != null)) { obj.agent.close(); dispose(); return true; }
+            // If this is the last viewer, disconnect the agent and dispose, or a viewer-less multiplexor outlives its session and catches the next one
+            if ((obj.viewers != null) && (obj.viewers.length == 0)) { if (obj.agent != null) { obj.agent.close(); } dispose(); return true; }
 
             // Send an updated list of all peers to all viewers
             obj.sendSessionMetadata();
         }
         return false;
     }
+
+    // Drop a session that never started: closing the agent disposes through removePeer, without one dispose directly
+    obj.abandon = function () { if (obj.agent != null) { obj.agent.close(); } else { dispose(); } }
 
     // Clean up ourselves
     function dispose() {
@@ -329,6 +333,13 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, func) {
         delete obj.viewers;
         delete obj.imagesCounters;
         delete obj.images;
+
+        // A session that never started leaves a header-only recording, drop it instead of publishing it
+        if ((obj.recordingFile != null) && (obj.startTime == null)) {
+            var rf0 = obj.recordingFile;
+            delete obj.recordingFile;
+            parent.parent.fs.close(rf0.fd, function () { parent.parent.fs.unlink(rf0.filename, function () { }); });
+        }
 
         // Close the recording file if needed
         if (obj.recordingFile != null) {
@@ -639,13 +650,16 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, func) {
             case 10: // CTRL-ALT-DEL, forward to agent
                 if (viewer.viewOnly == false) { obj.sendToAgent(data); }
                 break;
+            case 11: // Request display list, forward to agent like a plain relay does
+                obj.sendToAgent(data);
+                break;
             case 12: // SET DISPLAY, forward to agent
                 if (viewer.viewOnly == false) { obj.sendToAgent(data); }
                 break;
             case 14: // Touch setup
                 break;
-            case 82: // Request display information
-                if (obj.lastDisplayLocationData != null) { obj.sendToAgent(obj.lastDisplayLocationData); }
+            case 82: // Request display information, the cached answer goes to the viewer that asked
+                if (obj.lastDisplayLocationData != null) { obj.sendToViewer(viewer, obj.lastDisplayLocationData); }
                 break;
             case 85: // Unicode Key Events, forward to agent
                 if (viewer.viewOnly == false) { obj.sendToAgent(data); }
@@ -830,7 +844,10 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, func) {
         if (start == false) { func(false); return; } // Just skip this
         obj.pendingRecording = 1;
         var now = new Date(Date.now());
-        var recFilename = 'desktopSession' + ((domain.id == '') ? '' : '-') + domain.id + '-' + now.getUTCFullYear() + '-' + parent.common.zeroPad(now.getUTCMonth() + 1, 2) + '-' + parent.common.zeroPad(now.getUTCDate(), 2) + '-' + parent.common.zeroPad(now.getUTCHours(), 2) + '-' + parent.common.zeroPad(now.getUTCMinutes(), 2) + '-' + parent.common.zeroPad(now.getUTCSeconds(), 2) + '-' + obj.nodeid.split('/')[2] + '.mcrec'
+        // Named like meshrelay.js recordings (user, device, relay id) so the OpenFrame uploader and the per-request listing treat both alike
+        var xusername = ((obj.user != null) && (typeof obj.user._id == 'string')) ? ('-' + parent.common.makeFilename(obj.user._id.split('/').pop())) : '';
+        var xdevicename = (typeof obj.name == 'string') ? ('-' + parent.common.makeFilename(obj.name)) : '';
+        var recFilename = 'relaysession' + ((domain.id == '') ? '' : '-') + domain.id + '-' + now.getUTCFullYear() + '-' + parent.common.zeroPad(now.getUTCMonth() + 1, 2) + '-' + parent.common.zeroPad(now.getUTCDate(), 2) + '-' + parent.common.zeroPad(now.getUTCHours(), 2) + '-' + parent.common.zeroPad(now.getUTCMinutes(), 2) + '-' + parent.common.zeroPad(now.getUTCSeconds(), 2) + xusername + xdevicename + '-' + parent.common.makeFilename('' + obj.id) + '.mcrec';
         var recFullFilename = null;
         if (domain.sessionrecording.filepath) {
             try { parent.parent.fs.mkdirSync(domain.sessionrecording.filepath); } catch (e) { }
@@ -848,7 +865,8 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, func) {
             }
             // Write the recording file header
             parent.parent.debug('relay', 'Relay: Started recording to file: ' + recFullFilename);
-            var metadata = { magic: 'MeshCentralRelaySession', ver: 1, nodeid: obj.nodeid, meshid: obj.meshid, time: new Date().toLocaleString(), protocol: 2, devicename: obj.name, devicegroup: obj.meshname };
+            var metadata = { magic: 'MeshCentralRelaySession', ver: 1, sessionid: obj.id, nodeid: obj.nodeid, meshid: obj.meshid, time: new Date().toLocaleString(), protocol: 2, devicename: obj.name, devicegroup: obj.meshname };
+            if (obj.user != null) { metadata.userid = obj.user._id; metadata.username = obj.user.name; }
             var firstBlock = JSON.stringify(metadata);
             recordingEntry(fd, 1, 0, firstBlock, function () {
                 obj.recordingFile = { fd: fd, filename: recFullFilename };
@@ -1180,6 +1198,9 @@ function CreateMeshRelayEx2(parent, ws, req, domain, user, cookie) {
         try { if (obj.peer != null) { obj.peer.ws.send('{"ctrlChannel":"102938","type":"pong"}'); } } catch (ex) { }
     }
 
+    // The user behind this relay: the browser's session user, or for the agent tunnel the user its rauth cookie was minted for
+    function relayUser() { if (obj.user != null) { return obj.user; } if (obj.ruserid != null) { return parent.users[obj.ruserid]; } return null; }
+
     function performRelay(retryCount) {
         if ((obj.id == null) || (retryCount > 20)) { try { obj.close(); } catch (e) { } return null; } // Attempt to connect without id, drop this.
         if (retryCount == 0) { ws._socket.setKeepAlive(true, 240000); } // Set TCP keep alive
@@ -1207,19 +1228,22 @@ function CreateMeshRelayEx2(parent, ws, req, domain, user, cookie) {
 
         // Create if needed and add this peer to the desktop multiplexor
         obj.deskMultiplexor = parent.desktoprelays[obj.nodeid];
+        // A multiplexor nobody views whose session never started is left over from a failed dial under another relay id; drop it and start fresh
+        if ((typeof obj.deskMultiplexor == 'object') && (obj.deskMultiplexor.viewers != null) && (obj.deskMultiplexor.viewers.length == 0) && (obj.deskMultiplexor.startTime == null) && (obj.deskMultiplexor.id != obj.id)) { obj.deskMultiplexor.abandon(); delete parent.desktoprelays[obj.nodeid]; obj.deskMultiplexor = null; }
         if (obj.deskMultiplexor == null) {
             parent.desktoprelays[obj.nodeid] = 1; // Indicate that the creating of the desktop multiplexor is pending.
             parent.parent.debug('relay', 'DesktopRelay: Creating new desktop multiplexor');
-            CreateDesktopMultiplexor(parent, domain, obj.nodeid, obj.id, function (deskMultiplexor) {
+            const nodeid = obj.nodeid; // obj.close() drops obj.nodeid, the callback must still clear the pending marker under the real key
+            CreateDesktopMultiplexor(parent, domain, nodeid, obj.id, relayUser(), function (deskMultiplexor) {
                 if (deskMultiplexor != null) {
-                    // Desktop multiplexor was created, use it.
+                    // Desktop multiplexor was created, use it; if this peer closed meanwhile, drop the multiplexor with it
                     obj.deskMultiplexor = deskMultiplexor;
-                    parent.desktoprelays[obj.nodeid] = obj.deskMultiplexor;
-                    obj.deskMultiplexor.addPeer(obj);
+                    parent.desktoprelays[nodeid] = obj.deskMultiplexor;
+                    if (obj.deskMultiplexor.addPeer(obj) !== true) { obj.deskMultiplexor.abandon(); delete parent.desktoprelays[nodeid]; return; }
                     ws._socket.resume(); // Release the traffic
                 } else {
                     // An error has occured, close this connection
-                    delete parent.desktoprelays[obj.nodeid];
+                    delete parent.desktoprelays[nodeid];
                     ws.close();
                 }
             });
@@ -1228,8 +1252,8 @@ function CreateMeshRelayEx2(parent, ws, req, domain, user, cookie) {
                 // The multiplexor is being created, hold a little and try again. This is to prevent a possible race condition.
                 setTimeout(function () { performRelay(++retryCount); }, 50);
             } else {
-                // Hook up this peer to the multiplexor and release the traffic
-                obj.deskMultiplexor.addPeer(obj);
+                // Hook up this peer to the multiplexor and release the traffic; a second agent tunnel is closed instead of left dangling
+                if (obj.deskMultiplexor.addPeer(obj) === false) { ws._socket.resume(); obj.close(); return; }
                 ws._socket.resume();
             }
         }
