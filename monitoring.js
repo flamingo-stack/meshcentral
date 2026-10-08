@@ -28,6 +28,7 @@ module.exports.CreateMonitoring = function (parent, args) {
         UnknownDeviceGroup: { description: "Unknown Device Group" }, // (invalidDomainMeshCount + invalidDomainMesh2Count)
         InvalidDeviceGroupType: { description: "Invalid Device Group Type" }, //  invalidMeshTypeCount
         DuplicateAgent: { description: "Duplicate Agent" }, // duplicateAgentCount
+        HandshakeIncomplete: { description: "Agent closed before completing the handshake" }, // agentHandshakeIncompleteCount
         blockedUsers: { description: "Blocked Users" }, // blockedUsers
         blockedAgents: { description: "Blocked Agents" }, // blockedAgents
     };
@@ -104,6 +105,7 @@ module.exports.CreateMonitoring = function (parent, args) {
                         UnknownDeviceGroup: (agentstats.invalidDomainMeshCount + agentstats.invalidDomainMesh2Count),
                         InvalidDeviceGroupType: (agentstats.invalidMeshTypeCount + agentstats.invalidMeshType2Count),
                         DuplicateAgent: agentstats.duplicateAgentCount,
+                        HandshakeIncomplete: agentstats.agentHandshakeIncompleteCount,
                         blockedUsers: parent.webserver.blockedUsers,
                         blockedAgents: parent.webserver.blockedAgents
                     };
