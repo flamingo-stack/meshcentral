@@ -175,7 +175,7 @@ module.exports.CreateAmtRemoteIder = function (webserver, meshcentral) {
         var attributes = ((cmdid > 50) && (completed == true)) ? 2 : 0;
         if (dma) { attributes += 1; }
         var x = Buffer.concat([Buffer.from([cmdid, 0, 0, attributes]), IntToStrX(obj.outSequence++), data]);
-        obj.parent.xxSend(x);
+        try { obj.parent.xxSend(x); } catch (ex) { }
         obj.bytesToAmt += x.length;
         //if (cmdid != 0x4B) { console.log('IDER-SendData', x.length, x.toString('hex')); }
     }

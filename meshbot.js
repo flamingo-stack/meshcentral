@@ -108,7 +108,7 @@ function serverConnect() {
                 console.log('Connected at user: ' + data.userinfo.name);
                 if ((args.targetuser != null) || (args.targetsession != null)) {
                     console.log('Sending interuser message...');
-                    ws.send(JSON.stringify({ action: 'interuser', userid: args.targetuser, sessionid: args.targetsession, data: 'Hello!!!' })); // Send a hello message
+                    try { ws.send(JSON.stringify({ action: 'interuser', userid: args.targetuser, sessionid: args.targetsession, data: 'Hello!!!' })); } catch (ex) { } // Send a hello message
                 }
                 break;
             }
@@ -116,10 +116,11 @@ function serverConnect() {
                 console.log('Got InterUser Message', data);
                 if ((args.targetuser == null) && (args.targetsession == null) && (typeof data.data == 'string')) { // For testing, echo back the original message.
                     console.log('Sending interuser echo...');
-                    ws.send(JSON.stringify({ action: 'interuser', sessionid: data.sessionid, data: 'ECHO: ' + data.data }));
+                    try { ws.send(JSON.stringify({ action: 'interuser', sessionid: data.sessionid, data: 'ECHO: ' + data.data })); } catch (ex) { }
                 }
                 break;
             }
         }
     });
 }
+

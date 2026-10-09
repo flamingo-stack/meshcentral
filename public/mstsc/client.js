@@ -69,7 +69,7 @@
                 self.mouseNagleData = ['mouse', e.clientX - rect.left, e.clientY - rect.top, 0, false];
                 if (self.mouseNagleTimer == null) {
                     //console.log('sending', self.mouseNagleData);
-                    self.mouseNagleTimer = setTimeout(function () { self.socket.send(JSON.stringify(self.mouseNagleData)); self.mouseNagleTimer = null; }, 50);
+                    self.mouseNagleTimer = setTimeout(function () { try { self.socket.send(JSON.stringify(self.mouseNagleData)); } catch (ex) { } self.mouseNagleTimer = null; }, 50);
                 }
                 //self.socket.send(JSON.stringify(this.mouseNagleData));
                 e.preventDefault();
@@ -79,7 +79,7 @@
                 if (!self.socket || !self.activeSession) return;
                 if (self.mouseNagleTimer != null) { clearTimeout(self.mouseNagleTimer); self.mouseNagleTimer = null; }
                 var rect = e.target.getBoundingClientRect();
-                self.socket.send(JSON.stringify(['mouse', e.clientX - rect.left, e.clientY - rect.top, mouseButtonMap(e.button), true]));
+                try { self.socket.send(JSON.stringify(['mouse', e.clientX - rect.left, e.clientY - rect.top, mouseButtonMap(e.button), true])); } catch (ex) { }
 				e.preventDefault();
 				return false;
 			});
@@ -87,7 +87,7 @@
 				if (!self.socket || !self.activeSession) return;
                 if (self.mouseNagleTimer != null) { clearTimeout(self.mouseNagleTimer); self.mouseNagleTimer = null; }
                 var rect = e.target.getBoundingClientRect();
-                self.socket.send(JSON.stringify(['mouse', e.clientX - rect.left, e.clientY - rect.top, mouseButtonMap(e.button), false]));
+                try { self.socket.send(JSON.stringify(['mouse', e.clientX - rect.left, e.clientY - rect.top, mouseButtonMap(e.button), false])); } catch (ex) { }
 				e.preventDefault();
 				return false;
 			});
@@ -95,7 +95,7 @@
 				if (!self.socket || !self.activeSession) return;
                 if (self.mouseNagleTimer != null) { clearTimeout(self.mouseNagleTimer); self.mouseNagleTimer = null; }
                 var rect = e.target.getBoundingClientRect();
-                self.socket.send(JSON.stringify(['mouse', e.clientX - rect.left, e.clientY - rect.top, mouseButtonMap(e.button), false]));
+                try { self.socket.send(JSON.stringify(['mouse', e.clientX - rect.left, e.clientY - rect.top, mouseButtonMap(e.button), false])); } catch (ex) { }
 				e.preventDefault();
 				return false;
 			});
@@ -109,7 +109,7 @@
                 var step = 128;
                 //console.log('DOMMouseScroll', delta, step, e.detail);
                 var rect = e.target.getBoundingClientRect();
-                self.socket.send(JSON.stringify(['wheel', e.clientX - rect.left, e.clientY - rect.top, step, delta > 0, isHorizontal]));
+                try { self.socket.send(JSON.stringify(['wheel', e.clientX - rect.left, e.clientY - rect.top, step, delta > 0, isHorizontal])); } catch (ex) { }
 				e.preventDefault();
 				return false;
 			});
@@ -122,7 +122,7 @@
                 var step = 128;
                 //console.log('mousewheel', delta, step, e);
                 var rect = e.target.getBoundingClientRect();
-                self.socket.send(JSON.stringify(['wheel', e.clientX - rect.left, e.clientY - rect.top, step, delta > 0, isHorizontal]));
+                try { self.socket.send(JSON.stringify(['wheel', e.clientX - rect.left, e.clientY - rect.top, step, delta > 0, isHorizontal])); } catch (ex) { }
 				e.preventDefault();
 				return false;
 			});
@@ -130,13 +130,13 @@
 			// Bind keyboard event
 			window.addEventListener('keydown', function (e) {
 				if (!self.socket || !self.activeSession) return;
-                self.socket.send(JSON.stringify(['scancode', Mstsc.scancode(e), true]));
+                try { self.socket.send(JSON.stringify(['scancode', Mstsc.scancode(e), true])); } catch (ex) { }
 				e.preventDefault();
 				return false;
 			});
 			window.addEventListener('keyup', function (e) {
 				if (!self.socket || !self.activeSession) return;
-                self.socket.send(JSON.stringify(['scancode', Mstsc.scancode(e), false]));
+                try { self.socket.send(JSON.stringify(['scancode', Mstsc.scancode(e), false])); } catch (ex) { }
 				e.preventDefault();
 				return false;
 			});
@@ -164,19 +164,21 @@
             this.socket.binaryType = 'arraybuffer';
             this.socket.onopen = function () {
                 //console.log("WS-OPEN");
-                self.socket.send(JSON.stringify(['infos', {
-                    ip: ip,
-                    port: 3389,
-                    screen: {
-                        width: self.canvas.width,
-                        height: self.canvas.height
-                    },
-                    domain: domain,
-                    username: username,
-                    password: password,
-                    options: options,
-                    locale: Mstsc.locale()
-                }]));
+                try {
+                    self.socket.send(JSON.stringify(['infos', {
+                        ip: ip,
+                        port: 3389,
+                        screen: {
+                            width: self.canvas.width,
+                            height: self.canvas.height
+                        },
+                        domain: domain,
+                        username: username,
+                        password: password,
+                        options: options,
+                        locale: Mstsc.locale()
+                    }]));
+                } catch (ex) { }
                 self.prevClipboardText = null;
                 self.clipboardReadTimer = setInterval(function(){
                     if(navigator.clipboard.readText != null){
@@ -185,7 +187,7 @@
                         .then(function(data){
                             if(data != self.prevClipboard){
                                 self.prevClipboard = data;
-                                if (self.socket) { self.socket.send(JSON.stringify(['clipboard', data])); }
+                                if (self.socket) { try { self.socket.send(JSON.stringify(['clipboard', data])); } catch (ex) { } }
                             }
                         })
                         .catch(function(){ });

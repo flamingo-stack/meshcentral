@@ -162,7 +162,7 @@ module.exports.CreateSwarmServer = function (parent, db, args, certificates) {
 
                 // Relay this connection to the main TLS port
                 this.pause();
-                var relaySocket = tls.connect(obj.args.port, { rejectUnauthorized: false }, function () { this.write(this.parentSocket.tag.accumulator); this.parentSocket.resume(); });
+                var relaySocket = tls.connect(obj.args.port, { rejectUnauthorized: false }, function () { try { this.write(this.parentSocket.tag.accumulator); this.parentSocket.resume(); } catch (ex) { } });
                 relaySocket.on('data', function (data) { try { var rs = this; this.pause(); this.parentSocket.write(data, 'binary', function () { rs.resume(); }); } catch (ex) { } });
                 relaySocket.on('error', function (err) { try { this.parentSocket.end(); } catch (ex) { } });
                 relaySocket.on('end', function () { try { this.parentSocket.end(); } catch (ex) { } });
@@ -176,7 +176,7 @@ module.exports.CreateSwarmServer = function (parent, db, args, certificates) {
         // A client certificate is required
         if ((this.tag.clientCert == null) || (this.tag.clientCert.subject == null)) {
             /*console.log("Swarm Connection, no client cert: " + socket.remoteAddress);*/
-            this.write('HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nMeshCentral2 legacy swarm server.\r\nNo client certificate given.');
+            try { this.write('HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nMeshCentral2 legacy swarm server.\r\nNo client certificate given.'); } catch (ex) { }
             //this.end(); // If we don't close the connection, it may lead to less reconnection traffic.
             return;
         }
@@ -410,14 +410,16 @@ module.exports.CreateSwarmServer = function (parent, db, args, certificates) {
 
     function Write(socket, data) {
         obj.stats.bytesOut += data.length;
-        if (args.swarmdebug) {
-            // Print out sent bytes
-            var buf = Buffer.from(data, "binary");
-            console.log('SWARM --> (' + buf.length + '):' + buf.toString('hex'));
-            socket.write(buf);
-        } else {
-            socket.write(Buffer.from(data, "binary"));
-        }
+        try {
+            if (args.swarmdebug) {
+                // Print out sent bytes
+                var buf = Buffer.from(data, "binary");
+                console.log('SWARM --> (' + buf.length + '):' + buf.toString('hex'));
+                socket.write(buf);
+            } else {
+                socket.write(Buffer.from(data, "binary"));
+            }
+        } catch (ex) { }
     }
 
     // Check if the source IP address is allowed for a given allowed list, return false if not
@@ -432,3 +434,4 @@ module.exports.CreateSwarmServer = function (parent, db, args, certificates) {
 
     return obj;
 };
+
