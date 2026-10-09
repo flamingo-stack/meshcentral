@@ -132,7 +132,8 @@ function loadConfig(configfile) {
   var raw = fs.readFileSync(configfile, 'utf8');
   // Strip any ${VAR} placeholders that weren't substituted — fall back to env
   raw = raw.replace(/\$\{([A-Z_][A-Z0-9_]*)\}/g, function (m, name) {
-    return process.env[name] || '';
+    var val = process.env[name] || '';
+    return JSON.stringify(val).slice(1, -1);
   });
   return JSON.parse(raw);
 }
@@ -254,6 +255,7 @@ function ensureDeviceGroup(db, domain, userid, cb) {
         db.Get(userid, function (getErr, userDocs) {
           if (getErr || !userDocs || userDocs.length !== 1) {
             // Not fatal — mesh is created, just couldn't update user links
+            err('Could not update user links for ' + userid + ' after creating mesh ' + meshid + (getErr ? (': ' + getErr) : ''));
             return cb(null, meshid);
           }
           var user = userDocs[0];
@@ -275,6 +277,10 @@ function writeMeshIdFiles(meshid, serverIdHex) {
   var parts = meshid.split('/');
   var base64Hash = parts[parts.length - 1];
 
+  if (base64Hash.indexOf('..') !== -1 || base64Hash.indexOf('/') !== -1 || base64Hash.indexOf('\\') !== -1) {
+    throw new Error('Refusing to write mesh id files: derived base64Hash contains unsafe path characters: ' + base64Hash);
+  }
+
   fs.writeFileSync(path.join(MESH_DIR, 'mesh_device_group_id'), base64Hash);
   log('Wrote mesh_device_group_id: ' + base64Hash);
 
@@ -282,6 +288,11 @@ function writeMeshIdFiles(meshid, serverIdHex) {
   var standardBase64 = base64Hash.replace(/@/g, '+').replace(/\$/g, '/');
   var hex = Buffer.from(standardBase64, 'base64').toString('hex').toUpperCase();
   var meshIdHex = '0x' + hex;
+
+  if (meshIdHex.indexOf('..') !== -1 || meshIdHex.indexOf('/') !== -1 || meshIdHex.indexOf('\\') !== -1) {
+    throw new Error('Refusing to write mesh id files: derived meshIdHex contains unsafe path characters: ' + meshIdHex);
+  }
+
   fs.writeFileSync(path.join(MESH_DIR, 'mesh_id'), meshIdHex);
   log('Wrote mesh_id: ' + meshIdHex);
 
@@ -294,6 +305,10 @@ function writeMeshIdFiles(meshid, serverIdHex) {
 // --- Step 7: Generate meshagent.msh file ---
 
 function generateMshFile(meshIdHex, serverIdHex) {
+  if (meshIdHex.indexOf('..') !== -1 || meshIdHex.indexOf('/') !== -1 || meshIdHex.indexOf('\\') !== -1) {
+    throw new Error('Refusing to generate msh file: meshIdHex contains unsafe path characters: ' + meshIdHex);
+  }
+
   var meshServerUrl;
   if (OPENFRAME_MODE === 'true' && OPENFRAME_GATEWAY_URL) {
     log('OpenFrame mode enabled — using gateway URL');

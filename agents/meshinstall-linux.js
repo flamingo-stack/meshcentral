@@ -229,7 +229,13 @@ if ((!skip) && ((msh.InstallFlags & 2) == 2))
             {
                 if (process.argv[i].startsWith('--installPath='))
                 {
-                    p.push('--installPath="' + process.argv[i].split('=').pop() + '"');
+                    var installPathValue = process.argv[i].split('=').pop();
+                    if (installPathValue.indexOf('..') != -1)
+                    {
+                        console.log('Invalid --installPath value: path traversal ("..") is not allowed.');
+                        process.exit();
+                    }
+                    p.push('--installPath="' + installPathValue + '"');
                 }
                 else if(process.argv[i].startsWith('--'))
                 {
@@ -359,3 +365,4 @@ if (!skip)
         process.exit();
     });
 }
+
