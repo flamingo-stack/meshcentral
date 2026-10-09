@@ -61,7 +61,7 @@ module.exports.CreateRedirServer = function (parent, db, args, func) {
             var i = rootcert.indexOf('-----BEGIN CERTIFICATE-----\r\n');
             if (i >= 0) { rootcert = rootcert.substring(i + 29); }
             i = rootcert.indexOf('-----END CERTIFICATE-----');
-            if (i >= 0) { rootcert = rootcert.substring(i, 0); }
+            if (i >= 0) { rootcert = rootcert.substring(0, i); }
             res.send(Buffer.from(rootcert, 'base64'));
         } else {
             res.sendStatus(404);
@@ -164,3 +164,4 @@ module.exports.CreateRedirServer = function (parent, db, args, func) {
 
     return obj;
 };
+

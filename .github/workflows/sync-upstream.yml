@@ -37,6 +37,14 @@ jobs:
             exit 0
           fi
 
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git fetch origin "$BRANCH"
+            if ! git merge-base --is-ancestor "origin/$BRANCH" origin/master; then
+              echo "::notice::$BRANCH has diverged from origin/master with manual commits — skipping to avoid overwriting them"
+              exit 0
+            fi
+          fi
+
           git checkout -B "$BRANCH" origin/master
           if ! git merge --no-ff --no-edit upstream/master; then
             echo "::notice::merge has conflicts — skipping, will retry next run"
@@ -47,3 +55,4 @@ jobs:
           gh pr create --repo "$GITHUB_REPOSITORY" --base master --head "$BRANCH" \
             --title "Sync from Fork" \
             --body "Automatic weekly sync from \`Ylianst/MeshCentral@master\`."
+

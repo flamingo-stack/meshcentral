@@ -144,13 +144,13 @@ DownloadAgent() {
   meshid=$3
   machineid=$4
   echo "Downloading agent #$machineid..."
-  wget $url/meshagents?id=$machineid {{{wgetoptionshttps}}}-O ./meshagent || curl {{{curloptionshttps}}}--output ./meshagent $url/meshagents?id=$machineid
+  wget "$url/meshagents?id=$machineid" {{{wgetoptionshttps}}}-O ./meshagent || curl {{{curloptionshttps}}}--output ./meshagent "$url/meshagents?id=$machineid"
 
   # If it did not work, try again using http
   if [ $? != 0 ]
   then
     url=${url/"https://"/"http://"}
-    wget $url/meshagents?id=$machineid {{{wgetoptionshttp}}}-O ./meshagent || curl {{{curloptionshttp}}}--output ./meshagent $url/meshagents?id=$machineid
+    wget "$url/meshagents?id=$machineid" {{{wgetoptionshttp}}}-O ./meshagent || curl {{{curloptionshttp}}}--output ./meshagent "$url/meshagents?id=$machineid"
   fi
 
   if [ $? -eq 0 ]
@@ -158,12 +158,12 @@ DownloadAgent() {
     echo "Agent downloaded."
     # TODO: We could check the meshagent sha256 hash, but best to authenticate the server.
     chmod 755 ./meshagent
-    wget $url/meshsettings?id=$meshid {{{wgetoptionshttps}}}-O ./meshagent.msh || curl {{{curloptionshttps}}}--output ./meshagent.msh $url/meshsettings?id=$meshid
+    wget "$url/meshsettings?id=$meshid" {{{wgetoptionshttps}}}-O ./meshagent.msh || curl {{{curloptionshttps}}}--output ./meshagent.msh "$url/meshsettings?id=$meshid"
 
     # If it did not work, try again using http
     if [ $? -ne 0 ]
     then
-      wget $url/meshsettings?id=$meshid {{{wgetoptionshttp}}}-O ./meshagent.msh || curl {{{curloptionshttp}}}--output ./meshagent.msh $url/meshsettings?id=$meshid
+      wget "$url/meshsettings?id=$meshid" {{{wgetoptionshttp}}}-O ./meshagent.msh || curl {{{curloptionshttp}}}--output ./meshagent.msh "$url/meshsettings?id=$meshid"
     fi
 
     if [ $? -eq 0 ]
@@ -208,3 +208,4 @@ then
 else
   echo "Must be root to install or uninstall the agent."
 fi
+

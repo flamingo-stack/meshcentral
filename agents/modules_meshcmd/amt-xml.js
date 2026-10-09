@@ -70,9 +70,15 @@ function _ParseWsmanRec(node) {
     return r;
 }
 
+function _GetNameFromUrl(url) {
+    if (!url) return url;
+    var i = url.lastIndexOf('/');
+    return (i >= 0) ? url.substring(i + 1) : url;
+}
+
 function _PutObjToBodyXml(resuri, putObj) {
     if (!resuri || putObj == null) return '';
-    var objname = obj.GetNameFromUrl(resuri);
+    var objname = _GetNameFromUrl(resuri);
     var result = '<r:' + objname + ' xmlns:r="' + resuri + '">';
 
     for (var prop in putObj) {
@@ -187,3 +193,4 @@ function _turnToXmlRec(text) {
     } catch (ex) { return null; }
     return lastElement;
 }
+

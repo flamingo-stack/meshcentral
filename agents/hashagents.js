@@ -1,4 +1,5 @@
 var fs = require('fs');
+var crypto = require('crypto');
 
 var agents = {
     'MeshService.exe': 3,
@@ -28,6 +29,13 @@ var agents = {
     // 'meshagent_armvirt32': 44,
     'meshagent_riscv64': 45,
     'meshagent_osx-universal-64': 10005
+}
+
+function getSHA384FileHash(filename) {
+    var hash = crypto.createHash('sha384');
+    var data = fs.readFileSync(filename);
+    hash.update(data);
+    return hash.digest();
 }
 
 function getAgentInfo(filename, id) {

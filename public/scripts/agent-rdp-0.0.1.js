@@ -45,7 +45,10 @@ var CreateRDPDesktop = function (canvasid, domainUrl) {
         obj.socket.binaryType = 'arraybuffer';
         obj.socket.onopen = function () {
             changeState(2); // Setup state
-            obj.socket.send(JSON.stringify(['infos', {
+            // NOTE: credentials are sent once, over TLS (wss://), directly to the relay that
+            // establishes the RDP session. Avoid logging this payload; do not enable debug
+            // flags that dump raw SEND/RECV payloads in environments handling real credentials.
+            var infosPayload = ['infos', {
                     ip: obj.nodeid,
                     port: obj.port,
                     screen: { width: obj.width, height: obj.height },
@@ -54,7 +57,8 @@ var CreateRDPDesktop = function (canvasid, domainUrl) {
                     password: credentials.password,
                     options: options,
                     locale: Mstsc.locale()
-                }]));
+                }];
+            obj.socket.send(JSON.stringify(infosPayload));
         };
         obj.socket.onmessage = function (evt) {
             if (typeof evt.data == 'string') {
@@ -297,3 +301,4 @@ var CreateRDPDesktop = function (canvasid, domainUrl) {
 
     return obj;
 }
+

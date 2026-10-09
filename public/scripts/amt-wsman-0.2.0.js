@@ -124,7 +124,7 @@ var WsmanStackCreateService = function (host, port, user, pass, tls, extra) {
 		    }
             return r;
         } catch (e) {
-            console.log("Unable to parse XML: " + xml);
+            console.log("Unable to parse XML: [error suppressed to avoid leaking sensitive payload data]");
             return null;
         }
     }
@@ -250,3 +250,4 @@ var WsmanStackCreateService = function (host, port, user, pass, tls, extra) {
 
     return obj;
 }
+
