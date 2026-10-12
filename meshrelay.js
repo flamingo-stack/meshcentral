@@ -471,6 +471,9 @@ function CreateMeshRelayEx(parent, ws, req, domain, user, cookie) {
                                 }
                             }
 
+                            // OpenFrame: no new recordings while the tenant's recording storage is full (plugins/openframe.js)
+                            if (parent.parent.openframeRecordingSuspended === true) { record = false; }
+
                             // Do not record the session, just send session start
                             if (record == false) {
                                 try { ws.send('c'); } catch (ex) { } // Send connect to both peers
