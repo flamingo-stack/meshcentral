@@ -76,11 +76,13 @@ function WiFiScanner()
                 this.child.parent = this;
                 this.child.ms = new MemoryStream();
                 this.child.ms.parent = this.child;
+                this.child.on('error', function (e) { this.parent.emit('error', e); });
                 this.child.stdout.on('data', function (buffer) { this.parent.ms.write(buffer); });
+                this.child.stdout.on('error', function (e) { this.parent.parent.emit('error', e); });
                 this.child.on('exit', function () { this.ms.end(); });
                 this.child.ms.on('end', function ()
                 {
-                    var str = this.buffer.toString();
+                    var str = this.toBuffer().toString();
                     tokens = str.split(' - Address: ');
                     for (var block in tokens)
                     {
@@ -118,6 +120,7 @@ function WiFiScanner()
 }
 
 module.exports = WiFiScanner;
+
 
 
 
