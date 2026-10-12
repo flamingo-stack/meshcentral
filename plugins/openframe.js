@@ -17,6 +17,8 @@ const UPLOAD_RETRY_DELAYS_MS = [5000, 15000, 45000, 135000, 300000];
 const RECORDING_METADATA_MAX_BYTES = 65536;
 const JSON_RESPONSE_MAX_BYTES = 65536;
 const SWEEP_MIN_AGE_MS = 30000;
+const LIVE_STATUS_INTERVAL_MS = 60000;
+const LIVE_STATUS_WARMUP_MS = 180000;
 
 // --- Helpers ---
 
@@ -264,6 +266,42 @@ function setupRecordingUploader(parent, tenantDomain) {
   log('Recording upload enabled: bucket "' + MESH_RECORDINGS_BUCKET + '", tenant "' + tenantDomain + '"');
 }
 
+// --- Live agent status ---
+
+// Whether an agent is connected only exists in this process's memory (parent.connectivityByNode); the database
+// keeps power and lastconnect records, which miss disconnects when the pod is killed and expire after 10 days.
+// So every minute this pod writes the tenant's connected agents to one document, { _id: 'ofstatus/<domain>' }, for
+// readers that cannot ask this server (the OpenFrame backoffice). A fresh document is the live state; a stale one
+// means this server is down. The first write waits for agents to reconnect after a start, so a restart reads as a
+// stale document rather than as every device going offline.
+function buildLiveStatus(connectivityByNode, tenantDomain, now, startedAt) {
+  var connected = [];
+  for (var nodeId in connectivityByNode) {
+    var state = connectivityByNode[nodeId];
+    if (state == null || (state.connectivity & 1) === 0) continue; // 1 = agent; CIRA and AMT do not count
+    if (nodeId.split('/')[1] !== tenantDomain) continue;
+    connected.push(nodeId);
+  }
+  connected.sort();
+  return { _id: 'ofstatus/' + tenantDomain, type: 'ofstatus', domain: tenantDomain, time: now, startedAt: startedAt, connected: connected };
+}
+
+function setupLiveStatusWriter(parent, tenantDomain) {
+  var startedAt = Date.now();
+  var write = function () {
+    try {
+      parent.db.Set(buildLiveStatus(parent.connectivityByNode, tenantDomain, Date.now(), startedAt), function (err) {
+        if (err) log('Live status write failed: ' + err);
+      });
+    } catch (ex) { log('Live status write failed: ' + ex); }
+  };
+  setTimeout(function () {
+    write();
+    setInterval(write, LIVE_STATUS_INTERVAL_MS).unref();
+  }, LIVE_STATUS_WARMUP_MS).unref();
+  log('Live status enabled: every ' + (LIVE_STATUS_INTERVAL_MS / 1000) + 's after a ' + (LIVE_STATUS_WARMUP_MS / 1000) + 's warm-up, tenant "' + tenantDomain + '"');
+}
+
 // --- Plugin ---
 
 module.exports.openframe = function (pluginHandler) {
@@ -366,9 +404,11 @@ module.exports.openframe = function (pluginHandler) {
     });
 
     try { setupRecordingUploader(parent, tenantDomain); } catch (ex) { log('Recording uploader setup failed: ' + ex); }
+    try { setupLiveStatusWriter(parent, tenantDomain); } catch (ex) { log('Live status setup failed: ' + ex); }
   };
 
   return obj;
 };
 
 module.exports.recording = { readRecordingMetadata: readRecordingMetadata, recordingObjectKey: recordingObjectKey };
+module.exports.liveStatus = { buildLiveStatus: buildLiveStatus };
