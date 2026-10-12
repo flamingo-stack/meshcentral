@@ -842,6 +842,7 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, user, func) {
     function startRecording(domain, start, func) {
         if ((obj.pendingRecording == 1) || (obj.recordingFile != null)) { func(true); return; } // Check if already recording
         if (start == false) { func(false); return; } // Just skip this
+        if (parent.parent.openframeRecordingSuspended === true) { func(false); return; } // OpenFrame: no new recordings while the tenant's recording storage is full (plugins/openframe.js)
         obj.pendingRecording = 1;
         var now = new Date(Date.now());
         // Named like meshrelay.js recordings (user, device, relay id) so the OpenFrame uploader and the per-request listing treat both alike

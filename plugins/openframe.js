@@ -19,6 +19,9 @@ const JSON_RESPONSE_MAX_BYTES = 65536;
 const SWEEP_MIN_AGE_MS = 30000;
 const LIVE_STATUS_INTERVAL_MS = 60000;
 const LIVE_STATUS_WARMUP_MS = 180000;
+const SUSPENDED_CHECK_INTERVAL_MS = 60000;
+const SUSPENDED_RETRY_INTERVAL_MS = 15000;
+const SUSPENDED_CHECK_DEADLINE_MS = 30000;
 
 // --- Helpers ---
 
@@ -171,6 +174,62 @@ function getObjectSize(token, key, cb) {
   req.end();
 }
 
+// 200 answers true, 404 false, any other status is an error.
+function objectExists(token, key, cb) {
+  var settled = false;
+  var settle = function (err, exists) { if (settled) return; settled = true; cb(err, exists); };
+  var req = https.request({
+    host: GCS_UPLOAD_HOST,
+    path: '/storage/v1/b/' + encodeURIComponent(MESH_RECORDINGS_BUCKET) + '/o/' + encodeURIComponent(key) + '?fields=name',
+    headers: { 'Authorization': 'Bearer ' + token },
+    timeout: 15000
+  }, function (res) {
+    res.resume();
+    if (res.statusCode === 200) return settle(null, true);
+    if (res.statusCode === 404) return settle(null, false);
+    if (res.statusCode === 401 || res.statusCode === 403) tokenCache = { token: null, expiresAt: 0 };
+    settle(new Error('storage answered ' + res.statusCode));
+  });
+  req.on('timeout', function () { req.destroy(new Error('storage check timeout')); });
+  req.on('error', settle);
+  req.end();
+}
+
+// saas-api keeps <tenant>/recordings/.suspended while the tenant's recording storage is full; meshrelay.js and meshdesktopmultiplex.js skip new recordings while parent.openframeRecordingSuspended is true.
+function watchRecordingSuspension(parent, tenantDomain) {
+  var key = tenantDomain + '/recordings/.suspended';
+  var failing = false;
+  parent.openframeRecordingSuspended = false;
+  var done = function (err, exists) {
+    var timer = setTimeout(check, err ? SUSPENDED_RETRY_INTERVAL_MS : SUSPENDED_CHECK_INTERVAL_MS);
+    if (timer.unref) timer.unref();
+    if (err) {
+      if (!failing) log('Recording storage check failed (' + err.message + '), new sessions stay ' + (parent.openframeRecordingSuspended ? 'unrecorded' : 'recorded'));
+      failing = true;
+    } else {
+      if (failing) log('Recording storage check works again');
+      failing = false;
+      if (exists !== parent.openframeRecordingSuspended) log(exists ? 'Recording storage is full, new sessions are not recorded' : 'Recording storage has room, new sessions are recorded');
+      parent.openframeRecordingSuspended = exists;
+    }
+  };
+  // Every check ends in exactly one done(): late or repeated callbacks are dropped, a hung one is cut off by the deadline.
+  var check = function () {
+    var finished = false;
+    var finish = function (err, exists) { if (finished) return; finished = true; clearTimeout(deadline); done(err, exists); };
+    var deadline = setTimeout(function () { finish(new Error('storage check timed out')); }, SUSPENDED_CHECK_DEADLINE_MS);
+    if (deadline.unref) deadline.unref();
+    try {
+      getAccessToken(function (err, token) {
+        if (err) return finish(err);
+        try { objectExists(token, key, finish); } catch (ex) { finish(ex); }
+      });
+    } catch (ex) { finish(ex); }
+  };
+  log('Recording storage watch enabled: every ' + (SUSPENDED_CHECK_INTERVAL_MS / 1000) + 's, marker "' + key + '"');
+  check();
+}
+
 var uploadsInFlight = {};
 
 function uploadRecording(filePath, tenantDomain, attempt, expectedNodeId) {
@@ -264,6 +323,7 @@ function setupRecordingUploader(parent, tenantDomain) {
     });
   });
   log('Recording upload enabled: bucket "' + MESH_RECORDINGS_BUCKET + '", tenant "' + tenantDomain + '"');
+  if ((tenantDomain !== '') && (dirs.length > 0)) watchRecordingSuspension(parent, tenantDomain);
 }
 
 // --- Live agent status ---
@@ -410,5 +470,5 @@ module.exports.openframe = function (pluginHandler) {
   return obj;
 };
 
-module.exports.recording = { readRecordingMetadata: readRecordingMetadata, recordingObjectKey: recordingObjectKey };
+module.exports.recording = { readRecordingMetadata: readRecordingMetadata, recordingObjectKey: recordingObjectKey, watchRecordingSuspension: watchRecordingSuspension };
 module.exports.liveStatus = { buildLiveStatus: buildLiveStatus };
