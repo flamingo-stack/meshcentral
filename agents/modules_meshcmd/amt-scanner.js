@@ -23,8 +23,7 @@ limitations under the License.
 // Construct a Intel AMT Scanner object
 
 function AMTScanner() {
-    var emitterUtils = require('events').inherits(this);
-    emitterUtils.createEvent('found');
+    require('events').EventEmitter.call(this);
 
     this.dgram = require('dgram');
 
@@ -105,5 +104,7 @@ function AMTScanner() {
         }, timeout);
     };
 }
+
+require('util').inherits(AMTScanner, require('events').EventEmitter);
 
 module.exports = AMTScanner;
