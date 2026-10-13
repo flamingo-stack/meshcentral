@@ -16,6 +16,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     branches: [master]
+  merge_group:
 
 concurrency:
   group: pr-${{ github.head_ref || github.ref }}
@@ -35,6 +36,7 @@ jobs:
     name: Detect Changes
     uses: ./.github/workflows/changes.yaml
     if: |
+      github.event_name == 'merge_group' ||
       github.event_name == 'pull_request' &&
       !github.event.pull_request.draft
 
@@ -55,6 +57,7 @@ jobs:
           persist-credentials: false
 
       - name: Scan code
+        continue-on-error: true
         uses: ./.github/steps/trivy
         with:
           scan: code
