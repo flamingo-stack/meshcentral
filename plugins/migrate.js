@@ -110,6 +110,8 @@ function buildParentShim(config, datapath) {
       mongodb: config.settings && config.settings.mongodb,
       mongodbname: (config.settings && config.settings.mongodbname) || 'meshcentral',
       mongodbcol: (config.settings && config.settings.mongodbcol) || 'meshcentral',
+      // db.js collMods the shared TTL indexes to this on SetupDatabase; without it the 20d default overwrites the server's value.
+      dbexpire: config.settings && (config.settings.dbexpire || config.settings.dbExpire),
       datapath: datapath
     },
     config: config,
