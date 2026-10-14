@@ -74,14 +74,15 @@ function WiFiScanner()
             {
                 this.child = require('child_process').execFile('/sbin/iwlist', ['iwlist', wlan, 'scan']);
                 this.child.parent = this;
+                this.child.str = '';
                 this.child.ms = new MemoryStream();
                 this.child.ms.parent = this.child;
-                this.child.stdout.on('data', function (buffer) { this.parent.ms.write(buffer); });
+                this.child.stdout.on('data', function (buffer) { this.parent.str += buffer.toString(); this.parent.ms.write(buffer); });
                 this.child.on('exit', function () { this.ms.end(); });
                 this.child.ms.on('end', function ()
                 {
-                    var str = this.buffer.toString();
-                    tokens = str.split(' - Address: ');
+                    var str = this.parent.str;
+                    var tokens = str.split(' - Address: ');
                     for (var block in tokens)
                     {
                         if (block == 0) continue;
@@ -118,6 +119,7 @@ function WiFiScanner()
 }
 
 module.exports = WiFiScanner;
+
 
 
 

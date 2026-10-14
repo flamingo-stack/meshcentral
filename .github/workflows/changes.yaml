@@ -67,6 +67,21 @@ jobs:
             "helm": ["./charts/**"]
           }'
 
+          # any top-level directory not already covered above is tracked
+          # generically here so new components are not silently ignored
+          EXTRA_DIRS='[]'
+          while IFS= read -r dir; do
+            EXTRA_DIRS=$(jq -c --arg d "$dir" '. + [$d]' <<< "$EXTRA_DIRS")
+          done < <(
+            find . -maxdepth 1 -mindepth 1 -type d \
+              ! -name '.git' ! -name '.github' ! -name 'docker' ! -name 'charts' \
+              -printf '%f\n' | sort
+          )
+
+          ADDONS=$(jq -nc --argjson addons "$ADDONS" --argjson extra "$EXTRA_DIRS" '
+            $addons + ( [ $extra[] | { key: ., value: ["./\(.)/**"] } ] | from_entries )
+          ')
+
           images_matrix=$(jq -c '[ .[] | {
             name,
             path:    (.path    // "./docker"),
@@ -109,3 +124,4 @@ jobs:
             reduce $keys[] as $k ({}; .[$k] = ((($changed | index($k)) != null) | tostring))
           ')
           echo "changes=$changes" >> "$GITHUB_OUTPUT"
+
