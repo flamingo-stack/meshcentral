@@ -14,9 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-/*xjslint node: true */
-/*xjslint plusplus: true */
-/*xjslint maxlen: 256 */
 /*jshint node: true */
 /*jshint strict: false */
 /*jshint esversion: 6 */
@@ -225,7 +222,12 @@ module.exports.parseWindowsExecutable = function (exePath) {
         // Read the authenticode certificate, only one cert (only the first entry)
         var hdr = Buffer.alloc(8);
         fs.readSync(fd, hdr, 0, hdr.length, retVal.CertificateTableAddress);
-        retVal.certificate = Buffer.alloc(hdr.readUInt32LE(0));
+        var certLength = hdr.readUInt32LE(0);
+        if (certLength > (128 * 1024 * 1024)) { // Sanity bound to guard against malformed/malicious length fields
+            fs.closeSync(fd);
+            throw ('certificate table length exceeds maximum allowed size');
+        }
+        retVal.certificate = Buffer.alloc(certLength);
         fs.readSync(fd, retVal.certificate, 0, retVal.certificate.length, retVal.CertificateTableAddress + hdr.length);
         retVal.certificate = retVal.certificate.toString('base64');
         retVal.certificateDwLength = hdr.readUInt32LE(0);
@@ -308,3 +310,4 @@ module.exports.hashExecutableFile = function (options) {
         options.state.source.pipe(options.targetStream);
     }
 };
+
