@@ -98,7 +98,7 @@ function serverConnect() {
     ws.on('message', function incoming(rawdata) {
         var data = null;
         try { data = JSON.parse(rawdata); } catch (ex) { }
-        if (data == null) { console.log('Unable to parse data: ' + rawdata); }
+        if (data == null) { console.log('Unable to parse data: ' + rawdata); return; }
         
         //console.log("Got command: " + data.action);
 
@@ -123,3 +123,4 @@ function serverConnect() {
         }
     });
 }
+

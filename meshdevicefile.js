@@ -216,7 +216,7 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
                 if (typeof data == 'string') {
                     var cmd = null;
                     try { cmd = JSON.parse(data); } catch (ex) { }
-                    if ((cmd == null) || (typeof cmd.op == 'string')) {
+                    if ((cmd != null) && (typeof cmd.op == 'string')) {
                         if (cmd.op == 'ok') {
                             setContentDispositionHeader(this.res, 'application/octet-stream', this.file, cmd.size, 'file.bin');
                         } else {
@@ -310,3 +310,4 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
     performRelay();
     return obj;
 };
+

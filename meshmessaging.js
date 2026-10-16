@@ -330,8 +330,7 @@ module.exports.CreateServer = function (parent) {
             parent.debug('email', 'Sending XMPP message to: ' + to.substring(5) + ': ' + msg);
             sendXmppMessage(to, msg, func);
         } else if ((to.startsWith('callmebot:')) && (obj.callMeBotClient != null)) { // CallMeBot
-            parent.debug('email', 'Sending CallMeBot message to: ' + to.substring(10) + ': ' + msg);
-            console.log('Sending CallMeBot message to: ' + to.substring(10) + ': ' + msg);
+            parent.debug('email', 'Sending CallMeBot message.');
             var toData = to.substring(10).split('|');
             if ((toData[0] == 'signal') && (toData.length == 3)) {
                 var url = 'https://api.callmebot.com/signal/send.php?phone=' + encodeURIComponent(toData[1]) + '&apikey=' + encodeURIComponent(toData[2]) + '&text=' + encodeURIComponent(msg);
@@ -773,3 +772,4 @@ module.exports.SetupTelegram = async function (parent) {
     console.log('Telegram seems to be configured correctly in the config.json, no need to run --setuptelegram.');
     process.exit();
 };
+
