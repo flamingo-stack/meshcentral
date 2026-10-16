@@ -226,8 +226,8 @@ module.exports.CreateLetsEncrypt = function (parent) {
                     // Save certificate and private key to PEM files
                     var certFile = obj.path.join(obj.certPath, (obj.runAsProduction ? 'production.crt' : 'staging.crt'));
                     var keyFile = obj.path.join(obj.certPath, (obj.runAsProduction ? 'production.key' : 'staging.key'));
-                    obj.fs.writeFileSync(certFile, cert);
-                    obj.fs.writeFileSync(keyFile, obj.tempPrivateKey);
+                    obj.fs.writeFileSync(certFile, cert, { mode: 0o600 });
+                    obj.fs.writeFileSync(keyFile, obj.tempPrivateKey, { mode: 0o600 });
                     delete obj.tempPrivateKey;
 
                     // Cause a server restart

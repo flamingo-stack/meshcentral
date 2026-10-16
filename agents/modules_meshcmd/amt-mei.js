@@ -161,7 +161,7 @@ function amt_heci()
 
     // Fill the left with zeros until the string is of a given length
     function zeroLeftPad(str, len) {
-        if ((len == null) && (typeof (len) != 'number')) { return null; }
+        if ((len == null) || (typeof (len) != 'number')) { return null; }
         if (str == null) str = ''; // If null, this is to generate zero leftpad string
         var zlp = '';
         for (var i = 0; i < len - str.length; i++) { zlp += '0'; }

@@ -118,18 +118,55 @@ module.exports.CreateAmtScriptEngine = function () {
         obj.step = function () {
             if (obj.state != 1) return;
             if (obj.ip < obj.script.length) {
+                // Validate there is enough room for the fixed-size header before reading it
+                if ((obj.ip + 6) > obj.script.length) {
+                    obj.state = 9;
+                    console.error("Script Error, truncated command header at ip=" + obj.ip);
+                    obj.stop();
+                    if (obj.onStep) obj.onStep(obj);
+                    return obj;
+                }
                 var cmdid = ReadShort(obj.script, obj.ip);
                 var cmdlen = ReadShort(obj.script, obj.ip + 2);
                 var argcount = ReadShort(obj.script, obj.ip + 4);
                 var argptr = obj.ip + 6;
                 var args = [];
 
+                // Validate cmdlen and argcount are sane before using them to index/slice the buffer.
+                // cmdlen must be at least the 6-byte header size and must not push ip past the end
+                // of the buffer, and must make forward progress to avoid an infinite loop.
+                if (cmdlen < 6 || (obj.ip + cmdlen) > obj.script.length) {
+                    obj.state = 9;
+                    console.error("Script Error, invalid command length at ip=" + obj.ip);
+                    obj.stop();
+                    if (obj.onStep) obj.onStep(obj);
+                    return obj;
+                }
+                if (argcount < 0 || argcount > 10) {
+                    obj.state = 9;
+                    console.error("Script Error, invalid argument count at ip=" + obj.ip);
+                    obj.stop();
+                    if (obj.onStep) obj.onStep(obj);
+                    return obj;
+                }
+
                 // Clear all temp variables (This is optional)
                 for (var i in obj.variables) { if (i.startsWith('__')) { delete obj.variables[i]; } }
 
                 // Loop on each argument, moving forward by the argument length each time
+                var argsValid = true;
                 for (var i = 0; i < argcount; i++) {
+                    // Ensure the 2-byte arglen field itself is within the bounds of this command
+                    if ((argptr + 2) > (obj.ip + cmdlen) || (argptr + 2) > obj.script.length) {
+                        argsValid = false;
+                        break;
+                    }
                     var arglen = ReadShort(obj.script, argptr);
+                    // Ensure the argument's declared length stays within the command and the buffer
+                    if (arglen < 1 || (argptr + 2 + arglen) > (obj.ip + cmdlen) || (argptr + 2 + arglen) > obj.script.length) {
+                        argsValid = false;
+                        break;
+                    }
                     var argval = obj.script.substring(argptr + 2, argptr + 2 + arglen);
                     var argtyp = argval.charCodeAt(0);
                     argval = argval.substring(1);
@@ -144,6 +181,14 @@ module.exports.CreateAmtScriptEngine = function () {
                         args.push('__' + i);
                     }
                     argptr += (2 + arglen);
+                }
+
+                if (!argsValid) {
+                    obj.state = 9;
+                    console.error("Script Error, invalid argument encoding at ip=" + obj.ip);
+                    obj.stop();
+                    if (obj.onStep) obj.onStep(obj);
+                    return obj;
                 }
 
                 // Move instruction pointer forward by command size

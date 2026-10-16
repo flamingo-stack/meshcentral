@@ -22,7 +22,16 @@ var CreateWsmanComm = function (host, port, user, pass, tls) {
     obj.pass = pass;
     obj.tls = tls;
     obj.tlsv1only = 1;
-    obj.cnonce = Math.random().toString(36).substring(7); // Generate a random client nonce
+    obj.cnonce = (function () { // Generate a cryptographically secure random client nonce
+        if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+            var arr = new Uint8Array(16);
+            crypto.getRandomValues(arr);
+            var s = '';
+            for (var i = 0; i < arr.length; ++i) { s += ('0' + arr[i].toString(16)).slice(-2); }
+            return s;
+        }
+        return Math.random().toString(36).substring(7);
+    })();
 
     // Private method
     //obj.Debug = function (msg) { console.log(msg); }
@@ -257,4 +266,5 @@ var CreateWsmanComm = function (host, port, user, pass, tls) {
 
     return obj;
 }
+
 

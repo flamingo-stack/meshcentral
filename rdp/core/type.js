@@ -304,12 +304,14 @@ inherits(SingleType, Type);
  */
 SingleType.prototype.writeValue = function(s) {
     var safeValue = this.value;
-    if (typeof safeValue === 'number') { // FIX: Sanitize coordinates to prevent crashes
-        safeValue = Math.round(safeValue); // Round to nearest integer (fixes -1.01 issues)
-        if (safeValue < 0) safeValue = 0; // Clamp to 0 if negative
+    if (typeof safeValue === 'number') {
+        var rounded = Math.round(safeValue);
         // nbBytes is 1 (UInt8), 2 (UInt16), or 4 (UInt32)
         var max = Math.pow(2, this.nbBytes * 8) - 1;
-        if (safeValue > max) safeValue = max; // Clamp to max value allowed by the buffer size (prevents overflow crashes)
+        if (rounded < 0 || rounded > max || rounded !== safeValue) {
+            throw new error.FatalError('NODE_RDP_CORE_TYPE_VALUE_OUT_OF_RANGE, VALUE:' + safeValue + ', NBBYTES:' + this.nbBytes);
+        }
+        safeValue = rounded;
     }
     this.writeBufferCallback.call(s.buffer, safeValue, s.offset);
 	s.offset += this._size_();
