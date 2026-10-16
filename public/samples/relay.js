@@ -21,7 +21,7 @@ var createMeshConnection = function (connectionId) {
                 console.log('WebSocket Message', e);
                 if ((obj.state = 1) && (e.data == 'c')) {
                     obj.state = 2;
-                    if (obj.onStateChanged) { onStateChanged(obj, 2); }
+                    if (obj.onStateChanged) { obj.onStateChanged(obj, 2); }
                     console.log('WebSocket Peer Connection', e);
                     obj.send('bob');
                 } else {
@@ -31,11 +31,11 @@ var createMeshConnection = function (connectionId) {
             obj.websocket.onclose = function (e) {
                 console.log('WebSocket Closed', e);
                 obj.state = 0;
-                if (obj.onStateChanged) { onStateChanged(obj, 0); }
+                if (obj.onStateChanged) { obj.onStateChanged(obj, 0); }
             };
             obj.websocket.onerror = function (e) { console.log('WebSocket Error', e); };
             obj.state = 1;
-            if (obj.onStateChanged) { onStateChanged(obj, 1); }
+            if (obj.onStateChanged) { obj.onStateChanged(obj, 1); }
         }
         return obj;
     };

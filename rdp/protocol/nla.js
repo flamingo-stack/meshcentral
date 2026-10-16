@@ -129,7 +129,7 @@ NLA.prototype.recvData = function (s) {
             const publicKeyDer = self.security_interface.gss_unwrapex(derBuffer);
 
             // Check that the public key is identical except the first byte which is the DER encoding type.
-            if (!this.ntlm.publicKeyDer.slice(1).equals(publicKeyDer.slice(1))) { console.log('RDP man-in-the-middle detected.'); close(); return; }
+            if (!this.ntlm.publicKeyDer.slice(1).equals(publicKeyDer.slice(1))) { console.log('RDP man-in-the-middle detected.'); this.close(); return; }
             delete this.ntlm.publicKeyDer; // Clean this up, we don't need it anymore.
 
             var xdomain, xuser, xpassword;

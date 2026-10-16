@@ -77,6 +77,7 @@ module.exports.CreateAmtRedirect = function (module, domain, user, webserver, me
 
     // Older NodeJS does not support the keyword "class", so we do without using this syntax
     // TODO: Validate that it's the same as above and that it works.
+    // TODO: This is duplicated in apprelays.js as well, consider extracting into a shared module.
     function SerialTunnel(options) {
         var obj = new require('stream').Duplex(options);
         obj.forwardwrite = null;
@@ -226,6 +227,10 @@ module.exports.CreateAmtRedirect = function (module, domain, user, webserver, me
                 var port = 16994;
                 if (node.intelamt.tls > 0) port = 16995; // This is a direct connection, use TLS when possible
 
+                // Record the expected certificate fingerprint (if known) so we can verify it once the TLS handshake completes,
+                // since rejectUnauthorized is disabled below to allow AMT's self-signed firmware certificates.
+                obj.xtlsFingerprint = (node.intelamt.mpsCert && node.intelamt.mpsCert.fingerprint) ? node.intelamt.mpsCert.fingerprint : ((node.intelamt.tlsFingerprint) ? node.intelamt.tlsFingerprint : 0);
+
                 if (node.intelamt.tls != 1) {
                     // If this is TCP (without TLS) set a normal TCP socket
                     obj.forwardclient = new obj.net.Socket();
@@ -241,6 +246,9 @@ module.exports.CreateAmtRedirect = function (module, domain, user, webserver, me
                     obj.forwardclient = obj.tls.connect(port, node.host, tlsoptions, function () {
                         // The TLS connection method is the same as TCP, but located a bit differently.
                         Debug(2, 'TLS Intel AMT transport connected to ' + node.host + ':' + port + '.');
+                        // Verify the peer certificate fingerprint (if one is known) before allowing data to flow,
+                        // since rejectUnauthorized is disabled above for AMT's self-signed firmware certificates.
+                        obj.xtls = true;
                         obj.xxOnSocketConnected();
                     });
                     obj.forwardclient.setEncoding('binary');
@@ -289,8 +297,8 @@ module.exports.CreateAmtRedirect = function (module, domain, user, webserver, me
         //console.log('xxOnSocketConnected');
         if (!obj.xtlsoptions || !obj.xtlsoptions.meshServerConnect) {
             if (obj.xtls == true) {
-                obj.xtlsCertificate = obj.socket.getPeerCertificate();
-                if ((obj.xtlsFingerprint != 0) && (obj.xtlsCertificate.fingerprint.split(':').join('').toLowerCase() != obj.xtlsFingerprint)) { obj.Stop(); return; }
+                obj.xtlsCertificate = obj.forwardclient.getPeerCertificate ? obj.forwardclient.getPeerCertificate() : obj.socket.getPeerCertificate();
+                if (obj.xtlsFingerprint && (obj.xtlsFingerprint != 0) && (obj.xtlsCertificate.fingerprint.split(':').join('').toLowerCase() != obj.xtlsFingerprint)) { obj.Stop(); return; }
             }
         }
 
@@ -545,3 +553,4 @@ module.exports.CreateAmtRedirect = function (module, domain, user, webserver, me
 
 function ToIntStr(v) { return String.fromCharCode((v & 0xFF), ((v >> 8) & 0xFF), ((v >> 16) & 0xFF), ((v >> 24) & 0xFF)); }
 function ToShortStr(v) { return String.fromCharCode((v & 0xFF), ((v >> 8) & 0xFF)); }
+

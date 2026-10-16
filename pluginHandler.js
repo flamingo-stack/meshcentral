@@ -250,7 +250,7 @@ module.exports.pluginHandler = function (parent) {
     obj.getPluginConfig = function (configUrl) {
         return new Promise(function (resolve, reject) {
             var http = (configUrl.indexOf('https://') >= 0) ? require('https') : require('http');
-            if (configUrl.indexOf('://') === -1) reject("Unable to fetch the config: Bad URL (" + configUrl + ")");
+            if (configUrl.indexOf('://') === -1) { reject("Unable to fetch the config: Bad URL (" + configUrl + ")"); return; }
             var options = require('url').parse(configUrl);
             if (typeof parent.config.settings.plugins.proxy == 'string' || process.env['HTTP_PROXY'] || process.env['HTTPS_PROXY'] || process.env['http_proxy'] || process.env['https_proxy']) { // Proxy support
                 options.agent = new (require('https-proxy-agent').HttpsProxyAgent)(require('url').parse(parent.config.settings.plugins.proxy) || process.env['HTTP_PROXY'] || process.env['HTTPS_PROXY'] || process.env['http_proxy'] || process.env['https_proxy']);
@@ -956,3 +956,4 @@ module.exports.pluginHandler = function (parent) {
     }
     return obj;
 };
+
