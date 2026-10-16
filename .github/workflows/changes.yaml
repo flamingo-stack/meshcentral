@@ -6,6 +6,9 @@ on:
       images_matrix:
         description: "Images matrix configuration for all components"
         value: ${{ jobs.collect.outputs.images_matrix }}
+      scan_matrix:
+        description: "Code scan targets"
+        value: ${{ jobs.collect.outputs.scan_matrix }}
       changes:
         description: "JSON object mapping each component key to true/false"
         value: ${{ jobs.collect.outputs.changes }}
@@ -22,6 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       images_matrix: ${{ steps.define.outputs.images_matrix }}
+      scan_matrix: ${{ steps.define.outputs.scan_matrix }}
       changes: ${{ steps.changes.outputs.changes }}
       timestamp: ${{ steps.setup_env.outputs.timestamp }}
       commit_sha: ${{ steps.setup_env.outputs.commit_sha }}
@@ -72,6 +76,7 @@ jobs:
             path:    (.path    // "./docker"),
             context: (.context // ".")
           } ]' <<< "$IMAGES")
+          scan_matrix=$(jq -c '[ .[] | { name, path: .context } ]' <<< "$images_matrix")
 
           filters=$(jq -nc \
             --argjson images "$IMAGES" \
@@ -89,6 +94,7 @@ jobs:
 
           {
             echo "images_matrix=$images_matrix"
+            echo "scan_matrix=$scan_matrix"
             echo "filters=$filters"
             echo "keys=$keys"
           } >> "$GITHUB_OUTPUT"
