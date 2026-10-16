@@ -22,6 +22,7 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
     obj.req = req; // Used in multi-server.js
     obj.id = req.query.id;
     obj.file = req.query.f;
+    if (typeof obj.file === 'string' && obj.file.indexOf('..') >= 0) { try { obj.close(); } catch (e) { } return; }
 
     // Check relay authentication
     if ((user == null) && (obj.req.query != null) && (obj.req.query.rauth != null)) {
@@ -58,8 +59,8 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
     // Disconnect
     obj.close = function (arg) {
         if (obj.ws != null) {
-            if ((arg == 1) || (arg == null)) { try { obj.ws.close(); parent.parent.debug('relay', 'FileRelay: Soft disconnect (' + obj.req.clientIp + ')'); } catch (ex) { console.log(e); } } // Soft close, close the websocket
-            if (arg == 2) { try { obj.ws._socket._parent.end(); parent.parent.debug('relay', 'FileRelay: Hard disconnect (' + obj.req.clientIp + ')'); } catch (ex) { console.log(e); } } // Hard close, close the TCP socket
+            if ((arg == 1) || (arg == null)) { try { obj.ws.close(); parent.parent.debug('relay', 'FileRelay: Soft disconnect (' + obj.req.clientIp + ')'); } catch (ex) { console.log(ex); } } // Soft close, close the websocket
+            if (arg == 2) { try { obj.ws._socket._parent.end(); parent.parent.debug('relay', 'FileRelay: Hard disconnect (' + obj.req.clientIp + ')'); } catch (ex) { console.log(ex); } } // Hard close, close the TCP socket
         } else if (obj.res != null) {
             try { res.sendStatus(404); } catch (ex) { }
         }
@@ -86,7 +87,7 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
                 // Check if we have permission to send a message to that node
                 rights = parent.GetNodeRights(user, agent.dbMeshKey, agent.dbNodeKey);
                 mesh = parent.meshes[agent.dbMeshKey];
-                if ((rights != null) && (mesh != null) || ((rights & MESHRIGHT_REMOTECONTROL) != 0)) { // 8 is device remote control
+                if ((rights != null) && (mesh != null) && ((rights & MESHRIGHT_REMOTECONTROL) != 0)) { // 8 is device remote control
                     command.rights = rights;                    // Add user rights flags to the message
                     if (typeof command.consent == 'number') { command.consent = command.consent | mesh.consent; } else { command.consent = mesh.consent; } // Add user consent
                     if (typeof domain.userconsentflags == 'number') { command.consent |= domain.userconsentflags; } // Add server required consent flags
@@ -104,7 +105,7 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
                     // Check if we have permission to send a message to that node
                     rights = parent.GetNodeRights(user, routing.meshid, command.nodeid);
                     mesh = parent.meshes[routing.meshid];
-                    if (rights != null || ((rights & MESHRIGHT_REMOTECONTROL) != 0)) { // 8 is device remote control
+                    if ((rights != null) && (mesh != null) && ((rights & MESHRIGHT_REMOTECONTROL) != 0)) { // 8 is device remote control
                         command.rights = rights;                // Add user rights flags to the message
                         if (typeof command.consent == 'number') { command.consent = command.consent | mesh.consent; } else { command.consent = mesh.consent; } // Add user consent
                         if (typeof domain.userconsentflags == 'number') { command.consent |= domain.userconsentflags; } // Add server required consent flags
@@ -132,7 +133,7 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
 
                     // Check that at least one connection is authenticated
                     if ((obj.authenticated != true) && (relayinfo.peer1.authenticated != true)) {
-                        if (ws) { ws.close(); }
+                        if (ws) { try { ws.close(); } catch (ex) { } }
                         parent.parent.debug('relay', 'FileRelay without-auth: ' + obj.id + ' (' + obj.req.clientIp + ')');
                         delete obj.id;
                         delete obj.ws;
@@ -166,7 +167,7 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
                     }
                 } else {
                     // Connected already, drop this connection.
-                    if (obj.ws) { obj.ws.close(); }
+                    if (obj.ws) { try { obj.ws.close(); } catch (ex) { } }
                     parent.parent.debug('relay', 'FileRelay duplicate: ' + obj.id + ' (' + obj.req.clientIp + ')');
                     delete obj.id;
                     delete obj.ws;
@@ -192,7 +193,7 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
                         } else {
 
                             // Unexpected connection, drop it
-                            if (obj.ws) { obj.ws.close(); }
+                            if (obj.ws) { try { obj.ws.close(); } catch (ex) { } }
                             parent.parent.debug('relay', 'FileRelay unexpected connection: ' + obj.id + ' (' + obj.req.clientIp + ')');
                             delete obj.id;
                             delete obj.ws;
@@ -310,3 +311,4 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
     performRelay();
     return obj;
 };
+
