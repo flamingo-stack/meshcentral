@@ -3122,6 +3122,28 @@ module.exports.CreateDB = function (parent, func) {
                 obj.file.find(q).sort({ _id: 1 }).toArray(func);
             }
 
+            // Read every configuration file for this tenant as [{ name, data }]: own rows when they exist, the
+            // legacy shared rows otherwise. Callers must not parse the _id themselves, a tenant-scoped id carries
+            // the domain as an extra segment ('cfile/<domain>/<name>').
+            obj.getAllConfigFiles = function (func) {
+                var d = openframeDomain();
+                var toFiles = function (docs) {
+                    var r = [];
+                    if (docs == null) { return r; }
+                    for (var i = 0; i < docs.length; i++) {
+                        var parts = docs[i]._id.split('/');
+                        r.push({ name: parts[parts.length - 1], data: docs[i].data });
+                    }
+                    return r;
+                };
+                if (d == null) { obj.file.find({ type: 'cfile' }).sort({ _id: 1 }).toArray(function (err, docs) { func(err, toFiles(docs)); }); return; }
+                obj.file.find({ type: 'cfile', _id: { $regex: '^cfile/' + d + '/' } }).sort({ _id: 1 }).toArray(function (err, docs) {
+                    if ((err == null) && (docs != null) && (docs.length > 0)) { func(err, toFiles(docs)); return; }
+                    // Legacy shared rows only (exactly one segment after 'cfile/'), never another tenant's files.
+                    obj.file.find({ type: 'cfile', _id: { $regex: '^cfile/[^/]+$' } }).sort({ _id: 1 }).toArray(function (err2, docs2) { func(err2, toFiles(docs2)); });
+                });
+            }
+
             // Get database information
             obj.getDbStats = function (func) {
                 obj.stats = { c: 6 };

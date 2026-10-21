@@ -1226,12 +1226,19 @@ function CreateMeshCentralServer(config, args) {
                     // callback(err, pulledCount) — pulledCount === 0 means no rows (first run), not an error.
                     obj.pullConfigFilesFromDB = function (folder, options, callback) {
                         if (!options || typeof options.configKey != 'string') { return callback(new Error('configKey required')); }
-                        obj.db.GetAllType('cfile', function (err, docs) {
+                        // getAllConfigFiles hands back { name, data } for this tenant only (with a fallback to the
+                        // legacy shared rows). Never parse the _id here: a tenant-scoped id is 'cfile/<domain>/<name>',
+                        // so _id.split('/')[1] would yield the domain, no cert would be restored and the server would
+                        // mint a new ServerID on every pod start.
+                        const readAll = (typeof obj.db.getAllConfigFiles == 'function')
+                            ? obj.db.getAllConfigFiles
+                            : function (func) { obj.db.GetAllType('cfile', function (err, docs) { func(err, (docs || []).map(function (d) { const p = d._id.split('/'); return { name: p[p.length - 1], data: d.data }; })); }); };
+                        readAll(function (err, docs) {
                             if (err != null) { return callback(new Error('Unable to read from database.')); }
                             if (docs.length == 0) { return callback(null, 0); }
                             var pulled = 0;
                             for (var i in docs) {
-                                const file = docs[i]._id.split('/')[1];
+                                const file = docs[i].name;
                                 if (!options.includeConfigJson && (file == 'config.json')) continue;
                                 const binary = obj.db.decryptData(options.configKey, docs[i].data);
                                 if (binary == null) { return callback(new Error('Invalid config key.')); }
