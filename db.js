@@ -522,6 +522,13 @@ module.exports.CreateDB = function (parent, func) {
                             // would make case 1 the normal path, not the failure path.
                             // Orphan accounting is done out of band by an audit query scoped with
                             // an explicit ^mesh/<domain>/ prefix.
+                            //
+                            // A stock install still owns its whole database, so it keeps upstream's
+                            // behaviour: the change above is about the shared database, not about
+                            // MongoDB. (In OpenFrame mode cleanup() is not called at all.)
+                            if (openframeDomain() == null) {
+                                obj.file.deleteMany({ meshid: { $exists: true, $nin: meshlist } });
+                            }
                         } else {
                             // NeDB or MongoJS
                             obj.file.remove({ meshid: { $exists: true, $nin: meshlist } }, { multi: true });
@@ -3094,10 +3101,12 @@ module.exports.CreateDB = function (parent, func) {
             // boots last wins, and all tenants end up with identical server certificates — hence an
             // identical ServerID, which is exactly what agents pin.
             //
-            // The key is scoped per tenant now. Reads fall back to the legacy shared row, and that
-            // fallback is what keeps certificates byte-identical through the migration: a pod pulls
-            // the shared certificate and pushes it back under its own key. Regenerating instead
-            // would change the ServerID and every installed agent would stop trusting the server.
+            // The key is scoped per tenant now, so a pod can no longer overwrite another tenant's row
+            // (terms, images) or race it on boot. It does NOT give each tenant its own certificate:
+            // reads fall back to the legacy shared row and the pod pushes that same content back under
+            // its own key, deliberately, because the ServerID is what every installed agent pins. A
+            // tenant that was issued its own certificates keeps them; separating the fleet's would be
+            // a migration of its own, with agent re-enrollment.
             obj.getConfigFile = function (path, func) {
                 var d = openframeDomain();
                 if (d == null) { obj.Get('cfile/' + path, func); return; }

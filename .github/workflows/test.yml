@@ -140,6 +140,10 @@ jobs:
   test_isolation:
     name: "Test: tenant isolation"
     runs-on: ubuntu-latest
+    # After the image build, so the tests run against this branch's node_modules rather than the
+    # ones baked into `latest` whenever the branch changes a dependency.
+    needs: [changes, test]
+    if: always() && !cancelled()
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -153,8 +157,18 @@ jobs:
 
       # The image is only a runtime carrier here: it supplies node_modules (mongodb is not a
       # package.json dependency), while the code under test is this checkout, mounted at /src.
+      # Prefer this branch's image; fall back to latest when the build was skipped (a change that
+      # touches neither the image context nor its dependencies).
       - name: Run tenant isolation tests
-        run: test/run-tests.sh ${{ env.REGISTRY }}/${{ env.ORGANISATION }}/${{ env.REPOSITORY }}/meshcentral:latest
+        run: |
+          base="${{ env.REGISTRY }}/${{ env.ORGANISATION }}/${{ env.REPOSITORY }}/meshcentral"
+          image="$base:${{ needs.changes.outputs.test_commit_sha }}"
+          if ! docker manifest inspect "$image" >/dev/null 2>&1; then
+            echo "No image for this commit, falling back to :latest"
+            image="$base:latest"
+          fi
+          echo "Carrier image: $image"
+          test/run-tests.sh "$image"
 
 
   test_helm:

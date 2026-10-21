@@ -47,3 +47,9 @@ CI runs the same script (`test_isolation` job in `.github/workflows/test.yml`).
   against a two-domain database; a WS-level suite would be the next step.
 - The gateway command allowlist, which lives in `openframe-oss-lib` and has its own unit tests.
 - Agent connectivity, and the certificate sync (`autoSyncConfigFiles`) against real certificates.
+- Bulk database operations. The write guard wraps `Set`, `SetUser` and `Remove`, so a single
+  cross-tenant document write is blocked, but `RemoveAllOfType`, `RemoveMesh`, `DeleteDomain` and
+  the `updateMany` calls go around it and still act on the whole collection. They are reached from
+  CLI paths and domain deletion rather than from a tenant session — `--dbpushconfigfiles`, for
+  example, starts with `RemoveAllOfType('cfile')` and would drop every tenant's config rows. Treat
+  those commands as fleet-wide, and do not run them against the shared database.

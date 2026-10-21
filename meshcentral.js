@@ -1251,7 +1251,9 @@ function CreateMeshCentralServer(config, args) {
 
                     // Show a list of all configuration files in the database
                     if (obj.args.dblistconfigfiles) {
-                        obj.db.GetAllType('cfile', function (err, docs) {
+                        // Through getConfigFileRows for the same reason as the pull: on a shared database the
+                        // _id carries the tenant domain, so parsing it here would list every row as the domain.
+                        obj.db.getConfigFileRows(function (err, docs) {
                             if (err == null) {
                                 if (docs.length == 0) {
                                     console.log("No files found.");
@@ -1260,12 +1262,12 @@ function CreateMeshCentralServer(config, args) {
                                         if (typeof obj.args.dblistconfigfiles == 'string') {
                                             const data = obj.db.decryptData(obj.args.dblistconfigfiles, docs[i].data);
                                             if (data == null) {
-                                                console.log(docs[i]._id.split('/')[1] + ', ' + Buffer.from(docs[i].data, 'base64').length + ' encrypted bytes - Unable to decrypt.');
+                                                console.log(docs[i].name + ', ' + Buffer.from(docs[i].data, 'base64').length + ' encrypted bytes - Unable to decrypt.');
                                             } else {
-                                                console.log(docs[i]._id.split('/')[1] + ', ' + data.length + ' bytes, decoded correctly.');
+                                                console.log(docs[i].name + ', ' + data.length + ' bytes, decoded correctly.');
                                             }
                                         } else {
-                                            console.log(docs[i]._id.split('/')[1] + ', ' + Buffer.from(docs[i].data, 'base64').length + ' encrypted bytes.');
+                                            console.log(docs[i].name + ', ' + Buffer.from(docs[i].data, 'base64').length + ' encrypted bytes.');
                                         }
                                     }
                                 }
