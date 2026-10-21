@@ -249,3 +249,60 @@ test('a domain name that comes from an empty variable is rejected, not collapsed
     // A single-domain install with no placeholders is untouched.
     assert.deepStrictEqual(unresolvedDomainPlaceholders('{"domains":{"":{"title":"MeshCentral"}}}', {}), []);
 });
+
+test('getConfigFileRows returns this tenant files under their bare name', async () => {
+    // The startup config sync writes each returned file into the data folder. A tenant-scoped id is
+    // 'cfile/<domain>/<name>', so a caller parsing the id as 'cfile/<name>' would use the domain as
+    // the file name: every certificate would land in one file, none would be restored, and the
+    // server would mint a new ServerID on each start.
+    const { client, db: raw } = await freshDatabase();
+    await raw.collection('meshcentral').insertMany([
+        { _id: 'cfile/' + A + '/agentserver-cert-public.crt', type: 'cfile', domain: A, data: 'QQ==' },
+        { _id: 'cfile/' + A + '/root-cert-public.crt', type: 'cfile', domain: A, data: 'QQ==' },
+        { _id: 'cfile/' + B + '/agentserver-cert-public.crt', type: 'cfile', domain: B, data: 'Qg==' },
+        { _id: 'cfile/agentserver-cert-public.crt', type: 'cfile', data: 'TA==' }
+    ]);
+    const { db } = await openDb(A);
+    try {
+        const files = await new Promise((res) => db.getConfigFileRows((err, f) => res(f)));
+        assert.deepStrictEqual(files.map((f) => f.name).sort(), ['agentserver-cert-public.crt', 'root-cert-public.crt']);
+        for (const f of files) { assert.strictEqual(f.data, 'QQ=='); } // never tenant B, never the legacy row
+    } finally { await client.close(); }
+});
+
+test('getConfigFileRows falls back to the legacy shared rows, not to another tenant', async () => {
+    // First start of a tenant that has never pushed its own files: it must inherit the shared
+    // certificates, otherwise MeshCentral generates fresh ones and every agent stops trusting it.
+    const { client, db: raw } = await freshDatabase();
+    await raw.collection('meshcentral').insertMany([
+        { _id: 'cfile/agentserver-cert-public.crt', type: 'cfile', data: 'TA==' },
+        { _id: 'cfile/' + B + '/agentserver-cert-public.crt', type: 'cfile', domain: B, data: 'Qg==' }
+    ]);
+    const { db } = await openDb(A);
+    try {
+        const files = await new Promise((res) => db.getConfigFileRows((err, f) => res(f)));
+        assert.deepStrictEqual(files.map((f) => f.name), ['agentserver-cert-public.crt']);
+        assert.strictEqual(files[0].data, 'TA==');
+    } finally { await client.close(); }
+});
+
+test('setConfigFile writes under this tenant and getConfigFile prefers it over the legacy row', async () => {
+    const { client, db: raw } = await freshDatabase();
+    await raw.collection('meshcentral').insertOne({ _id: 'cfile/webserver-cert-public.crt', type: 'cfile', data: 'TA==' });
+    const { db } = await openDb(A);
+    try {
+        const legacy = await new Promise((res) => db.getConfigFile('webserver-cert-public.crt', (err, d) => res(d)));
+        assert.strictEqual(legacy[0].data, 'TA==');
+
+        await new Promise((res) => db.setConfigFile('webserver-cert-public.crt', Buffer.from('A'), res));
+        const scoped = await raw.collection('meshcentral').findOne({ _id: 'cfile/' + A + '/webserver-cert-public.crt' });
+        assert.strictEqual(scoped.domain, A);
+
+        const now = await new Promise((res) => db.getConfigFile('webserver-cert-public.crt', (err, d) => res(d)));
+        assert.strictEqual(now[0]._id, 'cfile/' + A + '/webserver-cert-public.crt');
+
+        // The legacy row must stay intact: other tenants still boot from it.
+        const untouched = await raw.collection('meshcentral').findOne({ _id: 'cfile/webserver-cert-public.crt' });
+        assert.strictEqual(untouched.data, 'TA==');
+    } finally { await client.close(); }
+});

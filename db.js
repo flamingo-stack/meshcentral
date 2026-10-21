@@ -3122,25 +3122,31 @@ module.exports.CreateDB = function (parent, func) {
                 obj.file.find(q).sort({ _id: 1 }).toArray(func);
             }
 
-            // Read every configuration file for this tenant as [{ name, data }]: own rows when they exist, the
-            // legacy shared rows otherwise. Callers must not parse the _id themselves, a tenant-scoped id carries
-            // the domain as an extra segment ('cfile/<domain>/<name>').
-            obj.getAllConfigFiles = function (func) {
+            // Read every configuration file for this tenant as [{ name, data }]. Callers must not parse the
+            // _id themselves: a tenant-scoped id is 'cfile/<domain>/<name>', so naive 'cfile/<name>' parsing
+            // yields the domain as the file name, no certificate is restored and the server mints a new
+            // ServerID on every start. Own rows win per file name; the legacy shared rows fill the rest, so a
+            // tenant that has never pushed its own files still inherits the fleet certificates.
+            obj.getConfigFileRows = function (func) {
                 var d = openframeDomain();
-                var toFiles = function (docs) {
-                    var r = [];
-                    if (docs == null) { return r; }
-                    for (var i = 0; i < docs.length; i++) {
-                        var parts = docs[i]._id.split('/');
-                        r.push({ name: parts[parts.length - 1], data: docs[i].data });
+                var nameOf = function (doc) { var p = doc._id.split('/'); return p[p.length - 1]; };
+                if (d == null) {
+                    obj.file.find({ type: 'cfile' }).sort({ _id: 1 }).toArray(function (err, docs) {
+                        func(err, (docs || []).map(function (doc) { return { name: nameOf(doc), data: doc.data }; }));
+                    });
+                    return;
+                }
+                // Legacy rows carry exactly one segment after 'cfile/', so this never matches another tenant.
+                obj.file.find({ type: 'cfile', $or: [{ _id: { $regex: '^cfile/' + d + '/' } }, { _id: { $regex: '^cfile/[^/]+$' } }] }).sort({ _id: 1 }).toArray(function (err, docs) {
+                    var byName = {};
+                    for (var i = 0; i < (docs || []).length; i++) {
+                        var scoped = (docs[i]._id.split('/').length > 2);
+                        var name = nameOf(docs[i]);
+                        if (scoped || (byName[name] === undefined)) { byName[name] = { name: name, data: docs[i].data, scoped: scoped }; }
                     }
-                    return r;
-                };
-                if (d == null) { obj.file.find({ type: 'cfile' }).sort({ _id: 1 }).toArray(function (err, docs) { func(err, toFiles(docs)); }); return; }
-                obj.file.find({ type: 'cfile', _id: { $regex: '^cfile/' + d + '/' } }).sort({ _id: 1 }).toArray(function (err, docs) {
-                    if ((err == null) && (docs != null) && (docs.length > 0)) { func(err, toFiles(docs)); return; }
-                    // Legacy shared rows only (exactly one segment after 'cfile/'), never another tenant's files.
-                    obj.file.find({ type: 'cfile', _id: { $regex: '^cfile/[^/]+$' } }).sort({ _id: 1 }).toArray(function (err2, docs2) { func(err2, toFiles(docs2)); });
+                    var r = [];
+                    for (var k in byName) { r.push({ name: byName[k].name, data: byName[k].data }); }
+                    func(err, r);
                 });
             }
 
@@ -3399,22 +3405,25 @@ module.exports.CreateDB = function (parent, func) {
 
         // Get all configuration files
         obj.getAllConfigFiles = function (password, func) {
-            const cfileDomain = openframeDomain();
-            obj.GetAllType('cfile', function (err, docs) {
+            obj.getConfigFileRows(function (err, files) {
                 if (err != null) { func(null); return; }
                 var r = null;
-                for (var i = 0; i < docs.length; i++) {
-                    // Keys are 'cfile/<name>' (legacy, shared) or 'cfile/<domain>/<name>' (scoped),
-                    // so the file name is the last segment, not the second one. Skip other tenants'
-                    // rows: on a shared database GetAllType('cfile') returns the whole fleet's.
-                    var idParts = docs[i]._id.split('/');
-                    if ((cfileDomain != null) && (idParts.length > 2) && (idParts[1] !== cfileDomain)) continue;
-                    var name = idParts[idParts.length - 1];
-                    var data = obj.decryptData(password, docs[i].data);
-                    if (data != null) { if (r == null) { r = {}; } r[name] = data; }
+                for (var i = 0; i < files.length; i++) {
+                    var data = obj.decryptData(password, files[i].data);
+                    if (data != null) { if (r == null) { r = {}; } r[files[i].name] = data; }
                 }
                 func(r);
             });
+        }
+
+        // Fallback for the backends that have no tenant scoping: whatever 'cfile' rows exist, named by
+        // the last id segment (which for them is the file name).
+        if (typeof obj.getConfigFileRows != 'function') {
+            obj.getConfigFileRows = function (func) {
+                obj.GetAllType('cfile', function (err, docs) {
+                    func(err, (docs || []).map(function (doc) { var p = doc._id.split('/'); return { name: p[p.length - 1], data: doc.data }; }));
+                });
+            }
         }
 
         // Cross-tenant write guard. Every tenant server shares one database and separation is
