@@ -231,3 +231,21 @@ test('deriveTenantDomain picks the tenant, ignoring the default and share domain
     assert.strictEqual(deriveTenantDomain({ '': { title: 'MeshCentral' } }), '');
     assert.strictEqual(deriveTenantDomain(null), '');
 });
+
+test('a domain name that comes from an empty variable is rejected, not collapsed to ""', () => {
+    // config.json carries the tenant's domain as "${TENANT_ID}", substituted from the pod's
+    // environment. Unset, it would substitute to "" — the default domain, which on a shared
+    // database every tenant server reads — and the tenant would silently join it.
+    const { unresolvedDomainPlaceholders } = require(path.join(MESH_DIR, 'common.js'));
+    const config = '{"settings":{"mongodb":"mongodb://h/db?x=1${MC_MONGO_URI_OPTIONS}"},'
+        + '"domains":{"":{"title":"MeshCentral"},"${TENANT_ID}":{"title":"${TENANT_ID}"}}}';
+
+    assert.deepStrictEqual(unresolvedDomainPlaceholders(config, { TENANT_ID: A }), []);
+    assert.deepStrictEqual(unresolvedDomainPlaceholders(config, {}), ['TENANT_ID']);
+
+    // A placeholder in a VALUE may legitimately be empty — the Mongo URI options are.
+    assert.deepStrictEqual(unresolvedDomainPlaceholders(config, { TENANT_ID: A, MC_MONGO_URI_OPTIONS: '' }), []);
+
+    // A single-domain install with no placeholders is untouched.
+    assert.deepStrictEqual(unresolvedDomainPlaceholders('{"domains":{"":{"title":"MeshCentral"}}}', {}), []);
+});

@@ -4265,7 +4265,18 @@ function getConfig(createSampleConfig) {
         // process.env so secrets can be supplied via Kubernetes Secret refs without baking them
         // into config.json. Mirrors plugins/migrate.js so both binaries handle placeholders.
         try {
-            var raw = fs.readFileSync(configFilePath, 'utf8').replace(/\$\{([A-Z_][A-Z0-9_]*)\}/g, function (_, n) { return process.env[n] || ''; });
+            const rawFile = fs.readFileSync(configFilePath, 'utf8');
+            // A placeholder used as a DOMAIN KEY must resolve. Unset, it would substitute to "" —
+            // the default domain, which on a shared database is one space every tenant server sees,
+            // so the tenant would silently join it instead of getting its own. Checked only for keys
+            // (`"${VAR}":`), because a placeholder in a value is allowed to be empty (the Mongo URI
+            // options are).
+            const unresolvedDomainVars = require('./common.js').unresolvedDomainPlaceholders(rawFile, process.env);
+            if (unresolvedDomainVars.length > 0) {
+                console.log('ERROR: ' + unresolvedDomainVars.join(', ') + ' used as a domain name in ' + configFilePath + ' but empty in the environment.');
+                return null;
+            }
+            var raw = rawFile.replace(/\$\{([A-Z_][A-Z0-9_]*)\}/g, function (_, n) { return process.env[n] || ''; });
             config = JSON.parse(raw);
         } catch (ex) { console.log('ERROR: Unable to parse ' + configFilePath + '.'); return null; }
         if (config.domains == null) { config.domains = {}; }
