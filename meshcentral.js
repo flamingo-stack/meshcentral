@@ -39,7 +39,7 @@ function CreateMeshCentralServer(config, args) {
     var openframeDomainCache;
     obj.openframeDomain = function () {
         if (openframeDomainCache === undefined) {
-            openframeDomainCache = (process.env.OPENFRAME_MODE === 'true')
+            openframeDomainCache = require('./db.js').tenantIsolationEnabled()
                 ? (require('./db.js').deriveTenantDomain(obj.config.domains) || null)
                 : null;
         }
@@ -1781,7 +1781,7 @@ function CreateMeshCentralServer(config, args) {
         // in this database: those types are written to their own collections here.
         // Routine housekeeping is covered elsewhere: RemoveMeshDocuments() on device group
         // deletion, the explicit Remove() calls on device deletion, and the TTL indexes.
-        if (process.env.OPENFRAME_MODE !== 'true') { obj.db.cleanup(); }
+        if (!require('./db.js').tenantIsolationEnabled()) { obj.db.cleanup(); }
 
         // Set all nodes to power state of unknown (0).
         // Skipped in OpenFrame mode: this marker is stored against the wildcard node id '*' and the
@@ -4277,7 +4277,11 @@ function getConfig(createSampleConfig) {
             // so the tenant would silently join it instead of getting its own. Checked only for keys
             // (`"${VAR}":`), because a placeholder in a value is allowed to be empty (the Mongo URI
             // options are).
-            const unresolvedDomainVars = require('./common.js').unresolvedDomainPlaceholders(rawFile, process.env);
+            // Gated with the rest: an environment that has never set TENANT_ID boots today, and
+            // this refusal must not be what a merge changes about it.
+            const unresolvedDomainVars = require('./db.js').tenantIsolationEnabled()
+                ? require('./common.js').unresolvedDomainPlaceholders(rawFile, process.env)
+                : [];
             if (unresolvedDomainVars.length > 0) {
                 console.log('ERROR: ' + unresolvedDomainVars.join(', ') + ' used as a domain name in ' + configFilePath + ' but empty in the environment.');
                 return null;

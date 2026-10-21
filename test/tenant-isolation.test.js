@@ -59,7 +59,7 @@ function parentShim(domain) {
  *  binds itself at setup time. */
 function openDb(domain, env) {
     const previous = {};
-    const applied = Object.assign({ OPENFRAME_MODE: 'true' }, env || {});
+    const applied = Object.assign({ OPENFRAME_MODE: 'true', OPENFRAME_TENANT_ISOLATION: 'true' }, env || {});
     for (const k in applied) { previous[k] = process.env[k]; process.env[k] = applied[k]; }
 
     const parent = parentShim(domain);
@@ -305,4 +305,64 @@ test('setConfigFile writes under this tenant and getConfigFile prefers it over t
         const untouched = await raw.collection('meshcentral').findOne({ _id: 'cfile/webserver-cert-public.crt' });
         assert.strictEqual(untouched.data, 'TA==');
     } finally { await client.close(); }
+});
+
+
+// --- The flag itself ---------------------------------------------------------
+//
+// Everything above runs with OPENFRAME_TENANT_ISOLATION=true. These pin the other state: with the
+// flag off the pod must behave exactly as production does today, so that this code can sit on
+// master and ship inside the image without changing anything until an environment opts in.
+
+test('with the flag off, reads are not scoped to a domain', async () => {
+    const { client } = await freshDatabase();
+    const { db } = await openDb(A, { OPENFRAME_TENANT_ISOLATION: 'false' });
+    try {
+        const users = await new Promise((res) => db.GetAllType('user', (err, docs) => res(docs)));
+        assert.deepStrictEqual(ids(users), ['user/' + A + '/admin', 'user/' + B + '/admin']);
+    } finally { await client.close(); }
+});
+
+test('with the flag off, a cross-tenant write is not blocked', async () => {
+    // The guard is the part with teeth: off, writing into another tenant has to still work,
+    // otherwise merging would change production behaviour before anyone enables anything.
+    const { client, db: raw } = await freshDatabase();
+    const { db } = await openDb(A, { OPENFRAME_TENANT_ISOLATION: 'false' });
+    try {
+        const id = 'user/' + B + '/admin';
+        const doc = await raw.collection('meshcentral').findOne({ _id: id });
+        doc.realname = 'written by tenant A';
+        await new Promise((res) => db.Set(doc, res));
+        const after = await raw.collection('meshcentral').findOne({ _id: id });
+        assert.strictEqual(after.realname, 'written by tenant A');
+    } finally { await client.close(); }
+});
+
+test('with the flag off, config files keep the legacy shared key', async () => {
+    const { client, db: raw } = await freshDatabase();
+    const { db } = await openDb(A, { OPENFRAME_TENANT_ISOLATION: 'false' });
+    try {
+        await new Promise((res) => db.setConfigFile('webserver-cert-public.crt', Buffer.from('A'), res));
+        assert.ok(await raw.collection('meshcentral').findOne({ _id: 'cfile/webserver-cert-public.crt' }));
+        assert.strictEqual(await raw.collection('meshcentral').countDocuments({ _id: { $regex: '^cfile/' + A + '/' } }), 0);
+    } finally { await client.close(); }
+});
+
+test('OPENFRAME_MODE alone does not switch isolation on', async () => {
+    // The two are deliberately separate: OPENFRAME_MODE is already true on every tenant pod, so on
+    // its own it would mean "live in production the moment the image lands".
+    const { tenantIsolationEnabled } = require(path.join(MESH_DIR, 'db.js'));
+    const previous = { m: process.env.OPENFRAME_MODE, i: process.env.OPENFRAME_TENANT_ISOLATION };
+    try {
+        process.env.OPENFRAME_MODE = 'true';
+        delete process.env.OPENFRAME_TENANT_ISOLATION;
+        assert.strictEqual(tenantIsolationEnabled(), false);
+        process.env.OPENFRAME_TENANT_ISOLATION = 'true';
+        assert.strictEqual(tenantIsolationEnabled(), true);
+        process.env.OPENFRAME_MODE = 'false';
+        assert.strictEqual(tenantIsolationEnabled(), false);
+    } finally {
+        if (previous.m === undefined) { delete process.env.OPENFRAME_MODE; } else { process.env.OPENFRAME_MODE = previous.m; }
+        if (previous.i === undefined) { delete process.env.OPENFRAME_TENANT_ISOLATION; } else { process.env.OPENFRAME_TENANT_ISOLATION = previous.i; }
+    }
 });

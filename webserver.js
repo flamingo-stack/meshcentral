@@ -294,7 +294,7 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
     // removeInactiveDevices found another tenant's device groups). Loading only our own domain
     // removes the class rather than the individual call sites, and makes memory O(tenant)
     // instead of O(fleet). Null outside OpenFrame mode, where the load stays unscoped.
-    const bootCacheDomain = (process.env.OPENFRAME_MODE === 'true')
+    const bootCacheDomain = require('./db.js').tenantIsolationEnabled()
         ? require('./db.js').deriveTenantDomain(parent.config.domains)
         : null;
     const loadAllOfType = function (type, func) {
@@ -2261,7 +2261,8 @@ module.exports.CreateWebServer = function (parent, db, args, certificates, doneF
             // token naming another domain's user resolved to that user. Sibling to the per-tenant
             // cookie key: the key stops a foreign cookie from validating at all, this stops a
             // validly-signed one from being used outside its domain.
-            if ((ucookie != null) && (ucookie.a === 3) && (typeof ucookie.u == 'string') && (ucookie.u.split('/')[1] == domain.id)) { user = obj.users[ucookie.u]; }
+            if ((ucookie != null) && (ucookie.a === 3) && (typeof ucookie.u == 'string')
+                && (!require('./db.js').tenantIsolationEnabled() || (ucookie.u.split('/')[1] == domain.id))) { user = obj.users[ucookie.u]; }
         }
 
         // If no token, see if we have an active session

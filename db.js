@@ -38,15 +38,30 @@ function deriveTenantDomain(domains) {
 }
 module.exports.deriveTenantDomain = deriveTenantDomain;
 
-// This pod's tenant, or null when not running in OpenFrame mode (single-tenant / OSS installs,
-// where none of the scoping below applies and behaviour must stay exactly as upstream).
+// Master switch for the tenant isolation work.
+//
+// OPENFRAME_MODE has been true on every tenant pod for a long time, so it cannot gate a change of
+// behaviour: merging would ship it to production the moment the pods pull a new image. This flag
+// is separate and defaults to OFF, so the code can sit on master, go out with the image, and do
+// nothing until an environment sets OPENFRAME_TENANT_ISOLATION=true.
+//
+// Off, every scoped query, guard and per-tenant key below falls back to what the pods do today.
+// It is read per process, not per request: a pod is either isolated or it is not, and a half
+// applied switch (scoped reads with fleet-wide writes, say) is worse than either state.
+function tenantIsolationEnabled() {
+    return (process.env.OPENFRAME_MODE === 'true') && (process.env.OPENFRAME_TENANT_ISOLATION === 'true');
+}
+module.exports.tenantIsolationEnabled = tenantIsolationEnabled;
+
+// This pod's tenant, or null when isolation is off (and on single-tenant / OSS installs, where
+// none of the scoping below applies and behaviour must stay exactly as upstream).
 //
 // Resolved ONCE per database instance, not per call: the tenant a server belongs to cannot change
 // while it runs, and reading process.env on every query made the scoping depend on when the query
 // happened to run relative to the environment. Every caller below must see the same answer as the
 // write guard, which binds itself at setup.
 function makeOpenframeDomain(parent) {
-    const resolved = (process.env.OPENFRAME_MODE === 'true')
+    const resolved = tenantIsolationEnabled()
         ? (deriveTenantDomain(parent.config.domains) || null)
         : null;
     return function () { return resolved; };
@@ -1172,8 +1187,11 @@ module.exports.CreateDB = function (parent, func) {
                     // tenant server, so treating it as ours contradicts the boot cache, which now
                     // loads this domain alone. Keeping both in sync matters — a document the cache
                     // does not hold must not arrive as a change event for an object we never loaded.
+                    // With isolation off this keeps the fork's existing filter, which also accepted
+                    // the empty domain — the pods have run that for a long time and it is not this
+                    // change's business to alter it.
                     const changeStreamServerDomains = (process.env.OPENFRAME_MODE === 'true' && tenantDomain)
-                        ? [tenantDomain]
+                        ? (tenantIsolationEnabled() ? [tenantDomain] : [tenantDomain, ''])
                         : Object.keys(parent.config.domains);
                     obj.fileChangeStream = obj.file.watch([{ $match: { $or: [{ 'fullDocument.type': { $in: ['node', 'mesh', 'user', 'ugrp'] } }, { 'operationType': 'delete' }] } }], { fullDocument: 'updateLookup' });
                     obj.fileChangeStream.on('change', function (change) {
