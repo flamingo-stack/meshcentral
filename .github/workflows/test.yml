@@ -118,6 +118,10 @@ jobs:
             org.opencontainers.image.description=MeshCentral - full computer management web site
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
 
+      # Published, not just built: the tag above is test-<sha>, which is what a tenant environment
+      # pins to try an unmerged branch. Building without pushing made the step read as if the image
+      # existed while the pull failed with "not found". `latest` is still gated on the default
+      # branch, so a pull request only ever adds its own test-<sha>.
       - name: Build image ${{ needs.changes.outputs.test_commit_sha }}
         id: docker_build
         uses: docker/build-push-action@v6
@@ -126,7 +130,7 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.path }}/Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: false
+          push: true
           provenance: false
           sbom: true
           tags: ${{ steps.meta.outputs.tags }}
