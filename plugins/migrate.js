@@ -132,6 +132,17 @@ function buildParentShim(config, datapath) {
 
 function loadConfig(configfile) {
   var raw = fs.readFileSync(configfile, 'utf8');
+  // Same guard as meshcentral.js getConfig(): a placeholder used as a domain KEY must resolve.
+  // Unset, it substitutes to "" — the shared default domain — and this script would then create
+  // the tenant's admin and device group there, where every other server can see them.
+  // Behind OPENFRAME_TENANT_ISOLATION like the rest: an environment that boots today without
+  // TENANT_ID must keep booting after this ships, until the flag is turned on there.
+  var unresolved = requireFromMeshCentral('db.js').tenantIsolationEnabled()
+    ? requireFromMeshCentral('common.js').unresolvedDomainPlaceholders(raw, process.env)
+    : [];
+  if (unresolved.length > 0) {
+    throw new Error(unresolved.join(', ') + ' used as a domain name in ' + configfile + ' but empty in the environment');
+  }
   // Strip any ${VAR} placeholders that weren't substituted — fall back to env
   raw = raw.replace(/\$\{([A-Z_][A-Z0-9_]*)\}/g, function (m, name) {
     return process.env[name] || '';

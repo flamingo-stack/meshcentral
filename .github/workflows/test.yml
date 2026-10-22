@@ -118,7 +118,11 @@ jobs:
             org.opencontainers.image.description=MeshCentral - full computer management web site
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
 
-      - name: Build image
+      # Published, not just built: the tag above is test-<sha>, which is what a tenant environment
+      # pins to try an unmerged branch. Building without pushing made the step read as if the image
+      # existed while the pull failed with "not found". `latest` is still gated on the default
+      # branch, so a pull request only ever adds its own test-<sha>.
+      - name: Build image ${{ needs.changes.outputs.test_commit_sha }}
         id: docker_build
         uses: docker/build-push-action@v6
         if: steps.should_run.outputs.run == 'true'
@@ -126,11 +130,45 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.path }}/Dockerfile
           platforms: linux/amd64,linux/arm64
-          push: false
+          push: true
           provenance: false
           sbom: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+
+  test_isolation:
+    name: "Test: tenant isolation"
+    runs-on: ubuntu-latest
+    # After the image build, so the tests run against this branch's node_modules rather than the
+    # ones baked into `latest` whenever the branch changes a dependency.
+    needs: [changes, test]
+    if: always() && !cancelled()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The image is only a runtime carrier here: it supplies node_modules (mongodb is not a
+      # package.json dependency), while the code under test is this checkout, mounted at /src.
+      # Prefer this branch's image; fall back to latest when the build was skipped (a change that
+      # touches neither the image context nor its dependencies).
+      - name: Run tenant isolation tests
+        run: |
+          base="${{ env.REGISTRY }}/${{ env.ORGANISATION }}/${{ env.REPOSITORY }}/meshcentral"
+          image="$base:${{ needs.changes.outputs.test_commit_sha }}"
+          if ! docker manifest inspect "$image" >/dev/null 2>&1; then
+            echo "No image for this commit, falling back to :latest"
+            image="$base:latest"
+          fi
+          echo "Carrier image: $image"
+          test/run-tests.sh "$image"
 
 
   test_helm:
@@ -158,7 +196,7 @@ jobs:
 
   all-checks:
     name: "All Checks"
-    needs: [changes, test, test_helm]
+    needs: [changes, test, test_isolation, test_helm]
     runs-on: ubuntu-latest
     if: always()
     steps:

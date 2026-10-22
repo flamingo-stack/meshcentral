@@ -106,6 +106,23 @@ module.exports.CreateMeshUser = function (parent, db, ws, req, args, domain, use
     obj.domain = domain;
     obj.ws = ws;
 
+    // True when `id` names an object in another tenant. The maps these commands look ids up in
+    // (parent.users and friends) are keyed by full _id and, with isolation off, still hold every
+    // tenant's objects, which is how 'changeuserpass' reached another tenant's admin.
+    //
+    // Returns false while OPENFRAME_TENANT_ISOLATION is off, so these commands behave exactly as
+    // they do in production today until an environment turns the flag on.
+    const isForeignDomainId = function (id) {
+        if (!require('./db.js').tenantIsolationEnabled()) { return false; }
+        return (typeof id != 'string') || (id.split('/').length != 3) || (id.split('/')[1] != domain.id);
+    };
+
+    // Scoped read while the flag is on, the original fleet-wide read while it is off.
+    const getAllTypeScoped = function (type, func) {
+        if (require('./db.js').tenantIsolationEnabled()) { parent.db.GetAllTypeForDomain(type, domain.id, func); }
+        else { parent.db.GetAllType(type, func); }
+    };
+
     // Information related to the current page the user is looking at
     obj.deviceSkip = 0; // How many devices to skip
     obj.deviceLimit = 0; // How many devices to view
@@ -1967,6 +1984,9 @@ module.exports.CreateMeshUser = function (parent, db, ws, req, args, domain, use
                     if (typeof command.removeMultiFactor != 'boolean') break;
                     if ((command.pass != '') && (common.checkPasswordRequirements(command.pass, domain.passwordrequirements) == false)) break; // Password does not meet requirements
 
+                    // Every tenant shares one database and parent.users holds all of them, so a
+                    // bare id lookup resolves another tenant's user. Same check as 'deleteuser'.
+                    if (isForeignDomainId(command.userid)) break;
                     var chguser = parent.users[command.userid];
                     if (chguser) {
                         // If we are not full administrator, we can't change anything on a different full administrator
@@ -2020,6 +2040,9 @@ module.exports.CreateMeshUser = function (parent, db, ws, req, args, domain, use
                     if (common.validateString(command.userid, 1, 2048) == false) break;
                     if (common.validateString(command.msg, 1, 4096) == false) break;
 
+                    // Every tenant shares one database and parent.users holds all of them, so a
+                    // bare id lookup resolves another tenant's user. Same check as 'deleteuser'.
+                    if (isForeignDomainId(command.userid)) break;
                     // Can only perform this operation on other users of our group.
                     var chguser = parent.users[command.userid];
                     if (chguser == null) break; // This user does not exists
@@ -2058,6 +2081,9 @@ module.exports.CreateMeshUser = function (parent, db, ws, req, args, domain, use
                         // Send a notification message to a user
                         if ((user.siteadmin & 2) == 0) break;
 
+                        // Every tenant shares one database and parent.users holds all of them, so a
+                        // bare id lookup resolves another tenant's user. Same check as 'deleteuser'.
+                        if (isForeignDomainId(command.userid)) break;
                         // Can only perform this operation on other users of our group.
                         var chguser = parent.users[command.userid];
                         if (chguser == null) break; // This user does not exists
@@ -4779,8 +4805,10 @@ module.exports.CreateMeshUser = function (parent, db, ws, req, args, domain, use
                 
                 var result = { users: [], userGroups: [], meshes: [], nodes: [] };
                 
-                // Get all users
-                parent.db.GetAllType('user', function(err, docs) {
+                // Get all users in this domain. Domain-scoped because every tenant shares one
+                // database: an unscoped read here returns every tenant's users, and their ids
+                // (user/<domain>/<name>) disclose the other tenants' domain keys and admin names.
+                getAllTypeScoped('user', function(err, docs) {
                     if (docs) {
                         docs.forEach(function(u) {
                             if (u.name && u._id) {
@@ -4789,8 +4817,8 @@ module.exports.CreateMeshUser = function (parent, db, ws, req, args, domain, use
                         });
                     }
                     
-                    // Get all user groups
-                    parent.db.GetAllType('ugrp', function(err, ugrps) {
+                    // Get all user groups in this domain
+                    getAllTypeScoped('ugrp', function(err, ugrps) {
                         if (ugrps) {
                             ugrps.forEach(function(ug) {
                                 if (ug.name && ug._id) {
@@ -4799,8 +4827,8 @@ module.exports.CreateMeshUser = function (parent, db, ws, req, args, domain, use
                             });
                         }
                         
-                        // Get all meshes (device groups)
-                        parent.db.GetAllType('mesh', function(err, meshes) {
+                        // Get all meshes (device groups) in this domain
+                        getAllTypeScoped('mesh', function(err, meshes) {
                             if (meshes) {
                                 meshes.forEach(function(m) {
                                     if (m.name && m._id && !m.deleted) {
@@ -4809,8 +4837,8 @@ module.exports.CreateMeshUser = function (parent, db, ws, req, args, domain, use
                                 });
                             }
                             
-                            // Get all nodes (devices)
-                            parent.db.GetAllType('node', function(err, nodes) {
+                            // Get all nodes (devices) in this domain
+                            getAllTypeScoped('node', function(err, nodes) {
                                 if (nodes) {
                                     // Create a map of meshid to meshname for grouping
                                     var meshMap = {};
@@ -6531,7 +6559,7 @@ module.exports.CreateMeshUser = function (parent, db, ws, req, args, domain, use
         else if (common.validateString(command.subject, 1, 1000) == false) { errMsg = 'Invalid subject message'; }
         else if (common.validateString(command.msg, 1, 10000) == false) { errMsg = 'Invalid message'; }
         else {
-            emailuser = parent.users[command.userid];
+            emailuser = isForeignDomainId(command.userid) ? null : parent.users[command.userid]; // Domain-scoped: parent.users holds every tenant's users
             if (emailuser == null) { errMsg = 'Invalid userid'; }
             else if (emailuser.email == null) { errMsg = 'No validated email address for this user'; }
             else if (emailuser.emailVerified !== true) { errMsg = 'No validated email address for this user'; }
@@ -7032,7 +7060,7 @@ module.exports.CreateMeshUser = function (parent, db, ws, req, args, domain, use
         else if (common.validateString(command.userid, 1, 2048) == false) { errMsg = "Invalid username"; }
         else if (common.validateString(command.msg, 1, 160) == false) { errMsg = "Invalid SMS message"; }
         else {
-            smsuser = parent.users[command.userid];
+            smsuser = isForeignDomainId(command.userid) ? null : parent.users[command.userid]; // Domain-scoped: parent.users holds every tenant's users
             if (smsuser == null) { errMsg = "Invalid username"; }
             else if (smsuser.phone == null) { errMsg = "No phone number for this user"; }
         }
@@ -7055,7 +7083,7 @@ module.exports.CreateMeshUser = function (parent, db, ws, req, args, domain, use
         else if (common.validateString(command.userid, 1, 2048) == false) { errMsg = "Invalid username"; }
         else if (common.validateString(command.msg, 1, 160) == false) { errMsg = "Invalid message"; }
         else {
-            msguser = parent.users[command.userid];
+            msguser = isForeignDomainId(command.userid) ? null : parent.users[command.userid]; // Domain-scoped: parent.users holds every tenant's users
             if (msguser == null) { errMsg = "Invalid username"; }
             else if (msguser.msghandle == null) { errMsg = "No messaging service configured for this user"; }
         }

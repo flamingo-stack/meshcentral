@@ -631,3 +631,17 @@ module.exports.replacePlaceholders = function (template, values) {
     }
   });
 }
+// Names of ${VAR} placeholders that config.json uses as a DOMAIN KEY (`"${VAR}":`) and that are
+// empty in `env`. Such a placeholder substitutes to "" — the default domain, which on a shared
+// database is one space every tenant server sees — so the tenant would silently join it instead of
+// getting its own. Keys only: a placeholder in a value may legitimately be empty, as the Mongo URI
+// options are. Shared by meshcentral.js getConfig() and plugins/migrate.js loadConfig().
+module.exports.unresolvedDomainPlaceholders = function (rawConfig, env) {
+    const names = [];
+    if (typeof rawConfig != 'string') { return names; }
+    rawConfig.replace(/"\$\{([A-Z_][A-Z0-9_]*)\}"\s*:/g, function (match, name) {
+        if (!(env || {})[name] && (names.indexOf(name) == -1)) { names.push(name); }
+        return match;
+    });
+    return names;
+};
