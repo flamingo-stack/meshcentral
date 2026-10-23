@@ -35,20 +35,23 @@ module.exports.CreateWebAuthnModule = function () {
 
         const response = { 'verified': false };
 
-        if ((ctapMakeCredResp.fmt === 'none') || (ctapMakeCredResp.fmt === 'fido-u2f') || (ctapMakeCredResp.fmt === 'packed')) {
+        if (ctapMakeCredResp.fmt === 'none') {
             if (!(authrDataStruct.flags & 0x01)) { throw new Error('User was NOT presented during authentication!'); } // U2F_USER_PRESENTED
 
+            // The 'none' attestation format carries no attestation statement and therefore no
+            // signature can be verified. Per the WebAuthn spec this format only asserts that a
+            // key was created; it must not be treated as a fully verified attestation.
+            // We still record the key so the credential can be used, but explicitly mark
+            // attestation as unverified so callers relying on 'verified' cannot be misled.
             const publicKey = COSEECDHAtoPKCS(authrDataStruct.COSEPublicKey);
-            response.verified = true;
+            response.verified = false;
 
-            if (response.verified) {
-                response.authrInfo = {
-                    fmt: 'none',
-                    publicKey: ASN1toPEM(publicKey),
-                    counter: authrDataStruct.counter,
-                    keyId: authrDataStruct.credID.toString('base64')
-                };
-            }
+            response.authrInfo = {
+                fmt: 'none',
+                publicKey: ASN1toPEM(publicKey),
+                counter: authrDataStruct.counter,
+                keyId: authrDataStruct.credID.toString('base64')
+            };
         }
         /*
         else if (ctapMakeCredResp.fmt === 'fido-u2f') {
