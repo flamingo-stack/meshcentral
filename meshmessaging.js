@@ -295,14 +295,17 @@ module.exports.CreateServer = function (parent) {
     // Example: findUserByTab('aaaa#0000', function (userid) { sendMsg(userid, 'message'); });
     async function discordFindUserByTag(userTag, func) {
         var username = userTag.split('#')[0];
+        var found = false;
         const guilds = await obj.discordClient.guilds.fetch();
-        guilds.forEach(async function (value, key) {
+        for (const [key, value] of guilds) {
             var guild = await value.fetch();
             const guildMembers = await guild.members.search({ query: username });
-            guildMembers.forEach(async function (value, key) {
-                if ((value.user.username + (value.user.discriminator != '0' ? '#' + value.user.discriminator : ''))== userTag) { func(key); return; }
-            });
-        });
+            for (const [memberKey, memberValue] of guildMembers) {
+                if ((memberValue.user.username + (memberValue.user.discriminator != '0' ? '#' + memberValue.user.discriminator : '')) == userTag) { found = true; func(memberKey); break; }
+            }
+            if (found) break;
+        }
+        if (!found) { func(null); }
     }
 
     // Send an XMPP message
@@ -323,6 +326,11 @@ module.exports.CreateServer = function (parent) {
             sendTelegramMessage(to, msg, func);
         } else if ((to.startsWith('discord:')) && (obj.discordClient != null)) { // Discord
             discordFindUserByTag(to.substring(8), function (userid) {
+                if (userid == null) {
+                    parent.debug('email', 'Discord user not found: ' + to.substring(8));
+                    if (func != null) { func(false, 'Discord user not found.'); }
+                    return;
+                }
                 parent.debug('email', 'Sending Discord message to: ' + to.substring(9) + ', ' + userid + ': ' + msg);
                 discordSendMsg(userid, msg); if (func != null) { func(true); }
             });
@@ -773,3 +781,4 @@ module.exports.SetupTelegram = async function (parent) {
     console.log('Telegram seems to be configured correctly in the config.json, no need to run --setuptelegram.');
     process.exit();
 };
+

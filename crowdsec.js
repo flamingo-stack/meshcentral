@@ -4,7 +4,6 @@ module.exports.CreateCrowdSecBouncer = function (parent, config) {
     // Setup constants
     const { getLogger } = require('@crowdsec/express-bouncer/src/nodejs-bouncer/lib/logger');
     const { configure, renderBanWall, testConnectionToCrowdSec, getRemediationForIp } = require('@crowdsec/express-bouncer/src/nodejs-bouncer');
-    const applyCaptcha = require('@crowdsec/express-bouncer/src/express-crowdsec-middleware/lib/captcha');
     const { BYPASS_REMEDIATION, CAPTCHA_REMEDIATION, BAN_REMEDIATION } = require('@crowdsec/express-bouncer/src/nodejs-bouncer/lib/constants'); // "bypass", "captcha", "ban";
     const svgCaptcha = require('svg-captcha');
     const { renderCaptchaWall } = require('@crowdsec/express-bouncer/src/nodejs-bouncer');
@@ -116,6 +115,10 @@ module.exports.CreateCrowdSecBouncer = function (parent, config) {
                     }
                 }
             }
+        }
+
+        if (currentCaptchaIpList[ip] == null) {
+            generateCaptcha(ip, captchaGenerationCacheDuration);
         }
 
         const captchaWallTemplate = await renderCaptchaWall({ captchaImageTag: currentCaptchaIpList[ip].data, captchaResolutionFormUrl: '', error });

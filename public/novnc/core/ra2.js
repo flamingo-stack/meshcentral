@@ -10,7 +10,7 @@ class RA2Cipher {
 
     async setKey(key) {
         this._cipher = await legacyCrypto.importKey(
-            "raw", key, { name: "AES-EAX" }, false, ["encrypt, decrypt"]);
+            "raw", key, { name: "AES-EAX" }, false, ["encrypt", "decrypt"]);
     }
 
     async makeMessage(message) {
@@ -310,3 +310,4 @@ export default class RSAAESAuthenticationState extends EventTargetMixin {
         this._hasStarted = s;
     }
 }
+

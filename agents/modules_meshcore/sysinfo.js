@@ -125,10 +125,12 @@ function linux_cpuUtilization() {
         for (y = x; y < columns.length; ++y) { currSum += parseInt(columns[y]); }
         currIdle = parseInt(columns[3 + x]);
 
-        var diffIdle = currIdle - cpuLastIdle[cpuNo];
-        var diffSum = currSum - cpuLastSum[cpuNo];
+        var isFirstSample = (cpuLastIdle[cpuNo] === undefined || cpuLastSum[cpuNo] === undefined);
 
-        utilization = (100 - ((diffIdle / diffSum) * 100));
+        var diffIdle = isFirstSample ? 0 : (currIdle - cpuLastIdle[cpuNo]);
+        var diffSum = isFirstSample ? 0 : (currSum - cpuLastSum[cpuNo]);
+
+        utilization = isFirstSample ? 0 : (100 - ((diffIdle / diffSum) * 100));
 
         cpuLastSum[cpuNo] = currSum;
         cpuLastIdle[cpuNo] = currIdle;
@@ -222,7 +224,7 @@ function macos_memUtilization()
     }
     else
     {
-        throw ('Parse Error');
+        throw (new Error('Parse Error'));
     }
 }
 
