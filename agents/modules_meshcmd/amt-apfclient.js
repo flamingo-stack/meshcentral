@@ -188,20 +188,20 @@ function CreateAPFClient(parent, args) {
 
     function SendJsonControl(socket, o) {
         var data = JSON.stringify(o)
-        socket.write(String.fromCharCode(APFProtocol.JSON_CONTROL) + IntToStr(data.length) + data);
+        try { socket.write(String.fromCharCode(APFProtocol.JSON_CONTROL) + IntToStr(data.length) + data); } catch (ex) { }
         Debug("APF: Send JSON control: " + data);
     }
 
     function SendProtocolVersion(socket, uuid) {
         var data = String.fromCharCode(APFProtocol.PROTOCOLVERSION) + IntToStr(1) + IntToStr(0) + IntToStr(0) + hex2rstr(strToGuid(uuid)) + binzerostring(64);
-        socket.write(data);
+        try { socket.write(data); } catch (ex) { }
         Debug("APF: Send protocol version 1 0 " + uuid);
         obj.cirastate = CIRASTATE.PROTOCOL_VERSION_SENT;
     }
 
     function SendServiceRequest(socket, service) {
         var data = String.fromCharCode(APFProtocol.SERVICE_REQUEST) + IntToStr(service.length) + service;
-        socket.write(data);
+        try { socket.write(data); } catch (ex) { }
         Debug("APF: Send service request " + service);
         if (service == 'auth@amt.intel.com') {
             obj.cirastate = CIRASTATE.AUTH_SERVICE_REQUEST_SENT;
@@ -216,7 +216,7 @@ function CreateAPFClient(parent, args) {
         //password auth
         data += IntToStr(8) + 'password';
         data += binzerostring(1) + IntToStr(pass.length) + pass;
-        socket.write(data);
+        try { socket.write(data); } catch (ex) { }
         Debug("APF: Send username password authentication to MPS");
         obj.cirastate = CIRASTATE.AUTH_REQUEST_SENT;
     }
@@ -225,18 +225,18 @@ function CreateAPFClient(parent, args) {
         var tcpipfwd = 'tcpip-forward';
         var data = String.fromCharCode(APFProtocol.GLOBAL_REQUEST) + IntToStr(tcpipfwd.length) + tcpipfwd + binzerostring(1, 1);
         data += IntToStr(amthostname.length) + amthostname + IntToStr(amtport);
-        socket.write(data);
+        try { socket.write(data); } catch (ex) { }
         Debug("APF: Send tcpip-forward " + amthostname + ":" + amtport);
         obj.cirastate = CIRASTATE.GLOBAL_REQUEST_SENT;
     }
 
     function SendKeepAliveRequest(socket) {
-        socket.write(String.fromCharCode(APFProtocol.KEEPALIVE_REQUEST) + IntToStr(255));
+        try { socket.write(String.fromCharCode(APFProtocol.KEEPALIVE_REQUEST) + IntToStr(255)); } catch (ex) { }
         Debug("APF: Send keepalive request");
     }
 
     function SendKeepAliveReply(socket, cookie) {
-        socket.write(String.fromCharCode(APFProtocol.KEEPALIVE_REPLY) + IntToStr(cookie));
+        try { socket.write(String.fromCharCode(APFProtocol.KEEPALIVE_REPLY) + IntToStr(cookie)); } catch (ex) { }
         Debug("APF: Send keepalive reply");
     }
 
@@ -409,27 +409,27 @@ function CreateAPFClient(parent, args) {
     }
 
     function SendChannelOpenFailure(socket, chan_data) {
-        socket.write(String.fromCharCode(APFProtocol.CHANNEL_OPEN_FAILURE) + IntToStr(chan_data.sender_chan) + IntToStr(2) + IntToStr(0) + IntToStr(0));
+        try { socket.write(String.fromCharCode(APFProtocol.CHANNEL_OPEN_FAILURE) + IntToStr(chan_data.sender_chan) + IntToStr(2) + IntToStr(0) + IntToStr(0)); } catch (ex) { }
         Debug("APF: Send ChannelOpenFailure");
     }
 
     function SendChannelOpenConfirm(socket, chan_data) {
-        socket.write(String.fromCharCode(APFProtocol.CHANNEL_OPEN_CONFIRMATION) + IntToStr(chan_data.sender_chan) + IntToStr(chan_data.sender_chan) + IntToStr(chan_data.window_size) + IntToStr(0xFFFFFFFF));
+        try { socket.write(String.fromCharCode(APFProtocol.CHANNEL_OPEN_CONFIRMATION) + IntToStr(chan_data.sender_chan) + IntToStr(chan_data.sender_chan) + IntToStr(chan_data.window_size) + IntToStr(0xFFFFFFFF)); } catch (ex) { }
         Debug("APF: Send ChannelOpenConfirmation");
     }
 
     function SendChannelWindowAdjust(socket, chan, size) {
-        socket.write(String.fromCharCode(APFProtocol.CHANNEL_WINDOW_ADJUST) + IntToStr(chan) + IntToStr(size));
+        try { socket.write(String.fromCharCode(APFProtocol.CHANNEL_WINDOW_ADJUST) + IntToStr(chan) + IntToStr(size)); } catch (ex) { }
         Debug("APF: Send ChannelWindowAdjust, channel: " + chan + ", size: " + size);
     }
 
     function SendChannelData(socket, chan, data) {
-        socket.write(Buffer.concat([Buffer.from(String.fromCharCode(APFProtocol.CHANNEL_DATA) + IntToStr(chan) + IntToStr(data.length), 'binary'), data]));
+        try { socket.write(Buffer.concat([Buffer.from(String.fromCharCode(APFProtocol.CHANNEL_DATA) + IntToStr(chan) + IntToStr(data.length), 'binary'), data])); } catch (ex) { }
         Debug("APF: Send ChannelData: " + data.toString('hex'));
     }
 
     function SendChannelClose(socket, chan) {
-        socket.write(String.fromCharCode(APFProtocol.CHANNEL_CLOSE) + IntToStr(chan));
+        try { socket.write(String.fromCharCode(APFProtocol.CHANNEL_CLOSE) + IntToStr(chan)); } catch (ex) { }
         Debug("APF: Send ChannelClose ");
     }
 
