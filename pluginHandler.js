@@ -156,8 +156,7 @@ module.exports.pluginHandler = function (parent) {
         for (var plugin in obj.plugins) {
             var moduleDirPath = null;
             var modulesDir = null;
-            //if (obj.args.minifycore !== false) { try { moduleDirPath = obj.path.join(obj.pluginPath, 'modules_meshcore_min'); modulesDir = obj.fs.readdirSync(moduleDirPath); } catch (e) { } } // Favor minified modules if present.
-            if (modulesDir == null) { try { moduleDirPath = obj.path.join(obj.pluginPath, plugin + '/modules_meshcore'); modulesDir = obj.fs.readdirSync(moduleDirPath); } catch (e) { } } // Use non-minified mofules.
+            try { moduleDirPath = obj.path.join(obj.pluginPath, plugin + '/modules_meshcore'); modulesDir = obj.fs.readdirSync(moduleDirPath); } catch (e) { } // Use non-minified mofules.
             if (modulesDir != null) {
                 for (var i in modulesDir) {
                     if (modulesDir[i].toLowerCase().endsWith('.js')) {
@@ -246,12 +245,45 @@ module.exports.pluginHandler = function (parent) {
         return isValid;
     };
 
+    // Basic SSRF guard: only allow http/https schemes with a resolvable hostname,
+    // and reject obvious internal/loopback/link-local/metadata targets.
+    obj.isSafePluginUrl = function (parsedUrl) {
+        if (!parsedUrl || (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:')) return false;
+        var hostname = (parsedUrl.hostname || '').toLowerCase();
+        if (!hostname) return false;
+        if (hostname == 'localhost' || hostname.endsWith('.localhost')) return false;
+        if (hostname == '169.254.169.254') return false; // common cloud metadata endpoint
+        if (hostname == '::1' || hostname == '[::1]') return false;
+        // Reject raw IP literals that fall in private/loopback/link-local ranges
+        var ipv4 = hostname.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+        if (ipv4) {
+            var a = parseInt(ipv4[1], 10), b = parseInt(ipv4[2], 10);
+            if (a == 127) return false; // loopback
+            if (a == 10) return false; // private
+            if (a == 172 && b >= 16 && b <= 31) return false; // private
+            if (a == 192 && b == 168) return false; // private
+            if (a == 169 && b == 254) return false; // link-local
+            if (a == 0) return false;
+        }
+        return true;
+    };
+
     // https://raw.githubusercontent.com/ryanblenis/MeshCentral-Sample/master/config.json
     obj.getPluginConfig = function (configUrl) {
         return new Promise(function (resolve, reject) {
-            var http = (configUrl.indexOf('https://') >= 0) ? require('https') : require('http');
-            if (configUrl.indexOf('://') === -1) reject("Unable to fetch the config: Bad URL (" + configUrl + ")");
-            var options = require('url').parse(configUrl);
+            if (typeof configUrl != 'string' || configUrl.indexOf('://') === -1) { reject("Unable to fetch the config: Bad URL (" + configUrl + ")"); return; }
+            var options;
+            try {
+                options = require('url').parse(configUrl);
+            } catch (e) {
+                reject("Unable to fetch the config: Bad URL (" + configUrl + ")");
+                return;
+            }
+            if (!obj.isSafePluginUrl(options)) {
+                reject("Unable to fetch the config: URL is not allowed (" + configUrl + ")");
+                return;
+            }
+            var http = (options.protocol === 'https:') ? require('https') : require('http');
             if (typeof parent.config.settings.plugins.proxy == 'string' || process.env['HTTP_PROXY'] || process.env['HTTPS_PROXY'] || process.env['http_proxy'] || process.env['https_proxy']) { // Proxy support
                 options.agent = new (require('https-proxy-agent').HttpsProxyAgent)(require('url').parse(parent.config.settings.plugins.proxy) || process.env['HTTP_PROXY'] || process.env['HTTPS_PROXY'] || process.env['http_proxy'] || process.env['https_proxy']);
             }
