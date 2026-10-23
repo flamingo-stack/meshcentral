@@ -25,6 +25,10 @@ process.on('message', function (message) { module.exports.processMessage(message
 
 // Process an incoming message
 module.exports.processMessage = function(message) {
+    if ((message == null) || (typeof message.action != 'string') || (message.action.length < 1) || (message.action.length > 64)) {
+        console.log('Invalid accelerator action.');
+        return;
+    }
     switch (message.action) {
         case 'sign': {
             if (typeof message.key == 'number') { message.key = certStore[message.key].key; }
