@@ -22,6 +22,7 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
     obj.req = req; // Used in multi-server.js
     obj.id = req.query.id;
     obj.file = req.query.f;
+    if ((obj.file != null) && (obj.file.indexOf('..') >= 0)) { obj.file = null; }
 
     // Check relay authentication
     if ((user == null) && (obj.req.query != null) && (obj.req.query.rauth != null)) {
@@ -58,8 +59,8 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
     // Disconnect
     obj.close = function (arg) {
         if (obj.ws != null) {
-            if ((arg == 1) || (arg == null)) { try { obj.ws.close(); parent.parent.debug('relay', 'FileRelay: Soft disconnect (' + obj.req.clientIp + ')'); } catch (ex) { console.log(e); } } // Soft close, close the websocket
-            if (arg == 2) { try { obj.ws._socket._parent.end(); parent.parent.debug('relay', 'FileRelay: Hard disconnect (' + obj.req.clientIp + ')'); } catch (ex) { console.log(e); } } // Hard close, close the TCP socket
+            if ((arg == 1) || (arg == null)) { try { obj.ws.close(); parent.parent.debug('relay', 'FileRelay: Soft disconnect (' + obj.req.clientIp + ')'); } catch (ex) { console.log(ex); } } // Soft close, close the websocket
+            if (arg == 2) { try { obj.ws._socket._parent.end(); parent.parent.debug('relay', 'FileRelay: Hard disconnect (' + obj.req.clientIp + ')'); } catch (ex) { console.log(ex); } } // Hard close, close the TCP socket
         } else if (obj.res != null) {
             try { res.sendStatus(404); } catch (ex) { }
         }
@@ -132,7 +133,7 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
 
                     // Check that at least one connection is authenticated
                     if ((obj.authenticated != true) && (relayinfo.peer1.authenticated != true)) {
-                        if (ws) { ws.close(); }
+                        if (obj.ws) { obj.ws.close(); }
                         parent.parent.debug('relay', 'FileRelay without-auth: ' + obj.id + ' (' + obj.req.clientIp + ')');
                         delete obj.id;
                         delete obj.ws;
@@ -256,7 +257,7 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
                     // Disconnect the peer
                     try { if (peer.relaySessionCounted) { parent.relaySessionCount--; delete peer.relaySessionCounted; } } catch (ex) { console.log(ex); }
                     parent.parent.debug('relay', 'FileRelay disconnect: ' + obj.id + ' (' + obj.req.clientIp + ' --> ' + peer.req.clientIp + ')');
-                    if (peer.ws) { try { peer.ws.close(); } catch (e) { } try { peer.ws._socket._parent.end(); } catch (e) { } }
+                    if (peer.ws) { try { peer.ws.close(); } catch (ex) { console.log(ex); } try { peer.ws._socket._parent.end(); } catch (ex) { console.log(ex); } }
                     if (peer.res) { try { peer.res.end(); } catch (ex) { } }
 
                     // Aggressive peer cleanup
@@ -310,3 +311,4 @@ module.exports.CreateMeshDeviceFile = function (parent, ws, res, req, domain, us
     performRelay();
     return obj;
 };
+
