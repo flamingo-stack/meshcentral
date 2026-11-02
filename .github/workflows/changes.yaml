@@ -63,8 +63,10 @@ jobs:
             }
           ]'
 
+          # trivy runs only the PR image build, which scans the image; release.yml does not read it
           ADDONS='{
-            "helm": ["./charts/**"]
+            "helm": ["./charts/**"],
+            "trivy": ["./.trivyignore", "./.github/steps/trivy/**"]
           }'
 
           images_matrix=$(jq -c '[ .[] | {
