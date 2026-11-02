@@ -1,3 +1,66 @@
-# Vulnerabilities to skip in the Trivy scan: one CVE/GHSA id per line, e.g.:
+# Findings to skip in the Trivy scans: a CVE, GHSA or check ID (e.g. DS-0002), one per line.
+# Reason and owner go on a comment line above it, an expiry on the ID line, e.g.:
 #
-# CVE-2026-12345
+# CVE-2026-12345 exp:2026-12-31
+
+# HIGH and CRITICAL findings in the meshcentral image: npm packages from package-lock.json, image-size
+# pinned in docker/Dockerfile, and meshcentral itself. Fix as noted per group: a bump in package.json,
+# a lock refresh within the range the parent allows (npm update <package>), or the Dockerfile pin.
+# Owner: @flamingo-stack/backend-engineers
+
+# meshcentral 1.1.57 (this fork's version), "unsanitized data fields", fixed upstream in 1.1.60; fix: port the upstream fix
+GHSA-c7hr-448w-65px exp:2027-06-01
+
+# node-forge 1.3.2 in package.json, fixed in 1.4.1; fix: bump it
+CVE-2026-33891 exp:2027-06-01
+CVE-2026-33894 exp:2027-06-01
+CVE-2026-33895 exp:2027-06-01
+CVE-2026-33896 exp:2027-06-01
+CVE-2026-118779 exp:2027-06-01
+CVE-2026-118782 exp:2027-06-01
+CVE-2026-119187 exp:2027-06-01
+CVE-2026-119188 exp:2027-06-01
+CVE-2026-119190 exp:2027-06-01
+
+# multiparty 4.2.3 in package.json, fixed in 4.3.0; fix: bump it
+CVE-2026-8159 exp:2027-06-01
+CVE-2026-8161 exp:2027-06-01
+CVE-2026-8162 exp:2027-06-01
+
+# body-parser 1.20.4 in package.json (express uses the same copy), fixed in 1.20.9; fix: bump it
+CVE-2026-111181 exp:2027-06-01
+
+# compression 1.8.1 in package.json, fixed in 1.8.2; fix: bump it
+CVE-2026-87776 exp:2027-06-01
+
+# ws 8.18.3 in package.json, fixed in 8.21.0, and ws 7.5.10 via express-ws 5.0.2 (^7.4.6), fixed in 7.5.11; fix: bump ws, then npm update for the express-ws copy
+CVE-2026-48779 exp:2027-06-01
+
+# handlebars 4.7.8 via express-handlebars 7.1.3 (^4.7.8), fixed in 4.7.10, three of them CRITICAL; fix: npm update handlebars
+CVE-2026-33937 exp:2027-06-01
+CVE-2026-106445 exp:2027-06-01
+CVE-2026-106446 exp:2027-06-01
+CVE-2026-33938 exp:2027-06-01
+CVE-2026-33939 exp:2027-06-01
+CVE-2026-33940 exp:2027-06-01
+CVE-2026-33941 exp:2027-06-01
+
+# proxy-addr 2.0.7 via express 4.22.1 (~2.0.7), fixed in 2.0.8, CRITICAL; fix: npm update proxy-addr
+CVE-2026-90711 exp:2027-06-01
+
+# path-to-regexp 0.1.12 via express 4.22.1 (~0.1.12), fixed in 0.1.13; fix: npm update path-to-regexp
+CVE-2026-4867 exp:2027-06-01
+
+# brace-expansion 2.0.2 via minimatch 9.0.9 and 5.1.9 (^2.0.1), fixed in 2.1.6; fix: npm update brace-expansion
+CVE-2026-13149 exp:2027-06-01
+CVE-2026-14257 exp:2027-06-01
+CVE-2026-69152 exp:2027-06-01
+CVE-2026-102276 exp:2027-06-01
+CVE-2026-102278 exp:2027-06-01
+
+# lodash 4.17.23 via archiver-utils 5.0.2 (^4.17.15), fixed in 4.18.0; fix: npm update lodash
+CVE-2026-4800 exp:2027-06-01
+
+# image-size 2.0.2 pinned in docker/Dockerfile, fixed in 2.0.3; fix: bump the pin
+CVE-2025-71329 exp:2027-06-01
+CVE-2025-71330 exp:2027-06-01
