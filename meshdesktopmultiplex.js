@@ -820,7 +820,7 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, user, func) {
             case 11: // GetDisplays
                 // Store and send this to all viewers right away
                 obj.lastDisplayInfoData = data;
-                obj.sendToAllViewers(data);
+                obj.sendToAllViewers(data); // Watchers follow the host's monitor switch, unlike 12/18/87/88 which only input peers act on
                 break;
             case 12: // SetDisplay
                 obj.sendToAllInputViewers(data);
@@ -846,7 +846,7 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, user, func) {
                 // Display information
                 if ((data.length < 14) || (((data.length - 4) % 10) != 0)) break; // Command must be 14 bytes and have header + 10 byte for each display.
                 obj.lastDisplayLocationData = data;
-                obj.sendToAllViewers(data);
+                obj.sendToAllViewers(data); // Watchers follow the host's monitor switch
                 break;
             case 87: // MNG_KVM_INPUT_LOCK
                 // Send this to all viewers right away
@@ -1077,7 +1077,7 @@ function CreateMeshRelayEx2(parent, ws, req, domain, user, cookie) {
 
     // OpenFrame: the gateway marks an admitted watch socket with this header, it is served view-only without a mesh login
     if (req.headers['x-openframe-viewer'] == '1') {
-        if (req.query.browser == null) { try { ws.close(); parent.parent.debug('relay', 'DesktopRelay: Viewer header on a non-browser leg (' + req.clientIp + ')'); } catch (e) { console.log(e); } return; }
+        if (!req.query.browser) { try { ws.close(); parent.parent.debug('relay', 'DesktopRelay: Viewer header on a non-browser leg (' + req.clientIp + ')'); } catch (e) { console.log(e); } return; } // Same truthiness addPeer uses to tell a viewer from the agent
         obj.watcher = true; obj.viewOnly = true; obj.nouser = true;
     }
 

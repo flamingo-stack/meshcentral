@@ -159,6 +159,19 @@ test('header on a non-browser leg closes the socket', function () {
     assert.strictEqual(parent.desktoprelays[NODE].viewers.length, 1);
 });
 
+test('header with an empty browser query is closed too and never takes the agent slot', function () {
+    const parent = makeParent();
+    const s = session(parent);
+    const ws = fakeWs();
+    const req = fakeReq({ browser: true, viewer: true, id: 'req1.w.1' });
+    req.query.browser = '';
+    multiplex.CreateMeshRelay(parent, ws, req, DOMAIN, null, undefined);
+    assert.strictEqual(ws.closed, true);
+    assert.strictEqual(s.agent.closed, false);
+    assert.strictEqual(s.mux.agent, s.agent.me);
+    assert.strictEqual(s.mux.viewers.length, 1);
+});
+
 test('watcher with no multiplexor is closed and leaves no pending marker', function () {
     const parent = makeParent();
     const ws = watcher(parent);
