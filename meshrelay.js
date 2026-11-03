@@ -69,6 +69,8 @@ function checkDeviceSharePublicIdentifier(parent, domain, nodeid, pid, extraKey,
 }
 
 module.exports.CreateMeshRelay = function (parent, ws, req, domain, user, cookie) {
+    // OpenFrame watch sockets are only served by the desktop multiplexor, drop them on any other relay
+    if (req.headers['x-openframe-viewer'] == '1') { try { ws.close(); parent.parent.debug('relay', 'Relay: Viewer header outside the desktop multiplexor (' + req.clientIp + ')'); } catch (e) { console.log(e); } return; }
     if ((cookie != null) && (typeof cookie.nid == 'string') && (typeof cookie.pid == 'string')) {
         checkDeviceSharePublicIdentifier(parent, domain, cookie.nid, cookie.pid, cookie.k, function (result) {
             // If the identifier if not found, close the connection
@@ -1165,6 +1167,8 @@ a given size and timestamp. When looking at network traffic the flags are import
 
 
 module.exports.CreateLocalRelay = function (parent, ws, req, domain, user, cookie) {
+    // OpenFrame watch sockets are only served by the desktop multiplexor, drop them on any other relay
+    if (req.headers['x-openframe-viewer'] == '1') { try { ws.close(); parent.parent.debug('relay', 'Relay: Viewer header outside the desktop multiplexor (' + req.clientIp + ')'); } catch (e) { console.log(e); } return; }
     CreateLocalRelayEx(parent, ws, req, domain, user, cookie);
 }
 
