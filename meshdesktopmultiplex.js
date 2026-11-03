@@ -125,6 +125,9 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, user, func) {
             peer.paused = false;
             peer.startTime = Date.now();
 
+            // A returning writer cancels the reconnect grace
+            if ((peer.watcher !== true) && (obj.lingerTimer != null)) { clearTimeout(obj.lingerTimer); delete obj.lingerTimer; }
+
             // Add the user to the userids list if needed
             if ((peer.user != null) && (obj.userIds.indexOf(peer.user._id) == -1)) { obj.userIds.push(peer.user._id); }
 
@@ -185,8 +188,11 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, user, func) {
                 
                 // Log joining the multiplex session
                 if (obj.startTime != null) {
-                    var event = { etype: 'relay', action: 'relaylog', domain: domain.id, nodeid: obj.nodeid, userid: peer.user ? peer.user._id : null, username: peer.user.name, msgid: 143, msgArgs: [obj.id], msg: "Joined desktop multiplex session \"" + obj.id + "\"", protocol: 2 };
-                    parent.parent.DispatchEvent(['*', obj.nodeid, peer.user._id, obj.meshid], obj, event);
+                    var event = { etype: 'relay', action: 'relaylog', domain: domain.id, nodeid: obj.nodeid, msgid: 143, msgArgs: [obj.id], msg: "Joined desktop multiplex session \"" + obj.id + "\"", protocol: 2 };
+                    if (peer.user != null) { event.userid = peer.user._id; event.username = peer.user.name; }
+                    const targets = ['*', obj.nodeid, obj.meshid];
+                    if (peer.user != null) { targets.push(peer.user._id); }
+                    parent.parent.DispatchEvent(targets, obj, event);
                 }
 
                 // Send an updated list of all peers to all viewers
@@ -230,7 +236,7 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, user, func) {
         if (peer == obj.agent) {
             //console.log('removePeer-agent', obj.nodeid);
             // Agent has disconnected, disconnect everyone.
-            if (obj.viewers != null) { for (var i in obj.viewers) { obj.viewers[i].close(); } }
+            if (obj.viewers != null) { const viewers = obj.viewers.slice(); for (var i in viewers) { viewers[i].close(); } } // Closing a viewer splices it out, so walk a copy
 
             // Clean up the agent
             obj.agent = null;
@@ -317,10 +323,25 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, user, func) {
             // If this is the last viewer, disconnect the agent and dispose, or a viewer-less multiplexor outlives its session and catches the next one
             if ((obj.viewers != null) && (obj.viewers.length == 0)) { if (obj.agent != null) { obj.agent.close(); } dispose(); return true; }
 
+            // The writer leaving only watchers behind keeps the stream for the reconnect grace, then the session ends
+            if ((peer.watcher !== true) && (obj.lingerTimer == null) && (hasWriter() == false)) { obj.lingerTimer = setTimeout(endLinger, 30000); }
+
             // Send an updated list of all peers to all viewers
             obj.sendSessionMetadata();
         }
         return false;
+    }
+
+    // True while a viewer that is not a watcher is connected
+    function hasWriter() { for (var i in obj.viewers) { if (obj.viewers[i].watcher !== true) return true; } return false; }
+
+    // Grace ran out without the writer: closing the agent drops the watchers and disposes, without an agent drop them directly
+    function endLinger() {
+        delete obj.lingerTimer;
+        if (obj.viewers == null) return;
+        if (obj.agent != null) { obj.agent.close(); return; }
+        const viewers = obj.viewers.slice();
+        for (var i in viewers) { viewers[i].close(); }
     }
 
     // Drop a session that never started: closing the agent disposes through removePeer, without one dispose directly
@@ -329,6 +350,7 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, user, func) {
     // Clean up ourselves
     function dispose() {
         if (obj.viewers == null) return;
+        if (obj.lingerTimer != null) { clearTimeout(obj.lingerTimer); delete obj.lingerTimer; }
         //console.log('dispose', obj.nodeid);
         delete obj.viewers;
         delete obj.imagesCounters;
@@ -556,6 +578,7 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, user, func) {
     // Process incoming viewer data
     obj.processViewerData = function (viewer, data) {
         if (typeof data == 'string') {
+            if (viewer.watcher === true) return; // A watcher neither starts the stream nor sets its options
             if (data == '2') {
                 if (obj.viewerConnected == false) {
                     if (obj.agent != null) {
@@ -591,8 +614,8 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, user, func) {
             case 2: // Mouse events, forward to agent
                 if (viewer.viewOnly == false) { obj.sendToAgent(data); }
                 break;
-            case 5: // Compression
-                if (data.length < 10) return;
+            case 5: // Compression, a watcher never sets the stream quality
+                if ((data.length < 10) || (viewer.watcher === true)) return;
                 viewer.imageType = data[4]; // Image type: 1 = JPEG, 2 = PNG, 3 = TIFF, 4 = WebP
                 viewer.imageCompression = data[5];
                 viewer.imageScaling = data.readUInt16BE(6);
@@ -605,6 +628,7 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, user, func) {
                 var viewersimageScaling = null;
                 var viewersimageFrameRate = null;
                 for (var i in obj.viewers) {
+                    if (obj.viewers[i].watcher === true) continue;
                     if (viewersimageType == null) { viewersimageType = obj.viewers[i].imageType; } else if (obj.viewers[i].imageType != viewersimageType) { viewersimageType = 1; }; // Default to JPEG if viewers has different image formats
                     if ((viewersimageCompression == null) || (obj.viewers[i].imageCompression > viewersimageCompression)) { viewersimageCompression = obj.viewers[i].imageCompression; };
                     if ((viewersimageScaling == null) || (obj.viewers[i].imageScaling > viewersimageScaling)) { viewersimageScaling = obj.viewers[i].imageScaling; };
@@ -650,8 +674,8 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, user, func) {
             case 10: // CTRL-ALT-DEL, forward to agent
                 if (viewer.viewOnly == false) { obj.sendToAgent(data); }
                 break;
-            case 11: // Request display list, forward to agent like a plain relay does
-                obj.sendToAgent(data);
+            case 11: // Request display list, forward to agent like a plain relay does, never for a watcher
+                if (viewer.watcher !== true) { obj.sendToAgent(data); }
                 break;
             case 12: // SET DISPLAY, forward to agent
                 if (viewer.viewOnly == false) { obj.sendToAgent(data); }
@@ -796,7 +820,7 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, user, func) {
             case 11: // GetDisplays
                 // Store and send this to all viewers right away
                 obj.lastDisplayInfoData = data;
-                obj.sendToAllInputViewers(data);
+                obj.sendToAllViewers(data);
                 break;
             case 12: // SetDisplay
                 obj.sendToAllInputViewers(data);
@@ -822,7 +846,7 @@ function CreateDesktopMultiplexor(parent, domain, nodeid, id, user, func) {
                 // Display information
                 if ((data.length < 14) || (((data.length - 4) % 10) != 0)) break; // Command must be 14 bytes and have header + 10 byte for each display.
                 obj.lastDisplayLocationData = data;
-                obj.sendToAllInputViewers(data);
+                obj.sendToAllViewers(data);
                 break;
             case 87: // MNG_KVM_INPUT_LOCK
                 // Send this to all viewers right away
@@ -1051,6 +1075,12 @@ function CreateMeshRelayEx2(parent, ws, req, domain, user, cookie) {
     obj.viewOnly = ((cookie != null) && (cookie.vo == 1)); // set view only mode
     if ((cookie != null) && (cookie.nouser == 1)) { obj.nouser = true; } // This is a relay without user authentication
 
+    // OpenFrame: the gateway marks an admitted watch socket with this header, it is served view-only without a mesh login
+    if (req.headers['x-openframe-viewer'] == '1') {
+        if (req.query.browser == null) { try { ws.close(); parent.parent.debug('relay', 'DesktopRelay: Viewer header on a non-browser leg (' + req.clientIp + ')'); } catch (e) { console.log(e); } return; }
+        obj.watcher = true; obj.viewOnly = true; obj.nouser = true;
+    }
+
     // If the domain has remote desktop viewonly set, force everyone to be in viewonly mode.
     if ((typeof domain.desktop == 'object') && (domain.desktop.viewonly == true)) { obj.viewOnly = true; }
 
@@ -1229,9 +1259,13 @@ function CreateMeshRelayEx2(parent, ws, req, domain, user, cookie) {
 
         // Create if needed and add this peer to the desktop multiplexor
         obj.deskMultiplexor = parent.desktoprelays[obj.nodeid];
-        // A multiplexor nobody views whose session never started is left over from a failed dial under another relay id; drop it and start fresh
-        if ((typeof obj.deskMultiplexor == 'object') && (obj.deskMultiplexor.viewers != null) && (obj.deskMultiplexor.viewers.length == 0) && (obj.deskMultiplexor.startTime == null) && (obj.deskMultiplexor.id != obj.id)) { obj.deskMultiplexor.abandon(); delete parent.desktoprelays[obj.nodeid]; obj.deskMultiplexor = null; }
+        // A multiplexor nobody views whose session never started is left over from a failed dial under another relay id; drop it and start fresh, never on a watcher's behalf
+        if ((obj.watcher !== true) && (typeof obj.deskMultiplexor == 'object') && (obj.deskMultiplexor.viewers != null) && (obj.deskMultiplexor.viewers.length == 0) && (obj.deskMultiplexor.startTime == null) && (obj.deskMultiplexor.id != obj.id)) { obj.deskMultiplexor.abandon(); delete parent.desktoprelays[obj.nodeid]; obj.deskMultiplexor = null; }
+        // A watcher is served only beside a writer; a multiplexor holding just the agent tunnel or other watchers is no session for it
+        if ((obj.watcher === true) && (typeof obj.deskMultiplexor == 'object') && ((obj.deskMultiplexor.viewers == null) || (obj.deskMultiplexor.viewers.some(function (v) { return v.watcher !== true; }) == false))) { obj.deskMultiplexor = null; }
         if (obj.deskMultiplexor == null) {
+            // A watcher never starts a session, it is only served while the writer's multiplexor exists
+            if (obj.watcher === true) { parent.parent.debug('relay', 'DesktopRelay: Viewer without a session (' + obj.req.clientIp + ')'); obj.close(); return; }
             parent.desktoprelays[obj.nodeid] = 1; // Indicate that the creating of the desktop multiplexor is pending.
             parent.parent.debug('relay', 'DesktopRelay: Creating new desktop multiplexor');
             const nodeid = obj.nodeid; // obj.close() drops obj.nodeid, the callback must still clear the pending marker under the real key
@@ -1297,7 +1331,7 @@ function CreateMeshRelayEx2(parent, ws, req, domain, user, cookie) {
 
     // Mark this relay session as authenticated if this is the user end.
     obj.authenticated = ((user != null) || (obj.nouser === true));
-    if (obj.authenticated) {
+    if (obj.authenticated && (obj.watcher !== true)) { // A watcher never asks the agent for a tunnel
         // Kick off the routing, if we have agent routing instructions, process them here.
         // Routing instructions can only be given by a authenticated user
         if ((cookie != null) && (cookie.nodeid != null) && (cookie.tcpport != null) && (cookie.domainid != null)) {
