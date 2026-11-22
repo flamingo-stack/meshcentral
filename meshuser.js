@@ -7151,10 +7151,8 @@ module.exports.CreateMeshUser = function (parent, db, ws, req, args, domain, use
         }
     }
 
-    function serverCommandUrlArgs(command) {
-        console.log(req.query);
-        console.log(command.args);
-    }
+    // No-op: the web UI still sends 'urlargs'. Never log req.query, it carries user, pass and auth.
+    function serverCommandUrlArgs(command) { }
 
     function serverCommandUsers(command) {
         // Request a list of all users
